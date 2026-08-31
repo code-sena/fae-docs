@@ -1,50 +1,36 @@
-# System Overview
+# General Context
 
-> **Instructions:** Replace this content with your project's description.
-> This is the first page someone new reads. They must be able to understand the system in 5 minutes.
-> Remove these instructions when the document is complete.
+## Institutional Context
 
----
+FaceAttend EDU is developed within the Software Analysis and Development program of the National Learning Service — SENA, as a technological solution intended to support attendance management in educational environments.
 
-## What is [System Name]?
+## Problem
 
-[2-3 sentences describing what the system is and what problem it solves.
-No technical jargon — it must be understandable by someone from the business side.]
+In many academic processes, attendance recording and tracking may depend on manual or poorly centralized methods. This makes it difficult to access timely information such as late arrivals, absences, justifications, histories, and reports by date, group, environment, or instructor.
 
-## Problem it solves
+## Purpose
 
-**Before the system:** [How the process was handled without the system. What pain the users had.]
+FaceAttend EDU seeks to facilitate the recording, consultation, and tracking of user attendance within an educational institution, improving traceability, information organization, and report generation.
 
-**With the system:** [How the process improves. What value it delivers.]
+## General Objective
 
-## Main users
+Develop a software solution that enables attendance recording, history consultation, justification management, and report generation in educational contexts, ensuring information security, usability, and traceability.
 
-| Role | Description | What they do in the system |
-|------|-------------|--------------------------|
-| [Role 1] | [Who they are] | [Main actions] |
-| [Role 2] | [Who they are] | [Main actions] |
+## Specific Objectives
 
-## Technology stack
+- Manage users, roles, and basic system data.
+- Register environments or spaces where attendance is controlled.
+- Generate entry and exit records.
+- Consult attendance, absence, and late-arrival histories.
+- Manage justifications with supporting-document uploads.
+- Generate reports and dashboards for consulting relevant information.
+- Apply security, performance, and portability criteria.
 
-| Layer | Technology | Justification |
-|-------|-----------|---------------|
-| Frontend | [React / Angular / Vue] | [why] |
-| Backend | [Spring Boot / Node / Django] | [why] |
-| Database | [PostgreSQL / MongoDB] | [why] |
-| Message broker | [RabbitMQ / Kafka] | [why] |
-| Infrastructure | [Docker + K8s / AWS / etc.] | [why] |
+## Intended Users
 
-## Current status
+According to the requirements document, the system includes different types of users, including:
 
-- **Phase:** [In development / In production / Legacy]
-- **Current version:** [v0.1.0]
-- **Last release:** [date]
-- **Next milestone:** [description and date]
-
-## Project contacts
-
-| Role | Name | Contact |
-|------|------|---------|
-| Tech Lead | [Name] | [email/Slack] |
-| Product Owner | [Name] | [email/Slack] |
-| DevOps | [Name] | [email/Slack] |
+- General user.
+- Administrator.
+- Instructor or teacher.
+- Student - Learner.

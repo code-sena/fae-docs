@@ -5,120 +5,133 @@
 
 ## Why this section exists
 
-The most costly mistakes in software are not bugs — they are domain misunderstandings.
-When developers do not deeply understand the business:
-- They create incorrect abstractions that have to be rewritten
-- Names in the code do not match the business's names → permanent confusion
-- Microservice boundaries are drawn incorrectly
+This section describes the domain model of the **FaceAttend EDU** project, understood as the business representation of the system. It defines the main concepts used by the educational institution to manage attendance, the entities involved in the process, the rules that must always be satisfied, and the events that occur during platform operation.
 
-This section captures domain knowledge **before** designing the architecture.
+FaceAttend EDU should not be understood solely as an application with screens, forms, or records. From a domain perspective, the system revolves around concepts such as user, person, role, permission, cohort, environment, schedule, facial record, attendance, late arrival, absence, justification, supporting document, approval, history, report, and notification.
 
----
+The purpose of this section is to build a common language among the development team, the instructor, and project stakeholders so that everyone understands the business terms in the same way.
 
-## Key concepts you must know
+## Purpose
 
-**Entity:** Domain object with a unique identity (e.g.: a `Student` identified by their code).
+The domain section aims to:
 
-**Value Object:** Object with no identity of its own, defined by its attributes (e.g.: `Address`, `Price`).
+- Identify the main subdomains of FaceAttend EDU.
+- Define the business entities involved in attendance control.
+- Establish the rules or invariants that the system must never violate.
+- Describe the domain events that occur when a user interacts with the system.
+- Serve as a basis for architecture, API, testing, and persistence design.
+- Avoid ambiguity among terms such as user, person, cohort, environment, attendance, late arrival, absence, and justification.
 
-**Aggregate:** Group of entities treated as a unit. Only the aggregate root
-can be referenced from outside.
+## Scope of This Section
 
-**Domain Event:** Something that occurred in the business that other parts of the system must know
-(e.g.: `StudentEnrolled`, `PaymentApproved`). They are facts, stated in past tense.
+This section includes:
 
-**Bounded Context:** Area of the system where a particular model applies.
-Each microservice generally corresponds to a bounded context.
+- Domain map and main contexts.
+- Business entities.
+- Business rules and invariants.
+- Domain events.
+- Relationships among system concepts.
+- Ubiquitous language shared by the team.
 
----
+This section **does not include**:
 
-## What is here and how to fill it in
+- Database tables.
+- Columns, foreign keys, or persistence schemas.
+- API endpoints.
+- User interface components.
+- Decisions specific to a programming language or framework.
 
-### `domain-map.md` ⭐
-Map of all bounded contexts and how they relate.
-**Fill in:** draw the contexts as rectangles and the relationships between them
-(upstream/downstream, shared kernel, anti-corruption layer).
+## Difference from the Data Section
 
-**Format:**
-```markdown
-## Bounded Contexts
+This section describes the domain in business terms. It does not describe database tables, columns, or schemas. Those implementation details belong in the corresponding data folder.
 
-### [Context Name]
-**Responsibility:** [what this context manages]
-**Main entities:** [list]
-**Owning team:** [team]
+Example of the difference:
 
-## Relationship map
-[ASCII diagram or description of how the contexts relate]
+| Approach | Question answered | Example |
+|---|---|---|
+| Domain | What does a cohort mean in the business? | A cohort represents a group of learners associated with a responsible user, a schedule, and an environment. |
+| Data | How is that cohort stored in persistence? | It is stored in a structure or table with identifiers, relationships, and specific fields. |
 
-| Context A | Relationship | Context B | Description |
-|-----------|-------------|-----------|-------------|
-| [A] | downstream-of | [B] | [A] consumes events from [B] |
-```
+## Planned Subdomains
 
-### `entities-and-rules.md` ⭐
-Catalog of entities, value objects, and business rules.
-**Fill in:** for each entity: name, attributes, invariants (rules that MUST ALWAYS hold),
-behaviors.
+Based on the SRS, the FaceAttend EDU domain can initially be organized into the following subdomains:
 
-**Format:**
-```markdown
-## Entity: [EntityName]
-**Belongs to:** [Bounded Context]
-**Identifier:** [field that makes it unique]
+| Subdomain | Preliminary description | Related requirements |
+|---|---|---|
+| Security, Identity, and Access | Manages users, credentials, roles, permissions, activation, deactivation, password recovery, auditing, and sensitive-data protection. | RF 1, RF 4.6, RF 5.2, RNF 4 |
+| Academic Structure | Includes environments, cohorts, courses, schedules, responsible users, instructors, and curriculum. | RF 2, RF 8 |
+| Attendance Recording | Covers facial scanning, alternative records, entries, exits, unregistered users, late arrivals, and absences. | RF 3 |
+| Justification Management | Manages supporting-document uploads, superior review, approval, rejection, and result notification. | RF 6, RF 4.7 |
+| Histories and Reports | Enables consultation of histories, dashboards, date-range reports, and filters by cohort, environment, instructor, or user. | RF 5, RF 7 |
+| Configuration and Alerts | Includes notification, language, color-palette, user-parameter, and system-alert configuration. | RF 4 |
 
-### Attributes
-| Attribute | Type | Description | Required | Rules |
-|-----------|------|-------------|---------|-------|
+> The **Security, Identity, and Access** subdomain is considered cross-cutting because other subdomains depend on it to validate who the user is, which role they have, and which actions they may perform.
 
-### Business rules (invariants)
-- [ ] [A rule that must always hold]
+## Section Files
 
-### Behaviors (domain methods)
-- `[name()]`: [what it does]
-```
+| File | Description | Question answered | Status |
+|---|---|---|---|
+| [domain-map.md](./domain-map.md) | Domain map and main contexts. | What are the main business areas and how are they related? | 🟡 |
+| [entities-and-rules.md](./entities-and-rules.md) | Entities, invariants, and business rules. | Which objects are important to the business and which rules must always be satisfied? | 🟡 |
+| [domain-events.md](./domain-events.md) | Domain events and functional meaning. | Which facts occur within the system that are relevant to the business? | 🟡 |
 
-### `domain-events.md` ⭐
-List of all events that occur in the domain.
-**Fill in:** event name (past tense), what triggers it, what data it carries, who consumes it.
+## Relationship to the SRS
 
-**Format:**
-```markdown
-| Event | Triggered by | Data | Consumers | Bounded Context |
-|-------|-------------|------|-----------|----------------|
-| [NameInPastTense] | [action that causes it] | [event fields] | [what listens to this] | [context] |
-```
+The information in this section is mainly based on the FaceAttend EDU Software Requirements Specification, especially on:
 
----
+- RF 1: User management.
+- RF 2: Environment management.
+- RF 3: Generate entry and exit records.
+- RF 4: System configuration.
+- RF 5: Generate histories.
+- RF 6: Justification management.
+- RF 7: Advanced visualization and reporting.
+- RF 8: School management.
+- RNF 4: Security.
+- Use cases related to facial recording, facial scanning, absence justification, face registration, and user consultation.
 
-## Correlations with other sections
+## Key Domain Concepts
 
-| This section feeds... | Why |
-|-----------------------|-----|
-| `05-architecture/overview.md` | Bounded contexts → microservices |
-| `06-data/models.md` | Entities → data tables/collections |
-| `07-api/contracts/` | Domain events → events in async APIs |
-| `09-microservices/event-catalog.md` | All domain events are registered there |
-| `04-requirements/user-stories.md` | Business rules → acceptance criteria |
+The following important terms must remain consistent throughout this section:
 
----
+- User.
+- Person.
+- Role.
+- Permission.
+- Cohort.
+- Environment.
+- Schedule.
+- Responsible user.
+- Instructor.
+- Student.
+- Attendance record.
+- Late arrival.
+- Absence.
+- Justification.
+- Supporting document.
+- Facial parameter.
+- NN user.
+- Dashboard.
+- History.
+- Report.
 
-## Recommended tool: Event Storming
+## Modeling Conventions
 
-**Event Storming** is a domain discovery workshop with sticky notes:
-1. 🟠 Orange: Domain events (past tense)
-2. 🔵 Blue: Commands (what triggers the event)
-3. 🟡 Yellow: Actors (who executes the command)
-4. 🟣 Purple: Policies (automatic reactions)
-5. 🟦 Light blue: External systems
+To maintain consistency within the domain documentation, the following is recommended:
 
-Running an Event Storming session with the team before filling in this section saves weeks of redesign.
+- Write entities with clear business names, for example: `User`, `Person`, `Cohort`, `Environment`, `Schedule`, `AttendanceRecord`, `Justification`.
+- Write domain events in the past tense because they represent something that has already occurred, for example: `AttendanceRegistered`, `LateArrivalDetected`, `JustificationApproved`.
+- Define invariants as mandatory rules, for example: “A user cannot have more than one entry record for the same schedule.”
+- Avoid discussing tables, columns, or queries in this section.
+- Keep the ubiquitous language aligned with the project's general glossary.
+- Validate with the team any term specific to the SENA context, such as cohort, environment, or instructor.
 
----
+## Current Status
 
-## Questions this section must answer
+The domain section is currently being defined. The detail files are pending completion, but the overall structure is based on the functional and non-functional requirements defined in the SRS.
 
-- What are the main business entities?
-- What rules can NEVER be violated in the system?
-- What important events occur in the domain?
-- Where are the natural boundaries of the system (for defining microservices)?
+| Document | Status |
+|---|---|
+| [domain-map.md](./domain-map.md) | 🟡 In progress |
+| [entities-and-rules.md](./entities-and-rules.md) | 🟡 In progress |
+| [domain-events.md](./domain-events.md) | 🟡 In progress |

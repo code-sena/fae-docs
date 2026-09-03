@@ -1,64 +1,108 @@
 # Problem Framing — Problem Definition
 
-> **Why this document exists:** Before designing solutions, the team must be
-> aligned on the problem it solves. This document captures that alignment.
+> **Why this document exists:** Before designing solutions, the team must be aligned on the problem it solves. This document captures that alignment.  
 > A well-defined problem is already halfway to a solution.
 
 ---
 
 ## 1. The problem in one sentence
 
-> Complete this template:
-
-**[User segment]** who **[usage context]** struggle with **[pain/problem]**
-because **[root cause]**, resulting in **[quantifiable impact]**.
-
-**Example:**
-> **Mid-sized company inventory operators** who **manage catalogs of more than 500 products**
-> struggle with **stock control across multiple warehouses** because **current systems
-> do not support real-time synchronization**, resulting in **15% of orders with stock errors
-> and 3 hours of manual correction work per day**.
+**Instructors, administrators, students, and educational institutions** who **manage training sessions and attendance in educational environments such as SENA training cohorts** struggle with **unreliable, manual, or inconsistent attendance validation** because **attendance depends on a single person, lacks automated identity verification, and does not have a centralized traceable workflow for records, histories, late arrivals, absences, and justifications**, resulting in **manual control of more than 30 users per instructor, inconsistent records, lost instructional time, and delayed follow-up on attendance issues**.
 
 ---
 
 ## 2. Affected users
 
 | Segment | Description | Estimated size | Priority |
-|---------|-------------|---------------|---------|
-| [Segment A] | [Who they are, what they do] | [N users] | High |
-| [Segment B] | [Who they are] | [N users] | Medium |
+|---|---|---:|---|
+| Instructor / Teacher | Responsible for taking attendance, monitoring group participation, identifying absences or late arrivals, and generating or reviewing attendance reports. | 1 instructor per cohort or training group; more than 30 learners per instructor according to SRS justification. Total number to be defined. | High |
+| Student / Learner | Needs to register attendance quickly, consult personal attendance history, receive notifications, and justify absences or late arrivals when necessary. | More than 30 learners per instructor. Total number to be defined. | High |
+| Administrator | Manages users, roles, permissions, environments, cohorts, schedules, reports, and general system configuration. | Small number per institution. Total number to be defined. | High |
+| Supervisor | Monitors general attendance operation, reviews consolidated reports, and validates or oversees attendance-related information. | Small number per institution. Total number to be defined. | Medium |
+| Parent / Guardian, if applicable | Consults attendance information for a student when the institution allows it. | Variable, depending on institutional policy. | Low / Conditional |
 
 ### Jobs-to-be-done (JTBD)
 
-> What job is the user trying to do when they "hire" our product?
+#### Instructor / Teacher
 
-**When** [situation / context],
-**I want** [motivation / what they are trying to achieve],
-**so that** [expected outcome / benefit].
+**When** a training session starts or ends,  
+**I want** attendance to be captured automatically, accurately, and without interrupting the class,  
+**so that** I can focus on teaching and quickly identify absences, late arrivals, or participation issues.
+
+---
+
+#### Student / Learner
+
+**When** I arrive at a training session,  
+**I want** to register my attendance quickly and securely,  
+**so that** my participation is recorded without delays, manual errors, or dependence on the instructor.
+
+---
+
+#### Student / Learner — Justification
+
+**When** I miss a class or arrive late,  
+**I want** to upload a justification and receive a clear result,  
+**so that** my attendance history is fair, transparent, and updated according to institutional rules.
+
+---
+
+#### Administrator
+
+**When** users, roles, environments, cohorts, schedules, or permissions change,  
+**I want** to manage those changes centrally and securely,  
+**so that** only authorized people can access or modify attendance information.
+
+---
+
+#### Supervisor
+
+**When** I need to monitor attendance across groups or training environments,  
+**I want** to access role-based dashboards, histories, and reports,  
+**so that** I can make timely decisions and detect unusual patterns.
 
 ---
 
 ## 3. Evidence of the problem
 
-> The problem must be real. Document the evidence you have.
+> Because formal field research has not yet been documented, the current evidence is mainly documentary and comes from the SRS. Any interviews, observations, or support data must be added later without inventing findings.
 
 | Evidence type | Source | Date | Key finding |
-|--------------|--------|------|------------|
-| User interviews | [N] interviews with [profile] | [date] | [what they said] |
-| Support data | Support tickets | [period] | [% of tickets on this topic] |
-| Benchmarking | [Competitors / market] | [date] | [how others solve it] |
-| Direct observation | [Shadowing / field research] | [date] | [what was observed] |
+|---|---|---|---|
+| Documentary analysis — Problem statement | SRS FaceAttend EDU, Section 1.a | 2025 | There is deficient validation of student attendance and a lack of effective follow-up in class participation, which may generate inconsistencies and affect instructor control. |
+| Documentary analysis — Justification | SRS FaceAttend EDU, Section 1.c | 2025 | Delegating attendance registration of more than 30 users to one person, who also has other responsibilities, may be inefficient. Automation can reduce human error and improve monitoring. |
+| Documentary analysis — Objectives | SRS FaceAttend EDU, Section 1.d | 2025 | The project seeks to validate attendance efficiently using technologies such as biometrics, mobile applications, QR codes, Wi-Fi, and AI, while minimizing inconsistencies and improving instructor control. |
+| Documentary analysis — Use cases | SRS FaceAttend EDU, Section 4 | 2025 | Facial scanning may fail due to lighting, movement, camera issues, or unregistered faces. Alternative flows and justification management are needed. |
+| Documentary analysis — Constraints and assumptions | SRS FaceAttend EDU, Sections 2.c and 2.d | 2025 | The system depends on internet access, functional cameras, compatible devices, institutional accounts, basic ICT skills, adequate lighting, and compliance with data-protection rules. |
+| User interviews | Pending | Pending | No formal interviews documented yet. The team should validate the problem with instructors, learners, administrators, or supervisors before defining quantitative targets. |
+| Direct observation | Pending | Pending | No formal observation of attendance-taking sessions documented yet. A pilot or shadowing exercise is recommended. |
+| Benchmarking | Pending | Pending | The team should review existing attendance systems, biometric solutions, or institutional tools to understand alternative approaches. |
+
+### Assumptions requiring validation
+
+The following assumptions are derived from the SRS and must be validated with real users or institutional stakeholders:
+
+- Instructors currently spend significant time taking attendance manually.
+- Manual attendance records generate inconsistencies or disputes.
+- Students need a clearer way to consult attendance history and justify absences.
+- Facial recognition is acceptable for users under institutional data-protection rules.
+- Devices, cameras, lighting, and connectivity are sufficient for a pilot.
+- The institution is willing to support implementation and training.
+- Users have basic ICT skills.
+- Biometric data can be processed with appropriate consent and security controls.
 
 ---
 
 ## 4. Current user solution (and its problems)
 
-> How does the user solve the problem today?
+> How the user solves the problem today.
 
-| Current solution | Limitations | Cost/Friction |
-|-----------------|------------|--------------|
-| [Excel / manual process] | [Does not scale, errors, slow] | [X hours/day] |
-| [Legacy system] | [No API, no integration] | [Y errors/week] |
+| Current solution | Limitations | Cost / Friction |
+|---|---|---|
+| Manual attendance list taken by the instructor | Slow, depends on one person, may interrupt class, error-prone, difficult to audit, and vulnerable to inconsistencies or impersonation. | Time lost per session. Exact value to be measured. |
+| Paper records or informal spreadsheets | Difficult to consolidate, no real-time visibility, limited traceability, hard to filter by date, cohort, environment, or instructor. | Manual consolidation and increased risk of errors. |
+| Informal justification process, such as verbal excuses, emails, or messages | No standardized workflow, no centralized evidence, no clear approval/rejection traceability. | Delayed resolution and lack of transparency. |
+| Existing academic systems, if any | May not provide facial recognition, automated attendance capture, role-based dashboards, or justification workflows. Integration may be unavailable. | Depends on institutional context. To be validated. |
 
 ---
 
@@ -66,45 +110,73 @@ because **[root cause]**, resulting in **[quantifiable impact]**.
 
 > This is the first draft of the solution direction. It is not a commitment.
 
-**We believe that** [describe the high-level solution]
-**for** [the user segment],
-**will achieve** [the expected benefit].
-**We will know we succeeded when** [specific metric].
+**We believe that** a web and mobile attendance-management system using facial recognition, with alternative verification methods for failed scans, role-based attendance histories, justification workflows, automatic notifications, and report dashboards  
+**for** instructors, students, administrators, and supervisors in educational environments,  
+**will achieve** more reliable attendance records, less manual workload for instructors, faster detection of absences or late arrivals, and greater transparency in justification processes.  
+**We will know we succeeded when** the majority of expected attendance events are captured automatically and accepted without manual correction, and when instructors report that attendance management requires less time and fewer manual interventions.
 
 ---
 
 ## 6. Success metrics (North Star)
 
-| Metric | Current baseline | 6-month target | How to measure it |
-|--------|----------------|---------------|-------------------|
-| [Business metric 1] | [current value] | [target value] | [instrument] |
-| [Adoption metric] | [current value] | [target value] | [instrument] |
+> Quantitative targets should be defined after a pilot or after collecting baseline data. Do not invent targets without evidence.
 
-**North Star Metric:** [The single metric that best captures the value delivered]
+| Metric | Current baseline | 6-month target | How to measure it |
+|---|---:|---:|---|
+| Percentage of expected attendance events captured automatically without manual correction | Manual / not measured | To be defined | System event logs, pilot attendance reports, and comparison with manual records. |
+| Average time required to register attendance per student or per session | Manual time to be measured | To be defined | Timing tests, pilot logs, or instructor interviews. |
+| Percentage of successful facial recognition attempts under normal conditions | Not measured | To be defined | Facial recognition logs and pilot monitoring. |
+| Percentage of failed facial scans resolved through alternative registration | Not measured | To be defined | System logs and alternative-method usage reports. |
+| Percentage of justifications submitted and resolved inside the system | Manual / offline | To be defined | Justification workflow logs. |
+| Time required to generate or export an attendance report | Manual / not measured | To be defined | Report generation logs or user testing. |
+| Number of attendance inconsistencies, disputes, or correction requests | Not measured | Reduce by a target percentage | Support records, instructor feedback, or system audit logs. |
+| User satisfaction for instructors and students | Not measured | To be defined | Surveys, pilot feedback, or usability testing. |
+
+**North Star Metric:**  
+Percentage of expected attendance events successfully captured automatically and accepted without manual correction.
 
 ---
 
 ## 7. Hypothesis risks
 
 | Risk | Probability | Impact | Experiment to validate |
-|------|------------|--------|----------------------|
-| [Users will not adopt the change] | High | High | [Pilot with N users] |
-| [The problem is not as frequent as we think] | Medium | High | [Support log analysis] |
+|---|---|---|---|
+| Facial recognition fails due to lighting, movement, camera quality, or user positioning. | High | High | Run a controlled pilot, measure failed scans, test environmental conditions, and validate the alternative registration flow. |
+| Users resist biometric capture or have privacy concerns. | Medium | High | Conduct informational sessions, obtain explicit consent, publish data-protection guidelines, and measure acceptance through surveys. |
+| Connectivity or device limitations affect attendance capture. | Medium | High | Test devices, network conditions, camera availability, and error handling before pilot deployment. |
+| The problem is not as frequent or painful as assumed. | Medium | Medium | Interview instructors, administrators, and learners; review current attendance practices; and validate with a small pilot. |
+| Biometric data processing does not comply with data-protection requirements. | Low / Medium | High | Validate consent, encryption, access control, retention policies, and compliance with applicable regulations such as Colombian Law 1581 of 2012. |
+| Scope grows beyond the core attendance problem, adding IoT, QR, advanced analytics, or integrations too early. | High | Medium | Maintain a clear roadmap, backlog prioritization, and explicit out-of-scope decisions. |
+| Institutional roles and permissions are more complex than expected. | Medium | Medium | Validate role matrix with administrators and instructors before implementing fine-grained permissions. |
 
 ---
 
 ## 8. Out of scope (we do not solve)
 
-> Explicitly define which related problems you are NOT solving in this version.
-> This prevents scope creep.
+> Explicitly define which related problems we are NOT solving in this version. This prevents scope creep.
 
-- [Related problem that is out of scope: why]
-- [Feature users ask for but we are not doing now: reason]
+- **Grading or academic-mark management:** FaceAttend EDU focuses on attendance, not academic evaluation.
+- **Financial management, payments, or enrollment billing:** The product does not solve tuition, payments, or financial processes.
+- **Physical access control:** The system does not control doors, turnstiles, or building-entry hardware.
+- **Fingerprint biometrics:** The current version focuses on facial recognition; fingerprint authentication is out of scope unless validated later.
+- **QR-code or Wi-Fi-based attendance as primary methods:** The SRS mentions these technologies in objectives, but the current functional scope centers on facial recognition and alternative registration for failed scans.
+- **Complex IoT device management:** IoT alerts may be considered if validated, but complete device lifecycle management is out of scope.
+- **Advanced predictive analytics:** Dropout prediction, behavioral analytics, or AI-based academic-risk models are not included in the initial version.
+- **External integrations not approved by the team:** Integration with institutional academic systems, identity providers, or communication platforms must be explicitly approved.
+- **Multi-institution deployment before pilot validation:** The initial product should be validated in a controlled educational context before expanding.
+- **Notification channels beyond the approved scope:** SMS, WhatsApp, or external messaging channels are not included unless explicitly approved. Initial notifications may be limited to in-app or email, depending on the product roadmap.
 
 ---
 
 ## Correlations
 
-- Product vision → `03-product/vision.md`
-- HUs that implement this solution → `04-requirements/user-stories.md`
-- Detailed KPIs → `13-operations/README.md`
+- Product vision → `./vision.md`
+- Product roadmap → `./roadmap.md`
+- Product backlog, when created → `./product-backlog.md`
+- Context overview → `../context/overview.md`
+- Scope, assumptions, and constraints → `../context/scope.md`
+- Shared vocabulary → `../context/glossary.md`
+- Domain entities and business rules → `../domain/entities-and-rules.md`
+- Domain events → `../domain/domain-events.md`
+- Requirements source → SRS FaceAttend EDU
+- Standards and references → IEEE Std 830-1998; Colombian Law 1581 of 2012

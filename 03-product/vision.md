@@ -8,88 +8,73 @@
 
 ## Vision statement
 
-> Use the Geoffrey Moore template:
+**For** educational institutions, instructors, students, administrators, and supervisors  
+**who** need to control attendance accurately, reduce manual roll call, prevent inconsistencies or impersonation, and track student participation in training environments,  
+**the** FaceAttend EDU  
+**is a** web and mobile attendance-management product based on facial recognition and reliable attendance records  
+**that** automates entry and exit recording, centralizes attendance histories, supports justification workflows, and provides role-based reports and alerts,  
+**unlike** manual attendance lists, paper records, or disconnected spreadsheets,  
+**our product** combines facial recognition with alternative recording methods, role-based visibility, justification traceability, and data-protection-oriented design for educational contexts such as SENA.
 
-**For** [target customer]
-**who** [has the need / faces the problem]
-**the** [product name]
-**is a** [product category]
-**that** [main benefit / reason to choose]
-**unlike** [competing alternative]
-**our product** [key differentiator].
+### Problem summary
+
+Currently, attendance recording in many educational environments is performed manually or depends entirely on the instructor. This creates:
+
+- Inconsistencies in attendance records.
+- Greater administrative workload for the instructor.
+- Difficulty tracking student participation in a timely manner.
+- Risk of human error or impersonation.
+- Difficulty consulting attendance, late-arrival, and absence histories.
+- Lack of a structured process for justifying absences or late arrivals.
+
+FaceAttend EDU addresses this problem through a technological solution that automates attendance recording, centralizes information, and facilitates report generation.
+
+### Target users and value
+
+| User | Main need | Value delivered |
+|---|---|---|
+| Student | Record attendance quickly, consult their history, and receive notifications related to their participation. | Fast, contactless recording, personal history visibility, and justification support. |
+| Teacher / Instructor | View group attendance, receive absence alerts, and reduce the time spent taking attendance manually. | Less manual work, organized attendance information, and alerts for timely follow-up. |
+| Administrator | Manage users, roles, permissions, environments, and general system configuration. | Centralized control of users, roles, academic structure, and system settings. |
+| Supervisor | Monitor system operation, review reports, and control general recording. | Consolidated visibility, reports, and alerts for academic and operational monitoring. |
+| Parent or guardian, if applicable | Consult relevant information about the student's attendance according to the permissions defined by the institution. | Controlled access to attendance information when the institution allows it. |
 
 ---
 
 ## Team mission
 
-> In 1-2 sentences: why does this team exist? What change in the world does it seek to achieve?
+We exist to modernize attendance management in educational environments by making attendance recording fast, reliable, transparent, and secure. Our purpose is to reduce instructors' administrative workload and help institutions detect and address participation issues early, so educational teams can focus more on training and less on manual control.
+
+FaceAttend EDU should not be understood solely as a control tool, but as support for educational management, transparency, and institutional responsibility.
 
 ---
 
 ## Strategic pillars
 
-Pillars are the focus areas that take us from mission to vision.
-They should be few (3-5) and consistent over time.
+Pillars are the focus areas that take us from mission to vision.  
+They should be few and consistent over time.
 
 | Pillar | Description | Success metrics |
 |--------|-------------|----------------|
-| [Pillar 1: e.g. Speed] | [What it means for our product] | [KPIs] |
-| [Pillar 2: e.g. Reliability] | [Description] | [KPIs] |
-| [Pillar 3: e.g. Scale] | [Description] | [KPIs] |
+| Automated attendance capture | Reduce dependence on manual roll call by allowing students to record entry and exit through facial recognition or alternative methods. | Average recording time; percentage of successful facial records; percentage of alternative-method usage. |
+| Reliable academic tracking | Provide accurate attendance, late-arrival, absence, and history information to instructors, administrators, and supervisors. | Record inconsistency rate; report consultation time; percentage of queries completed successfully by role. |
+| Transparent justification workflow | Structure the process for uploading, evaluating, approving, or rejecting justifications for absences and late arrivals. | Percentage of justifications managed inside the system; average justification resolution time; percentage of automatic notifications delivered. |
+| Security, privacy, and usability | Protect sensitive personal and biometric data while keeping the system easy to learn and use for users with basic ICT training. | Number of critical security incidents; user satisfaction score; usability/accessibility issues detected and resolved. |
+| Scalable and compatible operation | Ensure the product can grow in users, cohorts, environments, and records while working correctly across modern browsers and compatible mobile devices. | Uptime; response time under load; number of compatibility issues by browser or device. |
 
 ---
 
 ## High-level roadmap
 
-> The roadmap shows how the product evolves over time.
-> Horizon 1 (0-3 months): high certainty, detail in HUs
-> Horizon 2 (3-6 months): medium certainty, epics
-> Horizon 3 (6-12 months): low certainty, focus areas
+> The roadmap shows how the product evolves over time.  
+> Horizon 1: high certainty, core product validation.  
+> Horizon 2: medium certainty, traceability, adoption, and reporting improvements.  
+> Horizon 3: low certainty, expansion, analytics, and scalability.
 
-```
-Q1 2024 ──── Q2 2024 ──── Q3 2024 ──── Q4 2024
-     │              │              │              │
-  [MVP]      [Feature A]    [Feature B]   [Scale]
-  Validate    Expand         Deepen        Grow
-  hypothesis  the market     the value
-```
-
-| Horizon | Period | Objective | Epics / Features | Uncertainty |
-|---------|--------|----------|----------------|-------------|
-| H1 (Now) | [Q1] | [Objective] | [Epic 1, Epic 2] | Low |
-| H2 (Next) | [Q2] | [Objective] | [Epic 3, Area X] | Medium |
-| H3 (Later) | [Q3-Q4] | [Objective] | [Area Y, Area Z] | High |
-
----
-
-## Product principles
-
-These principles guide design and prioritization decisions when there are trade-offs.
-
-1. **[Principle 1]:** [description. Example: "New user first — every new feature must be understandable in 2 minutes without onboarding"]
-
-2. **[Principle 2]:** [description. Example: "Opinionated about what matters, flexible on the secondary"]
-
-3. **[Principle 3]:** [description]
-
----
-
-## Product Definition of Done
-
-> The product is "done" when it achieves these OKRs:
-
-**Objective:** [What we want to achieve]
-
-| Key Result | Baseline | Target | Date |
-|------------|---------|--------|------|
-| KR1: [specific metric] | [current value] | [target value] | [date] |
-| KR2: [metric] | [current] | [target] | [date] |
-| KR3: [business metric] | [current] | [target] | [date] |
-
----
-
-## Correlations
-
-- Problem framing (the why) → `03-product/problem-framing.md`
-- Backlog that implements the vision → `04-requirements/user-stories.md`
-- KPIs in operations → `13-operations/README.md`
+```text
+Phase 1 (0-3 months) ──── Phase 2 (3-6 months) ──── Phase 3 (6-12 months)
+        │                         │                          │
+      [MVP]                [Traceability]              [Scale / Expansion]
+ Validate core             Justifications,             Advanced analytics,
+ attendance                dashboards, alerts,         IoT alerts, scalability,
+ hypothesis                and configuration           and integrations

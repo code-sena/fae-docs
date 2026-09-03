@@ -1,113 +1,68 @@
 # 03 — Product Definition
 
-> **What is this?** The answer to "what are we going to build?". It is not "how" — that comes in
-> architecture. Here the validated problem, product vision, and build plan are defined.
+> **What is this?**  
+> The answer to “What are we going to build?”. It is not “how” — that belongs to architecture and implementation.  
+> For **FaceAttend EDU**, this section defines the validated problem, the product vision, and the build plan for an attendance-management solution based on facial recognition, alternative recording methods, traceable histories, and justification workflows.
+
+---
 
 ## Why this section exists
 
 Without a clear product definition:
-- The team builds features nobody asked for
-- Scope grows out of control (scope creep)
-- There is no way to know whether the project was successful
 
-This section is the contract between the team and stakeholders about **what will be built and why**.
+- The team may build features nobody asked for.
+- Scope may grow out of control.
+- There is no clear way to know whether the project was successful.
+- Requirements from the SRS may be implemented without a shared product direction.
+
+This section is the agreement between the team and stakeholders about **what will be built, why it will be built, and what will be excluded during the current project cycle**.
+
+For FaceAttend EDU, this section prevents the team from prematurely building advanced analytics, complex IoT integrations, grading modules, payment features, or physical-access control before validating the core attendance problem.
+
+---
+
+## Product intent
+
+This section translates the Software Requirements Specification (SRS) of FaceAttend EDU into product decisions.
+
+The product definition is based on:
+
+- The institutional problem described in the SRS: inefficient attendance validation and lack of effective tracking.
+- The need to reduce instructors’ administrative workload.
+- The need to improve attendance reliability and prevent inconsistencies.
+- The need to provide traceable reports, justifications, and role-based visibility.
+- The need to protect sensitive personal and biometric data.
 
 ---
 
 ## What is here and how to fill it in
 
-### `problem-framing.md` ⭐ (Start here)
-Articulates the problem before proposing solutions.
-**Fill in:** who has the problem, exactly what pain, evidence of the problem, how they solve it today.
+### `problem-framing.md` ⭐ Start here
 
-**Format:**
+Articulates the problem before proposing solutions.
+
+For FaceAttend EDU, this file should explain the attendance-control problem in educational environments before describing facial recognition as the solution.
+
+**Suggested content from the SRS:**
+
 ```markdown
 ## The problem
-**Who has it?** [Profile of the affected user]
-**What problem do they have?** [Description of the pain, specific]
-**When does it occur?** [Situation that triggers the problem]
-**What is the impact?** [Concrete consequence: time, money, frustration]
-**How do they solve it today?** [Current workaround and why it is insufficient]
+
+**Who has it?**
+Instructors, administrators, supervisors, students, and educational institutions, especially in contexts such as SENA training environments.
+
+**What problem do they have?**
+Attendance validation is deficient, inconsistent, and often depends on manual processes controlled by a single person. This creates administrative overload, errors, possible impersonation, and difficulty tracking student participation.
+
+**When does it occur?**
+At the beginning and end of training sessions, across different cohorts, environments, schedules, and instructors.
+
+**What is the impact?**
+Instructors lose time taking attendance manually. Institutions lose visibility into absences, late arrivals, and participation patterns. Students may face unclear attendance records. Administrative follow-up becomes harder.
+
+**How do they solve it today?**
+Typically through manual attendance lists, paper records, or informal instructor control. These methods are slow, error-prone, difficult to audit, and hard to consolidate into reports.
 
 ## Why it is worth solving
-[Justification for the value of building this system]
-```
 
-### `discovery-brief.md`
-Findings from user research.
-**Fill in:** interviews conducted, insights found, assumptions validated and invalidated.
-
-### `vision.md` ⭐
-The product's north star in 1-2 sentences.
-**Fill in:** format "For [user], who [need], [system name] is a [product type]
-that [key benefit]. Unlike [alternative], our product [differentiator]."
-
-### `roadmap.md`
-Delivery plan over time.
-**Fill in:** milestones per quarter/sprint, which features go into each phase.
-
-**Format:**
-```markdown
-## Phase 1 — MVP (Sprint 1-3)
-- [Critical feature 1]
-- [Critical feature 2]
-
-## Phase 2 — Iteration (Sprint 4-6)
-- [Improvements based on feedback]
-```
-
-### `product-backlog.md` ⭐
-Prioritized list of everything that must be built.
-**Fill in:** using the `_template-backlog.md` template. Order by user value.
-
-### `_template-prd.md`
-Complete Product Requirements Document.
-**Use when:** you need to formalize requirements for an external stakeholder or academic delivery.
-
-### `_template-discovery-brief.md`
-Template for documenting user research.
-
-### `_template-problem-framing.md`
-Structured template for framing the problem.
-
-### `_template-backlog.md`
-Template for initial backlog user stories.
-
----
-
-## User Story format
-
-```markdown
-## HU-[SERVICE]-[NNN]: [Title]
-**As** [user role]
-**I want** [action they want to perform]
-**So that** [benefit they receive]
-
-### Acceptance criteria
-- [ ] AC1: Given [context], when [action], then [expected result]
-- [ ] AC2: ...
-
-### Technical notes
-[Constraints or implementation considerations]
-
-**Estimation:** [SP]  **Priority:** [High/Medium/Low]
-```
-
----
-
-## Correlations with other sections
-
-| This section feeds... | Why |
-|-----------------------|-----|
-| `04-requirements/` | Backlog HUs are formalized as requirements |
-| `02-domain/` | Problem framing reveals domain entities |
-| `15-project-control/technical-backlog.md` | Technical debt identified during definition |
-
----
-
-## Questions this section must answer
-
-- What problem exactly are we solving?
-- What does product success look like?
-- What do we build first and why?
-- What do we NOT build in this cycle?
+Automating attendance recording improves accuracy, reduces administrative workload, increases traceability, and allows instructors and institutions to focus more on training and less on manual control.

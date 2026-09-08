@@ -1,97 +1,91 @@
 # 09 — Microservices
 
-> **What is this?** The individual documentation for each microservice in the system.
-> This is the most active section of the repository — it is updated with every significant change.
+> The platform is modeled as bounded contexts. Each context owns its own business data and can later become an independent service with its own database.
+> Cross-context consistency is handled through public IDs and asynchronous events, never through direct foreign keys between contexts.
 
-## Structure of each microservice
+## Architectural rule applied to all services
 
-Each service has its own folder in `services/` with this structure:
+The domain model establishes these constraints for the entire platform:
+
+- FK only within the same bounded context.
+- Between contexts, use public IDs without FK enforcement.
+- Cross-context consistency is resolved through APIs and events.
+- Each context may eventually evolve into a service with its own database.
+
+This means the microservices architecture is not a pure monolith split by table, but a decomposition by business responsibility and data ownership.
+
+---
+
+## Bounded contexts in this project
+
+| Context | Main responsibility | Main entities |
+|---------|--------------------|---------------|
+| Identity | school, people, users, sessions | School, Person, User, User_Session |
+| Authorization | roles and access grants | Role, Permission, Role_Permission, User_Role |
+| Academic | curricular and academic lifecycle | Student, Teacher, Course, Classroom, Period, Enrollment, Schedule |
+| Attendance | real class sessions and attendance outcomes | Class_Session, Attendance, Justification_Type, Justification |
+| Biometric | embeddings and recognition templates | Facial_Embedding, Fingerprint_Embedding, Facial_Update_Case |
+| IoT | device lifecycle and classroom assignment | IoT_Device, Device_Assignment |
+| Audit | operational traceability | Audit_Event, Error_Log |
+| Configuration | technical and academic parameters | Academic_Configuration, Security_Configuration, Password_Policy |
+
+---
+
+## Service structure
+
+Each service folder under `services/` follows the same structure:
 
 ```
 services/
 └── 01-service-name/
-    ├── README.md              ← Description, responsibility, how to run it
-    ├── data-model.md          ← The service's own data model
-    ├── events.md              ← Events it publishes and consumes
-    ├── decisions.md           ← Design decisions specific to the service
-    ├── runbook.md             ← How to operate the service in production
-    └── components/            ← If the service has sub-components
+    ├── README.md              ← bounded context responsibility and rules
+    ├── data-model.md          ← canonical model for that context
+    ├── events.md              ← events published and consumed
+    ├── decisions.md           ← service-specific design decisions
+    ├── runbook.md             ← production operations
+    └── components/            ← optional subcomponents
         └── [component]/
             ├── README.md
             └── contract.md
 ```
 
-**Use `_template/service/` as a starting point for each new service.**
+Use the template in `09-microservices/_template/service/` as the starting point for each new service.
 
 ---
 
-## Cross-cutting documents (apply to ALL services)
+## Cross-cutting documentation
 
-### `service-catalog.md` ⭐ (Start here)
-Registry of all microservices in the system.
-**Fill in:** when you define microservices. Update when you add/remove/rename.
-
-**Format:**
-```markdown
-| # | Service | Responsibility | Local port | Repo | Status |
-|---|---------|----------------|------------|------|--------|
-| 01 | iam | Authentication and authorization | 8001 | [repo] | ✅ In production |
-| 02 | reference-data | Master data for the system | 8002 | [repo] | 🚧 In development |
-```
+### `service-catalog.md` ⭐
+Registry of the current platform services and bounded contexts.
 
 ### `service-boundary-rules.md` ⭐
-The rules that define where each service ends.
-**Fill in:** criteria for deciding if something belongs to service A or B. These rules prevent
-services from overlapping or leaving responsibilities in limbo.
-
-**Include:**
-- How do we decide boundaries? (by domain, by team, by data lifecycle)
-- What to do when something "could go in either one"?
-- The "database" rule: if two things share a DB, they are the same service or there is a design error
+Rules for deciding whether a capability belongs to one service or another.
+Key topics:
+- domain ownership
+- data lifecycle
+- when an entity should remain local vs external
+- database ownership rule: if two things share a DB, they are not independent services
 
 ### `communication-patterns.md` ⭐
-How services communicate with each other.
-**Fill in:** what uses REST (synchronous), what uses events (asynchronous), why, concrete examples.
-
-**Patterns to document:**
-- Request/Response (REST/gRPC): when to use it, when not to
-- Events/Messages (RabbitMQ/Kafka): when to use it, how delivery is guaranteed
-- API Gateway: what goes through it, what does not
-- Service Discovery: how services find each other
+How services communicate:
+- synchronous APIs for queries and command orchestration
+- asynchronous events for eventual consistency
+- external ID references instead of direct DB joins
 
 ### `event-catalog.md` ⭐
-Catalog of all system events.
-**Fill in:** name, payload, who publishes, who consumes, on which topic/exchange.
-
-**Format:**
-```markdown
-| Event | Payload (key fields) | Published by | Consumed by | Topic/Exchange |
-|-------|---------------------|--------------|-------------|----------------|
-| UserCreated | userId, email, role | iam | actors, audit | users.events |
-```
+List of the canonical business and operational events for the platform.
 
 ### `data-ownership-matrix.md` ⭐
-Who is the authoritative owner of each piece of data.
-**Fill in:** for each business entity, which service has the "official version".
-
-**Format:**
-```markdown
-| Entity | Owner service | Others that have a copy | How it is synchronized |
-|--------|--------------|------------------------|----------------------|
-| User | iam | actors (basic data) | UserCreated event |
-```
+Document who is the source of truth for each business entity.
 
 ### `dependency-map.md`
-Dependency map between services.
-**Fill in:** graph (can be ASCII) showing which service depends on which.
-Red alert: if the graph has cycles → there is a design problem.
+Map which service depends on which, ensuring there are no cycles in the domain relationships.
 
 ### `storage-and-documents.md`
-How the system handles file storage.
-**Fill in:** which service handles files, where they are stored (S3, MinIO, local), naming policy.
+Describe file, document, and media storage boundaries by service.
 
 ### `service-readiness-checklist.md`
-Checklist that every service must meet before going to production.
+Operational checklist before releasing a service.
 
 ---
 
@@ -99,21 +93,25 @@ Checklist that every service must meet before going to production.
 
 | This section is fed by... | And feeds into... |
 |---------------------------|-------------------|
-| `02-domain/domain-map.md` → bounded contexts | One per context |
-| `05-architecture/overview.md` → defined services | README of each service |
-| `07-api/contracts/openapi/` → service contract | `services/[service]/` implements it |
+| `02-domain/domain-map.md` → bounded contexts | one service per context |
+| `05-architecture/overview.md` → defined microservice boundaries | README of each service |
+| `07-api/contracts/openapi/` → service contracts | `services/[service]/` implementation |
 | `06-data/models.md` → data model | `services/[service]/data-model.md` |
-| `services/[service]/runbook.md` | `13-operations/` consolidates them |
+| `services/[service]/runbook.md` | `13-operations/` operational consolidation |
 
 ---
 
-## Service numbering
+## Service numbering and grouping
 
-Number services to indicate implicit dependencies:
-services with lower numbers tend to be more fundamental.
+The numbering reflects the domain dependency order rather than a strict package hierarchy:
 
-Suggested convention:
-- `01` = IAM / Security (all depend on this)
-- `02` = Reference / master data
-- `03-0N` = Domain services
-- `0N+1` = Support services (documents, notifications, audit)
+- `01` = Identity
+- `02` = Auth / Authorization
+- `03` = Academic
+- `04` = Attendance
+- `05` = Biometric
+- `06` = IoT
+- `07` = Audit
+- `08` = Configuration
+
+Infrastructure pieces such as the API gateway remain support services and do not replace the domain-based bounded-context ownership model.

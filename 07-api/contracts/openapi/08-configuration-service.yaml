@@ -1,0 +1,851 @@
+openapi: 3.0.3
+info:
+  title: Configuration Service API
+  version: 1.0.0
+  description: |
+    Servicio de configuración: gestión de configuraciones académicas, de seguridad y políticas de contraseña.
+
+    ## Autenticación
+    Todos los endpoints requieren un JWT válido en el header:
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    ## Manejo de errores
+    Todos los errores siguen el esquema `ErrorResponse` definido en `_shared.yaml`.
+
+    ## Paginación
+    Los endpoints de lista soportan paginación via `?page=1&limit=20`.
+
+servers:
+  - url: http://localhost:8089
+    description: Local development
+  - url: https://api.dev.{domain}/api/v1/configuration
+    description: Development
+    variables:
+      domain:
+        default: example.com
+  - url: https://api.{domain}/api/v1/configuration
+    description: Production
+    variables:
+      domain:
+        default: example.com
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: AcademicConfiguration
+    description: Configuración académica del sistema
+  - name: SecurityConfiguration
+    description: Configuración de seguridad
+  - name: PasswordPolicy
+    description: Políticas de contraseña
+  - name: Health
+    description: Estado del servicio
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  dependencies:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        enum: [ok, degraded, down]
+                      redis:
+                        type: string
+                        enum: [ok, degraded, down]
+              example:
+                status: ok
+                timestamp: '2024-01-15T10:30:00Z'
+                dependencies:
+                  database: ok
+                  redis: ok
+        '503':
+          description: Servicio no disponible
+
+  /academic-configurations:
+    get:
+      summary: Listar configuraciones académicas
+      operationId: listAcademicConfigurations
+      tags: [AcademicConfiguration]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: schoolId
+          in: query
+          description: Filtrar por escuela
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de configuraciones académicas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AcademicConfigurationResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear configuración académica
+      operationId: createAcademicConfiguration
+      tags: [AcademicConfiguration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAcademicConfigurationRequest'
+            example:
+              schoolId: "660e8400-e29b-41d4-a716-446655440001"
+              academicYear: 2024
+              gradingScale: "POSITIONAL"
+              passingGrade: 10
+              maxStudentsPerClass: 35
+              attendanceThreshold: 80
+              allowRetroactiveAttendance: false
+      responses:
+        '201':
+          description: Configuración creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicConfigurationResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '409':
+          description: Ya existe configuración para esa escuela y año
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /academic-configurations/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener configuración académica por ID
+      operationId: getAcademicConfigurationById
+      tags: [AcademicConfiguration]
+      responses:
+        '200':
+          description: Configuración encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicConfigurationResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar configuración académica
+      operationId: updateAcademicConfiguration
+      tags: [AcademicConfiguration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAcademicConfigurationRequest'
+      responses:
+        '200':
+          description: Configuración actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicConfigurationResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar configuración académica
+      operationId: deleteAcademicConfiguration
+      tags: [AcademicConfiguration]
+      responses:
+        '204':
+          description: Eliminada exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /security-configurations:
+    get:
+      summary: Listar configuraciones de seguridad
+      operationId: listSecurityConfigurations
+      tags: [SecurityConfiguration]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: schoolId
+          in: query
+          description: Filtrar por escuela
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de configuraciones de seguridad
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SecurityConfigurationResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear configuración de seguridad
+      operationId: createSecurityConfiguration
+      tags: [SecurityConfiguration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSecurityConfigurationRequest'
+            example:
+              schoolId: "660e8400-e29b-41d4-a716-446655440001"
+              jwtExpirationMinutes: 60
+              refreshTokenExpirationDays: 7
+              maxLoginAttempts: 5
+              lockoutDurationMinutes: 30
+              requireMfa: false
+              allowedIpRanges: ["192.168.0.0/16", "10.0.0.0/8"]
+      responses:
+        '201':
+          description: Configuración creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityConfigurationResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '409':
+          description: Ya existe configuración para esa escuela
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /security-configurations/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener configuración de seguridad por ID
+      operationId: getSecurityConfigurationById
+      tags: [SecurityConfiguration]
+      responses:
+        '200':
+          description: Configuración encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityConfigurationResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar configuración de seguridad
+      operationId: updateSecurityConfiguration
+      tags: [SecurityConfiguration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSecurityConfigurationRequest'
+      responses:
+        '200':
+          description: Configuración actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityConfigurationResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar configuración de seguridad
+      operationId: deleteSecurityConfiguration
+      tags: [SecurityConfiguration]
+      responses:
+        '204':
+          description: Eliminada exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /password-policies:
+    get:
+      summary: Listar políticas de contraseña
+      operationId: listPasswordPolicies
+      tags: [PasswordPolicy]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: schoolId
+          in: query
+          description: Filtrar por escuela
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de políticas de contraseña
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PasswordPolicyResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear política de contraseña
+      operationId: createPasswordPolicy
+      tags: [PasswordPolicy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePasswordPolicyRequest'
+            example:
+              schoolId: "660e8400-e29b-41d4-a716-446655440001"
+              minLength: 8
+              maxLength: 128
+              requireUppercase: true
+              requireLowercase: true
+              requireNumbers: true
+              requireSpecialChars: true
+              passwordExpirationDays: 90
+              preventReuseCount: 5
+      responses:
+        '201':
+          description: Política creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordPolicyResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '409':
+          description: Ya existe política para esa escuela
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /password-policies/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener política de contraseña por ID
+      operationId: getPasswordPolicyById
+      tags: [PasswordPolicy]
+      responses:
+        '200':
+          description: Política encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordPolicyResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar política de contraseña
+      operationId: updatePasswordPolicy
+      tags: [PasswordPolicy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePasswordPolicyRequest'
+      responses:
+        '200':
+          description: Política actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordPolicyResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar política de contraseña
+      operationId: deletePasswordPolicy
+      tags: [PasswordPolicy]
+      responses:
+        '204':
+          description: Eliminada exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+components:
+  schemas:
+    # ─── AcademicConfiguration ──────────────────────────────────────────
+    CreateAcademicConfigurationRequest:
+      type: object
+      required: [schoolId, academicYear, gradingScale, passingGrade]
+      properties:
+        schoolId:
+          type: string
+          format: uuid
+          description: ID de la escuela
+        academicYear:
+          type: integer
+          minimum: 2000
+          maximum: 2100
+          description: Año académico
+          example: 2024
+        gradingScale:
+          type: string
+          enum: [POSITIONAL, DESCRIPTIVE, LETTER]
+          description: Tipo de escala de calificación
+        passingGrade:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 20
+          description: Nota mínima para aprobar
+          example: 10
+        maxStudentsPerClass:
+          type: integer
+          minimum: 1
+          maximum: 100
+          nullable: true
+          description: Máximo de estudiantes por sección
+          example: 35
+        attendanceThreshold:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: Porcentaje mínimo de asistencia
+          example: 80
+        allowRetroactiveAttendance:
+          type: boolean
+          default: false
+          description: Permitir registro de asistencia retroactivo
+        evaluationPeriods:
+          type: integer
+          minimum: 1
+          maximum: 12
+          nullable: true
+          description: Número de períodos de evaluación
+
+    UpdateAcademicConfigurationRequest:
+      type: object
+      properties:
+        gradingScale:
+          type: string
+          enum: [POSITIONAL, DESCRIPTIVE, LETTER]
+        passingGrade:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 20
+        maxStudentsPerClass:
+          type: integer
+          minimum: 1
+          maximum: 100
+          nullable: true
+        attendanceThreshold:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        allowRetroactiveAttendance:
+          type: boolean
+        evaluationPeriods:
+          type: integer
+          minimum: 1
+          maximum: 12
+          nullable: true
+
+    AcademicConfigurationResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, schoolId, academicYear, gradingScale, passingGrade]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            schoolId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            academicYear:
+              type: integer
+              example: 2024
+            gradingScale:
+              type: string
+              enum: [POSITIONAL, DESCRIPTIVE, LETTER]
+              example: "POSITIONAL"
+            passingGrade:
+              type: number
+              format: float
+              example: 10
+            maxStudentsPerClass:
+              type: integer
+              nullable: true
+              example: 35
+            attendanceThreshold:
+              type: integer
+              nullable: true
+              example: 80
+            allowRetroactiveAttendance:
+              type: boolean
+              example: false
+            evaluationPeriods:
+              type: integer
+              nullable: true
+              example: 4
+
+    # ─── SecurityConfiguration ──────────────────────────────────────────
+    CreateSecurityConfigurationRequest:
+      type: object
+      required: [schoolId, jwtExpirationMinutes, refreshTokenExpirationDays, maxLoginAttempts, lockoutDurationMinutes]
+      properties:
+        schoolId:
+          type: string
+          format: uuid
+          description: ID de la escuela
+        jwtExpirationMinutes:
+          type: integer
+          minimum: 5
+          maximum: 480
+          description: Minutos de expiración del JWT
+          example: 60
+        refreshTokenExpirationDays:
+          type: integer
+          minimum: 1
+          maximum: 90
+          description: Días de expiración del refresh token
+          example: 7
+        maxLoginAttempts:
+          type: integer
+          minimum: 1
+          maximum: 20
+          description: Intentos máximos de login antes de bloqueo
+          example: 5
+        lockoutDurationMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          description: Minutos de bloqueo tras intentos fallidos
+          example: 30
+        requireMfa:
+          type: boolean
+          default: false
+          description: Requiere autenticación de dos factores
+        allowedIpRanges:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Rangos de IP permitidos (CIDR)
+          example: ["192.168.0.0/16", "10.0.0.0/8"]
+        sessionTimeoutMinutes:
+          type: integer
+          minimum: 5
+          maximum: 480
+          nullable: true
+          description: Minutos de inactividad antes de cerrar sesión
+
+    UpdateSecurityConfigurationRequest:
+      type: object
+      properties:
+        jwtExpirationMinutes:
+          type: integer
+          minimum: 5
+          maximum: 480
+        refreshTokenExpirationDays:
+          type: integer
+          minimum: 1
+          maximum: 90
+        maxLoginAttempts:
+          type: integer
+          minimum: 1
+          maximum: 20
+        lockoutDurationMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+        requireMfa:
+          type: boolean
+        allowedIpRanges:
+          type: array
+          items:
+            type: string
+          nullable: true
+        sessionTimeoutMinutes:
+          type: integer
+          minimum: 5
+          maximum: 480
+          nullable: true
+
+    SecurityConfigurationResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, schoolId, jwtExpirationMinutes, refreshTokenExpirationDays, maxLoginAttempts, lockoutDurationMinutes]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            schoolId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            jwtExpirationMinutes:
+              type: integer
+              example: 60
+            refreshTokenExpirationDays:
+              type: integer
+              example: 7
+            maxLoginAttempts:
+              type: integer
+              example: 5
+            lockoutDurationMinutes:
+              type: integer
+              example: 30
+            requireMfa:
+              type: boolean
+              example: false
+            allowedIpRanges:
+              type: array
+              items:
+                type: string
+              nullable: true
+              example: ["192.168.0.0/16", "10.0.0.0/8"]
+            sessionTimeoutMinutes:
+              type: integer
+              nullable: true
+              example: 30
+
+    # ─── PasswordPolicy ─────────────────────────────────────────────────
+    CreatePasswordPolicyRequest:
+      type: object
+      required: [schoolId, minLength, requireUppercase, requireLowercase, requireNumbers]
+      properties:
+        schoolId:
+          type: string
+          format: uuid
+          description: ID de la escuela
+        minLength:
+          type: integer
+          minimum: 6
+          maximum: 128
+          description: Longitud mínima de contraseña
+          example: 8
+        maxLength:
+          type: integer
+          minimum: 8
+          maximum: 256
+          nullable: true
+          description: Longitud máxima de contraseña
+          example: 128
+        requireUppercase:
+          type: boolean
+          description: Requiere al menos una mayúscula
+          example: true
+        requireLowercase:
+          type: boolean
+          description: Requiere al menos una minúscula
+          example: true
+        requireNumbers:
+          type: boolean
+          description: Requiere al menos un número
+          example: true
+        requireSpecialChars:
+          type: boolean
+          default: false
+          description: Requiere al menos un carácter especial
+        passwordExpirationDays:
+          type: integer
+          minimum: 0
+          maximum: 365
+          nullable: true
+          description: Días para expiración (0 = nunca)
+          example: 90
+        preventReuseCount:
+          type: integer
+          minimum: 0
+          maximum: 24
+          nullable: true
+          description: Contraseñas anteriores que no se pueden reutilizar
+          example: 5
+        specialCharsAllowed:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: Caracteres especiales permitidos
+
+    UpdatePasswordPolicyRequest:
+      type: object
+      properties:
+        minLength:
+          type: integer
+          minimum: 6
+          maximum: 128
+        maxLength:
+          type: integer
+          minimum: 8
+          maximum: 256
+          nullable: true
+        requireUppercase:
+          type: boolean
+        requireLowercase:
+          type: boolean
+        requireNumbers:
+          type: boolean
+        requireSpecialChars:
+          type: boolean
+        passwordExpirationDays:
+          type: integer
+          minimum: 0
+          maximum: 365
+          nullable: true
+        preventReuseCount:
+          type: integer
+          minimum: 0
+          maximum: 24
+          nullable: true
+        specialCharsAllowed:
+          type: string
+          nullable: true
+          maxLength: 50
+
+    PasswordPolicyResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, schoolId, minLength, requireUppercase, requireLowercase, requireNumbers]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            schoolId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            minLength:
+              type: integer
+              example: 8
+            maxLength:
+              type: integer
+              nullable: true
+              example: 128
+            requireUppercase:
+              type: boolean
+              example: true
+            requireLowercase:
+              type: boolean
+              example: true
+            requireNumbers:
+              type: boolean
+              example: true
+            requireSpecialChars:
+              type: boolean
+              example: false
+            passwordExpirationDays:
+              type: integer
+              nullable: true
+              example: 90
+            preventReuseCount:
+              type: integer
+              nullable: true
+              example: 5
+            specialCharsAllowed:
+              type: string
+              nullable: true
+
+  securitySchemes:
+    bearerAuth:
+      $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

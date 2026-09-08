@@ -1,0 +1,711 @@
+openapi: 3.0.3
+info:
+  title: Biometric Service API
+  version: 1.0.0
+  description: |
+    Servicio biométrico: gestión de embeddings faciales, huellas dactilares y casos de actualización facial.
+
+    ## Autenticación
+    Todos los endpoints requieren un JWT válido en el header:
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    ## Manejo de errores
+    Todos los errores siguen el esquema `ErrorResponse` definido en `_shared.yaml`.
+
+    ## Paginación
+    Los endpoints de lista soportan paginación via `?page=1&limit=20`.
+
+servers:
+  - url: http://localhost:8086
+    description: Local development
+  - url: https://api.dev.{domain}/api/v1/biometric
+    description: Development
+    variables:
+      domain:
+        default: example.com
+  - url: https://api.{domain}/api/v1/biometric
+    description: Production
+    variables:
+      domain:
+        default: example.com
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: FacialEmbedding
+    description: Gestión de embeddings faciales para reconocimiento
+  - name: FingerprintEmbedding
+    description: Gestión de embeddings de huellas dactilares
+  - name: FacialUpdateCase
+    description: Casos de actualización de plantilla facial
+  - name: Health
+    description: Estado del servicio
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  dependencies:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        enum: [ok, degraded, down]
+                      redis:
+                        type: string
+                        enum: [ok, degraded, down]
+                      vectorDb:
+                        type: string
+                        enum: [ok, degraded, down]
+              example:
+                status: ok
+                timestamp: '2024-01-15T10:30:00Z'
+                dependencies:
+                  database: ok
+                  redis: ok
+                  vectorDb: ok
+        '503':
+          description: Servicio no disponible
+
+  /facial-embeddings:
+    get:
+      summary: Listar embeddings faciales
+      operationId: listFacialEmbeddings
+      tags: [FacialEmbedding]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: personId
+          in: query
+          description: Filtrar por persona
+          schema:
+            type: string
+            format: uuid
+        - name: schoolId
+          in: query
+          description: Filtrar por escuela
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          description: Filtrar por estado
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, EXPIRED]
+      responses:
+        '200':
+          description: Lista de embeddings faciales
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FacialEmbeddingResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Registrar embedding facial
+      operationId: createFacialEmbedding
+      tags: [FacialEmbedding]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFacialEmbeddingRequest'
+            example:
+              personId: "550e8400-e29b-41d4-a716-446655440000"
+              schoolId: "660e8400-e29b-41d4-a716-446655440001"
+              embedding: [0.12, -0.34, 0.56, 0.78, -0.90, 0.11, -0.22, 0.33]
+              qualityScore: 0.92
+              imageUrl: "https://storage.example.com/faces/user123.jpg"
+      responses:
+        '201':
+          description: Embedding registrado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacialEmbeddingResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /facial-embeddings/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener embedding facial por ID
+      operationId: getFacialEmbeddingById
+      tags: [FacialEmbedding]
+      responses:
+        '200':
+          description: Embedding encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacialEmbeddingResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar embedding facial
+      operationId: updateFacialEmbedding
+      tags: [FacialEmbedding]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFacialEmbeddingRequest'
+      responses:
+        '200':
+          description: Embedding actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacialEmbeddingResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar embedding facial
+      operationId: deleteFacialEmbedding
+      tags: [FacialEmbedding]
+      responses:
+        '204':
+          description: Eliminado exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /fingerprint-embeddings:
+    get:
+      summary: Listar embeddings de huellas dactilares
+      operationId: listFingerprintEmbeddings
+      tags: [FingerprintEmbedding]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: personId
+          in: query
+          description: Filtrar por persona
+          schema:
+            type: string
+            format: uuid
+        - name: fingerType
+          in: query
+          description: Filtrar por tipo de dedo
+          schema:
+            type: string
+            enum: [RIGHT_THUMB, RIGHT_INDEX, RIGHT_MIDDLE, LEFT_THUMB, LEFT_INDEX, LEFT_MIDDLE]
+      responses:
+        '200':
+          description: Lista de embeddings de huellas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FingerprintEmbeddingResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Registrar embedding de huella dactilar
+      operationId: createFingerprintEmbedding
+      tags: [FingerprintEmbedding]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFingerprintEmbeddingRequest'
+            example:
+              personId: "550e8400-e29b-41d4-a716-446655440000"
+              fingerType: "RIGHT_INDEX"
+              template: "base64EncodedTemplateData..."
+              qualityScore: 0.88
+      responses:
+        '201':
+          description: Embedding registrado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FingerprintEmbeddingResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /fingerprint-embeddings/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener embedding de huella por ID
+      operationId: getFingerprintEmbeddingById
+      tags: [FingerprintEmbedding]
+      responses:
+        '200':
+          description: Embedding encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FingerprintEmbeddingResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar embedding de huella
+      operationId: updateFingerprintEmbedding
+      tags: [FingerprintEmbedding]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFingerprintEmbeddingRequest'
+      responses:
+        '200':
+          description: Embedding actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FingerprintEmbeddingResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar embedding de huella
+      operationId: deleteFingerprintEmbedding
+      tags: [FingerprintEmbedding]
+      responses:
+        '204':
+          description: Eliminado exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /facial-update-cases:
+    get:
+      summary: Listar casos de actualización facial
+      operationId: listFacialUpdateCases
+      tags: [FacialUpdateCase]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: personId
+          in: query
+          description: Filtrar por persona
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          description: Filtrar por estado
+          schema:
+            type: string
+            enum: [PENDING_REVIEW, APPROVED, REJECTED, COMPLETED]
+      responses:
+        '200':
+          description: Lista de casos de actualización
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FacialUpdateCaseResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear caso de actualización facial
+      operationId: createFacialUpdateCase
+      tags: [FacialUpdateCase]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFacialUpdateCaseRequest'
+            example:
+              personId: "550e8400-e29b-41d4-a716-446655440000"
+              reason: "Cambio de apariencia significativo"
+              newFaceImageUrl: "https://storage.example.com/faces/new_user123.jpg"
+      responses:
+        '201':
+          description: Caso creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacialUpdateCaseResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /facial-update-cases/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener caso de actualización por ID
+      operationId: getFacialUpdateCaseById
+      tags: [FacialUpdateCase]
+      responses:
+        '200':
+          description: Caso encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacialUpdateCaseResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar caso de actualización facial
+      operationId: updateFacialUpdateCase
+      tags: [FacialUpdateCase]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFacialUpdateCaseRequest'
+      responses:
+        '200':
+          description: Caso actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacialUpdateCaseResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './_shared.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar caso de actualización
+      operationId: deleteFacialUpdateCase
+      tags: [FacialUpdateCase]
+      responses:
+        '204':
+          description: Caso eliminado
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+components:
+  schemas:
+    # ─── FacialEmbedding ────────────────────────────────────────────────
+    CreateFacialEmbeddingRequest:
+      type: object
+      required: [personId, schoolId, embedding, qualityScore]
+      properties:
+        personId:
+          type: string
+          format: uuid
+          description: ID de la persona
+        schoolId:
+          type: string
+          format: uuid
+          description: ID de la escuela
+        embedding:
+          type: array
+          items:
+            type: number
+            format: float
+          minItems: 128
+          maxItems: 512
+          description: Vector de embedding facial
+        qualityScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Puntuación de calidad de la imagen
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: URL de la imagen original
+        metadata:
+          type: object
+          nullable: true
+          description: Metadatos adicionales (edad estimada, etc.)
+
+    UpdateFacialEmbeddingRequest:
+      type: object
+      properties:
+        embedding:
+          type: array
+          items:
+            type: number
+            format: float
+          minItems: 128
+          maxItems: 512
+        qualityScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, EXPIRED]
+
+    FacialEmbeddingResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, personId, schoolId, qualityScore, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            personId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            schoolId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            qualityScore:
+              type: number
+              format: float
+              example: 0.92
+            imageUrl:
+              type: string
+              format: uri
+              nullable: true
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE, EXPIRED]
+              example: ACTIVE
+            lastUsedAt:
+              type: string
+              format: date-time
+              nullable: true
+
+    # ─── FingerprintEmbedding ───────────────────────────────────────────
+    CreateFingerprintEmbeddingRequest:
+      type: object
+      required: [personId, fingerType, template, qualityScore]
+      properties:
+        personId:
+          type: string
+          format: uuid
+          description: ID de la persona
+        fingerType:
+          type: string
+          enum: [RIGHT_THUMB, RIGHT_INDEX, RIGHT_MIDDLE, LEFT_THUMB, LEFT_INDEX, LEFT_MIDDLE]
+          description: Tipo de dedo
+        template:
+          type: string
+          description: Template de huella dactilar (base64)
+          example: "base64EncodedTemplateData..."
+        qualityScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Puntuación de calidad
+
+    UpdateFingerprintEmbeddingRequest:
+      type: object
+      properties:
+        template:
+          type: string
+        qualityScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+
+    FingerprintEmbeddingResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, personId, fingerType, qualityScore, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            personId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            fingerType:
+              type: string
+              enum: [RIGHT_THUMB, RIGHT_INDEX, RIGHT_MIDDLE, LEFT_THUMB, LEFT_INDEX, LEFT_MIDDLE]
+              example: "RIGHT_INDEX"
+            qualityScore:
+              type: number
+              format: float
+              example: 0.88
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE]
+              example: ACTIVE
+            lastUsedAt:
+              type: string
+              format: date-time
+              nullable: true
+
+    # ─── FacialUpdateCase ───────────────────────────────────────────────
+    CreateFacialUpdateCaseRequest:
+      type: object
+      required: [personId, reason, newFaceImageUrl]
+      properties:
+        personId:
+          type: string
+          format: uuid
+          description: ID de la persona que solicita actualización
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Motivo de la actualización
+          example: "Cambio de apariencia significativo"
+        newFaceImageUrl:
+          type: string
+          format: uri
+          description: URL de la nueva imagen facial
+          example: "https://storage.example.com/faces/new_user123.jpg"
+
+    UpdateFacialUpdateCaseRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [APPROVED, REJECTED, COMPLETED]
+          description: Decisión del caso
+        reviewNotes:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: Notas del revisor
+        newEmbeddingId:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID del nuevo embedding generado (al completar)
+
+    FacialUpdateCaseResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, personId, reason, newFaceImageUrl, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            personId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            reason:
+              type: string
+              example: "Cambio de apariencia significativo"
+            newFaceImageUrl:
+              type: string
+              format: uri
+            status:
+              type: string
+              enum: [PENDING_REVIEW, APPROVED, REJECTED, COMPLETED]
+              example: PENDING_REVIEW
+            reviewNotes:
+              type: string
+              nullable: true
+            reviewedBy:
+              type: string
+              format: uuid
+              nullable: true
+            reviewedAt:
+              type: string
+              format: date-time
+              nullable: true
+            newEmbeddingId:
+              type: string
+              format: uuid
+              nullable: true
+
+  securitySchemes:
+    bearerAuth:
+      $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

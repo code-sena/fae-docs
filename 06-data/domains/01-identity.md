@@ -4,95 +4,81 @@
 > **DB Engine:** PostgreSQL 17 — ACID transactions, relational integrity, multi-tenant isolation
 >
 > **Engine justification:**
-> - Strong relational guarantees for school-person-user relationships.
+> - Strong relational guarantees for person-user relationships.
 > - UUID primary keys for distributed ID generation across microservices.
 > - TIMESTAMPTZ for timezone-aware audit fields.
+> - Optimistic locking via `row_version` for concurrent update safety.
 
 ---
 
-## 1. Table: school
+## 1. Table: city
 
-**Purpose:** Institutional record of each school in the multi-tenant platform.
+**Purpose:** Catalog of cities. Referenced by school in the Academic context.
 
 ```sql
-CREATE TABLE school (
+CREATE TABLE city (
   -- Business fields
-  school_id     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  city_id       SERIAL      PRIMARY KEY,
   name          VARCHAR     NOT NULL,
-  nit           VARCHAR     NOT NULL UNIQUE,
-  address       VARCHAR,
-  district      VARCHAR,
-  phone         VARCHAR,
-  email         VARCHAR,
-
-  -- Status fields
-  status        BOOLEAN     NOT NULL DEFAULT true,
+  department    VARCHAR,
 
   -- Audit (in all tables)
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at    TIMESTAMPTZ,
   created_by    UUID,
-  updated_by    UUID
+  updated_by    UUID,
+  deleted_by    UUID,
+  row_version   BIGINT      NOT NULL DEFAULT 1
 );
-
-CREATE UNIQUE INDEX uq_school_nit ON school (nit);
-CREATE INDEX idx_school_deleted ON school (deleted_at) WHERE deleted_at IS NULL;
 ```
 
 **Data dictionary:**
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
-| school_id | UUID | Auto-generated unique identifier for the school | `550e8400-e29b-41d4-a716-446655440000` |
-| name | VARCHAR | Institution name | `Escuela Nacional` |
-| nit | VARCHAR | Tax identification number (NIT), globally unique | `900123456-7` |
-| address | VARCHAR | Physical address | `Calle 123 #45-67` |
-| district | VARCHAR | District or zone the school belongs to | `Centro` |
-| phone | VARCHAR | Contact phone number | `+57 300 123 4567` |
-| email | VARCHAR | Institutional email address | `info@escuela.edu.co` |
-| status | BOOLEAN | Active/inactive flag (soft delete alternative) | `true` |
+| city_id | SERIAL | Auto-incremental city identifier | `1` |
+| name | VARCHAR | City name | `Bogota` |
+| department | VARCHAR | Department/state the city belongs to | `Cundinamarca` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
-
-**Modeling decisions:**
-1. `nit` is globally unique — each school is identified by its tax ID.
-2. `school_id` is the logical partition key (multi-tenant): all other tables reference this ID as an isolation filter.
-3. Soft delete via `deleted_at`: records are never physically deleted, enabling audit and recovery.
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
 
 ---
 
 ## 2. Table: person
 
-**Purpose:** Generic record of any person associated with a school (student, teacher, admin staff, etc.).
+**Purpose:** Generic record of any person in the system (student, instructor, admin, etc.).
 
 ```sql
 CREATE TABLE person (
   -- Business fields
-  person_id   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  school_id   UUID        NOT NULL,
-  name        VARCHAR     NOT NULL,
-  last_name   VARCHAR     NOT NULL,
-  email       VARCHAR,
-  phone       VARCHAR,
-  rh          VARCHAR(3),
+  person_id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_number   VARCHAR     NOT NULL,
+  name              VARCHAR     NOT NULL,
+  last_name         VARCHAR     NOT NULL,
+  email             VARCHAR,
+  phone             VARCHAR,
 
   -- Status fields
-  status      BOOLEAN     NOT NULL DEFAULT true,
+  status            BOOLEAN     NOT NULL DEFAULT true,
 
   -- Audit (in all tables)
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at  TIMESTAMPTZ,
-  created_by  UUID,
-  updated_by  UUID
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMPTZ,
+  created_by        UUID,
+  updated_by        UUID,
+  deleted_by        UUID,
+  row_version       BIGINT      NOT NULL DEFAULT 1
 );
 
-CREATE UNIQUE INDEX uq_person_email_school ON person (school_id, email);
-CREATE INDEX idx_person_school ON person (school_id);
+CREATE UNIQUE INDEX uq_person_document ON person (document_number);
+CREATE INDEX idx_person_email ON person (email);
 CREATE INDEX idx_person_deleted ON person (deleted_at) WHERE deleted_at IS NULL;
 ```
 
@@ -100,42 +86,42 @@ CREATE INDEX idx_person_deleted ON person (deleted_at) WHERE deleted_at IS NULL;
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
-| person_id | UUID | Auto-generated unique identifier for the person | `550e8400-e29b-41d4-a716-446655440001` |
-| school_id | UUID | School this person belongs to (FK → school) | `550e8400-...` |
+| person_id | UUID | Auto-generated unique identifier | `550e8400-e29b-41d4-a716-446655440001` |
+| document_number | VARCHAR | National ID / document number, globally unique | `1234567890` |
 | name | VARCHAR | First name(s) | `Juan` |
 | last_name | VARCHAR | Last name(s) | `Perez` |
-| email | VARCHAR | Email address | `juan@escuela.edu.co` |
+| email | VARCHAR | Email address | `juan@example.com` |
 | phone | VARCHAR | Phone number | `+57 300 987 6543` |
-| rh | VARCHAR(3) | Blood type (A+, O-, etc.) | `O+` |
 | status | BOOLEAN | Active/inactive flag | `true` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
 
 **Modeling decisions:**
-1. `Person` is a shared base table; Student, Teacher, and User reference it by `person_id`.
-2. The pair (school_id, email) is unique — the same person can have different emails across different schools.
-3. `rh` (blood type) is stored as VARCHAR(3) matching the ENUM Blood_Type values, useful for medical emergencies.
+1. `document_number` is globally unique — each person is identified by their national ID.
+2. No `school_id` — a person can exist in multiple schools via `academic_actor`.
+3. Soft delete via `deleted_at` preserves history; `deleted_by` tracks who removed it.
 
 ---
 
-## 3. Table: "user"
+## 3. Table: app_user
 
-**Purpose:** Login credentials and authentication record for a system user. Linked 1:1 with Person.
+**Purpose:** Login credentials and authentication record. Linked 1:1 with Person.
 
 ```sql
-CREATE TABLE "user" (
+CREATE TABLE app_user (
   -- Business fields
   user_id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   person_id           UUID        NOT NULL UNIQUE,
-  username            VARCHAR     NOT NULL UNIQUE,
+  username            VARCHAR     NOT NULL,
   password_hash       VARCHAR     NOT NULL,
   authentication_type VARCHAR     NOT NULL,
-
-  -- Status fields
   status              BOOLEAN     NOT NULL DEFAULT true,
+  last_access         TIMESTAMPTZ,
 
   -- Audit (in all tables)
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -143,97 +129,137 @@ CREATE TABLE "user" (
   deleted_at          TIMESTAMPTZ,
   created_by          UUID,
   updated_by          UUID,
-
-  -- Extra
-  last_access         TIMESTAMPTZ
+  deleted_by          UUID,
+  row_version         BIGINT      NOT NULL DEFAULT 1
 );
 
-CREATE UNIQUE INDEX uq_user_username ON "user" (username);
-CREATE UNIQUE INDEX uq_user_person ON "user" (person_id);
-CREATE INDEX idx_user_deleted ON "user" (deleted_at) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_user_username ON app_user (username);
 ```
 
 **Data dictionary:**
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
-| user_id | UUID | Auto-generated unique identifier for the user | `550e8400-e29b-41d4-a716-446655440002` |
-| person_id | UUID | Linked person (1:1 relationship, FK → person) | `550e8400-...` |
+| user_id | UUID | Auto-generated unique identifier | `550e8400-e29b-41d4-a716-446655440002` |
+| person_id | UUID | Linked person (1:1, FK → person) | `550e8400-...` |
 | username | VARCHAR | Login username, globally unique | `jperez` |
-| password_hash | VARCHAR | Hashed password (never stored in plaintext) | `$2b$10$...` |
-| authentication_type | VARCHAR | Auth method: Local, Windows, or External | `Local` |
+| password_hash | VARCHAR | Hashed password (never plaintext) | `$2b$10$...` |
+| authentication_type | VARCHAR | Auth method: Local, Windows, External | `Local` |
 | status | BOOLEAN | Active/inactive flag | `true` |
+| last_access | TIMESTAMPTZ | Last login timestamp | `2024-06-01T08:15:00Z` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
-| last_access | TIMESTAMPTZ | Last login timestamp | `2024-06-01T08:15:00Z` |
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
 
 **Modeling decisions:**
 1. 1:1 relationship with Person — each person has at most one user account.
-2. `authentication_type` supports multiple methods: local (password), Windows (AD/LDAP), or external (OAuth).
+2. `authentication_type` supports: Local (password), Windows (AD/LDAP), External (OAuth).
 3. `last_access` enables inactive user detection and activity auditing.
 
 ---
 
 ## 4. Table: user_session
 
-**Purpose:** Record of each user login session to the system.
+**Purpose:** Record of each user login session.
 
 ```sql
 CREATE TABLE user_session (
   -- Business fields
-  session_id     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id        UUID        NOT NULL,
-  start_date     TIMESTAMPTZ NOT NULL,
-  end_date       TIMESTAMPTZ,
-  source_ip      VARCHAR,
+  session_id      UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID        NOT NULL,
+  start_date      TIMESTAMPTZ NOT NULL,
+  end_date        TIMESTAMPTZ,
+  source_ip       VARCHAR,
 
   -- Status fields
-  session_status VARCHAR     NOT NULL,
+  session_status  VARCHAR     NOT NULL,
 
   -- Audit (in all tables)
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at     TIMESTAMPTZ,
-  created_by     UUID,
-  updated_by     UUID
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at      TIMESTAMPTZ,
+  created_by      UUID,
+  updated_by      UUID,
+  deleted_by      UUID,
+  row_version     BIGINT      NOT NULL DEFAULT 1
 );
 
 CREATE INDEX idx_session_user ON user_session (user_id);
 CREATE INDEX idx_session_status ON user_session (session_status);
-CREATE INDEX idx_session_deleted ON user_session (deleted_at) WHERE deleted_at IS NULL;
 ```
 
 **Data dictionary:**
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
-| session_id | UUID | Auto-generated unique session identifier | `550e8400-e29b-41d4-a716-446655440003` |
-| user_id | UUID | Session owner (FK → "user") | `550e8400-...` |
+| session_id | UUID | Auto-generated unique session identifier | `550e8400-...` |
+| user_id | UUID | Session owner (FK → app_user) | `550e8400-...` |
 | start_date | TIMESTAMPTZ | Session start time | `2024-06-01T08:15:00Z` |
-| end_date | TIMESTAMPTZ | Session end time (NULL if still active) | `NULL` |
+| end_date | TIMESTAMPTZ | Session end time (NULL if active) | `NULL` |
 | source_ip | VARCHAR | Client IP address | `192.168.1.100` |
-| session_status | VARCHAR | Session state: Active or Closed | `Active` |
+| session_status | VARCHAR | State: Active or Closed | `Active` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T08:15:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T08:15:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
-
-**Modeling decisions:**
-1. `session_status` is VARCHAR instead of BOOLEAN to support future states (e.g., Expired, Locked).
-2. `end_date` NULL indicates an active session — efficient way to detect open sessions.
-3. `source_ip` enables security auditing and suspicious access detection.
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
 
 ---
 
-## 5. Enums
+## 5. Table: password_policy
 
-| Enum | Values |
-|------|--------|
-| Blood_Type | A+, A-, B+, B-, AB+, AB-, O+, O- |
+**Purpose:** System password policy (complexity requirements, expiration).
+
+```sql
+CREATE TABLE password_policy (
+  -- Business fields
+  policy_id           SERIAL      PRIMARY KEY,
+  min_length          INT         NOT NULL DEFAULT 8,
+  max_length          INT         NOT NULL DEFAULT 20,
+  requires_uppercase  BOOLEAN     NOT NULL DEFAULT true,
+  requires_numbers    BOOLEAN     NOT NULL DEFAULT true,
+  requires_symbols    BOOLEAN     NOT NULL DEFAULT true,
+  expiration_days     INT         NOT NULL DEFAULT 90,
+
+  -- Audit (in all tables)
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at          TIMESTAMPTZ,
+  created_by          UUID,
+  updated_by          UUID,
+  deleted_by          UUID,
+  row_version         BIGINT      NOT NULL DEFAULT 1
+);
+```
+
+**Data dictionary:**
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| policy_id | SERIAL | Auto-incremental policy identifier | `1` |
+| min_length | INT | Minimum password length | `8` |
+| max_length | INT | Maximum password length | `20` |
+| requires_uppercase | BOOLEAN | Requires at least one uppercase letter | `true` |
+| requires_numbers | BOOLEAN | Requires at least one number | `true` |
+| requires_symbols | BOOLEAN | Requires at least one symbol | `true` |
+| expiration_days | INT | Days before password expires | `90` |
+| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_by | UUID | User who created this record | `550e8400-...` |
+| updated_by | UUID | User who last updated this record | `550e8400-...` |
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
+
+**Modeling decisions:**
+1. Singleton table (one policy for the entire system) — not multi-tenant.
+2. Sensible defaults adjustable by an administrator.
 
 ---
 
@@ -241,27 +267,21 @@ CREATE INDEX idx_session_deleted ON user_session (deleted_at) WHERE deleted_at I
 
 ```mermaid
 erDiagram
-    SCHOOL {
-        uuid school_id PK
+    CITY {
+        serial city_id PK
         varchar name
-        varchar nit UK
-        varchar address
-        varchar district
-        varchar phone
-        varchar email
-        boolean status
+        varchar department
     }
     PERSON {
         uuid person_id PK
-        uuid school_id FK
+        varchar document_number UK
         varchar name
         varchar last_name
         varchar email
         varchar phone
-        varchar rh
         boolean status
     }
-    USER {
+    APP_USER {
         uuid user_id PK
         uuid person_id FK
         varchar username UK
@@ -279,9 +299,8 @@ erDiagram
         varchar session_status
     }
 
-    SCHOOL ||--o{ PERSON : "has"
-    PERSON ||--|| USER : "has"
-    USER ||--o{ USER_SESSION : "generates"
+    PERSON ||--|| APP_USER : "has"
+    APP_USER ||--o{ USER_SESSION : "generates"
 ```
 
 ---
@@ -290,13 +309,11 @@ erDiagram
 
 | From | To | Reference Type | Mechanism |
 |------|----|----------------|-----------|
-| Person.school_id | School.school_id | FK (internal) | Direct relationship within Identity |
-| Authorization.User_Role.user_id | User.user_id | External ID (no FK) | Cross-context reference by UUID |
-| Academic.Student.person_id | Person.person_id | External ID (no FK) | Cross-context reference by UUID |
-| Academic.Teacher.person_id | Person.person_id | External ID (no FK) | Cross-context reference by UUID |
-| Attendance.Justification.reviewed_by | User.user_id | External ID (no FK) | Cross-context reference by UUID |
-| Configuration.Facial_Update_Case.requested_by | User.user_id | External ID (no FK) | Cross-context reference by UUID |
-| Audit.Audit_Event.actor_id | User.user_id | External ID (no FK) | Cross-context reference by UUID |
+| Authorization.User_Role.user_id | App_User.user_id | External ID (no FK) | Cross-context reference by UUID |
+| Academic.Academic_Actor.person_id | Person.person_id | External ID (no FK) | Cross-context reference by UUID |
+| Attendance.Justification.reviewed_by | App_User.user_id | External ID (no FK) | Cross-context reference by UUID |
+| Configuration.Biometric_Update_Case.requested_by | App_User.user_id | External ID (no FK) | Cross-context reference by UUID |
+| Audit.Audit_Log.actor_id | App_User.user_id | External ID (no FK) | Cross-context reference by UUID |
 
 ---
 

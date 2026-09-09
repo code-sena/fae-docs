@@ -97,7 +97,7 @@ import { PostgreSqlContainer } from '@testcontainers/postgresql';
 let pgContainer: StartedPostgreSqlContainer;
 
 beforeAll(async () => {
-  pgContainer = await new PostgreSqlContainer('postgres:15')
+  pgContainer = await new PostgreSqlContainer('postgres:17')
     .withDatabase('test_db')
     .withUsername('test')
     .withPassword('test')
@@ -225,7 +225,7 @@ jobs:
   integration-tests:
     services:
       postgres:
-        image: postgres:15
+        image: postgres:17
       redis:
         image: redis:7
     steps:

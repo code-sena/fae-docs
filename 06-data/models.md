@@ -27,10 +27,14 @@ Communication between services is always via API or events.
 All tables include:
 
 ```sql
-id          UUID        PRIMARY KEY  DEFAULT gen_random_uuid(),
-created_at  TIMESTAMPTZ NOT NULL     DEFAULT NOW(),
-updated_at  TIMESTAMPTZ NOT NULL     DEFAULT NOW(),
-deleted_at  TIMESTAMPTZ              -- NULL = active (soft delete)
+-- Audit (in all tables)
+created_at      TIMESTAMPTZ NOT NULL     DEFAULT NOW(),
+updated_at      TIMESTAMPTZ NOT NULL     DEFAULT NOW(),
+deleted_at      TIMESTAMPTZ              -- NULL = active (soft delete)
+created_by      UUID                     -- User who created the record
+updated_by      UUID                     -- User who last updated the record
+deleted_by      UUID                     -- User who soft-deleted the record
+row_version     BIGINT      NOT NULL     DEFAULT 1  -- Optimistic lock counter
 ```
 
 ### 3. Soft delete by default
@@ -40,18 +44,20 @@ This facilitates auditing and recovery.
 ### 4. Naming conventions
 
 ```sql
--- Tables:      snake_case, plural              → orders, order_items, users
--- Columns:     snake_case, descriptive         → unit_price, delivery_date
--- FKs:         [referenced_table]_id           → customer_id, product_id
--- Indexes:     idx_[table]_[column(s)]         → idx_orders_customer_id
+-- Tables:      snake_case, singular             → school, person, attendance_record
+-- Columns:     snake_case, descriptive          → credit_hours, starts_at
+-- FKs:         [referenced_table]_id            → school_id, person_id
+-- Indexes:     idx_[table]_[column(s)]          → idx_attendance_session_actor
+-- Unique:      uq_[table]_[column(s)]           → uq_enrollment_actor_cohort
 -- Timestamps:  always with timezone (TIMESTAMPTZ, not TIMESTAMP)
+-- Enums:       stored as VARCHAR with application-level validation
 ```
 
 ---
 
 ## Service: [service-name]
 
-**DB Engine:** PostgreSQL 15 / MongoDB 7 / Redis 7 — [justification for the choice]
+**DB Engine:** PostgreSQL 17 / MongoDB 7 / Redis 7 — [justification for the choice]
 
 **Engine justification:**
 - [Why this engine for this service. E.g.: "PostgreSQL for ACID support in financial transactions"]
@@ -63,33 +69,32 @@ This facilitates auditing and recovery.
 
 ```sql
 CREATE TABLE [table_name] (
-  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  
   -- Business fields
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   [field1]        [TYPE]      NOT NULL,
   [field2]        [TYPE],
   [field3]        [TYPE]      NOT NULL DEFAULT [value],
-  
+
   -- Relationships
   [reference]_id  UUID        REFERENCES [referenced_table](id) ON DELETE RESTRICT,
-  
+
   -- Status fields
   status          VARCHAR(50) NOT NULL DEFAULT 'ACTIVE'
                   CHECK (status IN ('ACTIVE', 'INACTIVE', 'CANCELLED')),
-  
+
   -- Audit (in all tables)
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at      TIMESTAMPTZ,
   created_by      UUID,
-  updated_by      UUID
+  updated_by      UUID,
+  deleted_by      UUID,
+  row_version     BIGINT      NOT NULL DEFAULT 1
 );
 
 -- Indexes
 CREATE INDEX idx_[table]_[field] ON [table_name] ([field]);
 CREATE INDEX idx_[table]_deleted ON [table_name] (deleted_at) WHERE deleted_at IS NULL;
--- For frequent searches:
-CREATE INDEX idx_[table]_[search_field] ON [table_name] ([search_field]);
 ```
 
 **Data dictionary:**
@@ -100,7 +105,12 @@ CREATE INDEX idx_[table]_[search_field] ON [table_name] ([search_field]);
 | [field1] | [TYPE] | [Business description] | [Example] |
 | status | VARCHAR(50) | Lifecycle status | `ACTIVE` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = deleted | `NULL` |
+| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_by | UUID | User who created this record | `550e8400-...` |
+| updated_by | UUID | User who last updated this record | `550e8400-...` |
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
 
 **Modeling decisions:**
 1. [Why field X is NOT NULL and not nullable]
@@ -113,16 +123,19 @@ CREATE INDEX idx_[table]_[search_field] ON [table_name] ([search_field]);
 
 ```sql
 CREATE TABLE [related_table] (
+  -- Business fields
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   [principal]_id  UUID        NOT NULL REFERENCES [principal_table](id) ON DELETE CASCADE,
-  
-  -- Fields
   [field]         [TYPE]      NOT NULL,
-  
-  -- Audit
+
+  -- Audit (in all tables)
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at      TIMESTAMPTZ
+  deleted_at      TIMESTAMPTZ,
+  created_by      UUID,
+  updated_by      UUID,
+  deleted_by      UUID,
+  row_version     BIGINT      NOT NULL DEFAULT 1
 );
 
 CREATE INDEX idx_[related_table]_[principal]_id ON [related_table] ([principal]_id);

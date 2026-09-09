@@ -1,42 +1,36 @@
 # Domain: Academic
 
 > **Owner:** Academic bounded context
-> **DB Engine:** PostgreSQL 17 — ACID transactions, complex relationships, schedule conflict prevention
+> **DB Engine:** PostgreSQL 17 — ACID transactions, complex relationships, enrollment management
 >
 > **Engine justification:**
-> - Complex relational model with multiple FKs and unique constraints for schedule conflict prevention.
-> - SERIAL/BIGSERIAL keys for high-volume tables (enrollment, schedule).
+> - Complex relational model with multiple FKs for school-program-cohort-course hierarchy.
+> - Unified `academic_actor` replaces separate Student/Teacher tables.
 
 ---
 
 ## Design Principles
 
-- Academic owns: student, teacher, course, classroom, period, enrollment, schedule.
-- Person does **NOT** own Student/Teacher — they are academic profiles.
-- Student and Teacher reference Person by `person_id` as external IDs (no cross-context FK).
+- Academic owns: school, program, academic_period, cohort, course, academic_actor_type, academic_actor, enrollment.
+- `person_id` in academic_actor is an external reference to Identity — no cross-context FK.
+- `academic_actor` unifies students and instructors under a single table with `actor_type`.
 
 ---
 
-## 1. Enums
+## 1. Table: school
 
-| Enum | Values |
-|------|--------|
-| Enrollment_Status | Active, Withdrawn, Completed |
-| Days | Lunes, Martes, Miercoles, Jueves, Viernes, Sabado, Domingo |
-
----
-
-## 2. Table: student
-
-**Purpose:** Academic profile of a student. Linked to a Person by `person_id`.
+**Purpose:** Institutional record of each school in the multi-tenant platform.
 
 ```sql
-CREATE TABLE student (
+CREATE TABLE school (
   -- Business fields
-  student_id    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  school_id     UUID        NOT NULL,
-  person_id     UUID        NOT NULL UNIQUE,
-  student_code  VARCHAR     NOT NULL,
+  school_id     SERIAL      PRIMARY KEY,
+  code          VARCHAR     NOT NULL UNIQUE,
+  name          VARCHAR     NOT NULL,
+  city_id       INT         NOT NULL,
+  address       VARCHAR,
+  phone         VARCHAR,
+  email         VARCHAR,
 
   -- Status fields
   status        BOOLEAN     NOT NULL DEFAULT true,
@@ -46,47 +40,50 @@ CREATE TABLE student (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at    TIMESTAMPTZ,
   created_by    UUID,
-  updated_by    UUID
+  updated_by    UUID,
+  deleted_by    UUID,
+  row_version   BIGINT      NOT NULL DEFAULT 1
 );
-
-CREATE UNIQUE INDEX uq_student_code_school ON student (school_id, student_code);
-CREATE UNIQUE INDEX uq_student_person ON student (person_id);
-CREATE INDEX idx_student_deleted ON student (deleted_at) WHERE deleted_at IS NULL;
 ```
 
 **Data dictionary:**
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
-| student_id | UUID | Auto-generated unique identifier for the student | `550e8400-e29b-41d4-a716-446655440010` |
-| school_id | UUID | School the student belongs to | `550e8400-...` |
-| person_id | UUID | Linked person (external ID → Identity.person) | `550e8400-...` |
-| student_code | VARCHAR | Institutional student code | `EST-2024-001` |
+| school_id | SERIAL | Auto-incremental school identifier | `1` |
+| code | VARCHAR | Unique school code | `ESC-001` |
+| name | VARCHAR | Institution name | `Escuela Nacional` |
+| city_id | INT | City where the school is located (FK → Identity.city) | `1` |
+| address | VARCHAR | Physical address | `Calle 123 #45-67` |
+| phone | VARCHAR | Contact phone number | `+57 300 123 4567` |
+| email | VARCHAR | Institutional email | `info@escuela.edu.co` |
 | status | BOOLEAN | Active/inactive flag | `true` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
 
 **Modeling decisions:**
-1. `student_code` is the institutional code — may differ from the UUID.
-2. 1:1 relationship with Person via `person_id` (no cross-context FK).
-3. A student belongs to a single school.
+1. `school_id` is SERIAL (not UUID) — internal identifier, not exposed cross-context.
+2. `code` is the business identifier used in APIs and reports.
+3. `city_id` is a reference to Identity.city (cross-context, no FK).
 
 ---
 
-## 3. Table: teacher
+## 2. Table: program
 
-**Purpose:** Academic profile of a teacher. Linked to a Person by `person_id`.
+**Purpose:** Academic programs offered by a school (e.g., Engineering, Medicine).
 
 ```sql
-CREATE TABLE teacher (
+CREATE TABLE program (
   -- Business fields
-  teacher_id    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  school_id     UUID        NOT NULL,
-  person_id     UUID        NOT NULL UNIQUE,
-  teacher_code  VARCHAR     NOT NULL,
+  program_id    SERIAL      PRIMARY KEY,
+  school_id     INT         NOT NULL,
+  code          VARCHAR     NOT NULL,
+  name          VARCHAR     NOT NULL,
 
   -- Status fields
   status        BOOLEAN     NOT NULL DEFAULT true,
@@ -96,42 +93,139 @@ CREATE TABLE teacher (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at    TIMESTAMPTZ,
   created_by    UUID,
-  updated_by    UUID
+  updated_by    UUID,
+  deleted_by    UUID,
+  row_version   BIGINT      NOT NULL DEFAULT 1
 );
 
-CREATE UNIQUE INDEX uq_teacher_code_school ON teacher (school_id, teacher_code);
-CREATE UNIQUE INDEX uq_teacher_person ON teacher (person_id);
-CREATE INDEX idx_teacher_deleted ON teacher (deleted_at) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_program_code_school ON program (school_id, code);
 ```
 
 **Data dictionary:**
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
-| teacher_id | UUID | Auto-generated unique identifier for the teacher | `550e8400-e29b-41d4-a716-446655440011` |
-| school_id | UUID | School the teacher belongs to | `550e8400-...` |
-| person_id | UUID | Linked person (external ID → Identity.person) | `550e8400-...` |
-| teacher_code | VARCHAR | Institutional teacher code | `PROF-2024-001` |
+| program_id | SERIAL | Auto-incremental program identifier | `1` |
+| school_id | INT | Owning school (FK → school) | `1` |
+| code | VARCHAR | Program code within the school | `ING-SIS` |
+| name | VARCHAR | Program name | `Systems Engineering` |
 | status | BOOLEAN | Active/inactive flag | `true` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
 
 ---
 
-## 4. Table: course
+## 3. Table: academic_period
 
-**Purpose:** Catalog of courses/subjects taught at the school.
+**Purpose:** Academic periods (semesters, trimesters).
+
+```sql
+CREATE TABLE academic_period (
+  -- Business fields
+  academic_period_id  SERIAL      PRIMARY KEY,
+  school_id           INT         NOT NULL,
+  name                VARCHAR     NOT NULL,
+  starts_on           DATE        NOT NULL,
+  ends_on             DATE        NOT NULL,
+
+  -- Status fields
+  is_active           BOOLEAN     NOT NULL DEFAULT false,
+
+  -- Audit (in all tables)
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at          TIMESTAMPTZ,
+  created_by          UUID,
+  updated_by          UUID,
+  deleted_by          UUID,
+  row_version         BIGINT      NOT NULL DEFAULT 1
+);
+
+CREATE UNIQUE INDEX uq_period_name_school ON academic_period (school_id, name);
+```
+
+**Data dictionary:**
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| academic_period_id | SERIAL | Auto-incremental period identifier | `1` |
+| school_id | INT | Owning school (FK → school) | `1` |
+| name | VARCHAR | Period name | `2026-S1` |
+| starts_on | DATE | Period start date | `2026-01-15` |
+| ends_on | DATE | Period end date | `2026-06-30` |
+| is_active | BOOLEAN | Whether this is the current active period | `true` |
+| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_by | UUID | User who created this record | `550e8400-...` |
+| updated_by | UUID | User who last updated this record | `550e8400-...` |
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
+
+---
+
+## 4. Table: cohort
+
+**Purpose:** A group of students enrolled in a program for a specific period.
+
+```sql
+CREATE TABLE cohort (
+  -- Business fields
+  cohort_id           BIGSERIAL   PRIMARY KEY,
+  program_id          INT         NOT NULL,
+  academic_period_id  INT         NOT NULL,
+  code                VARCHAR     NOT NULL UNIQUE,
+
+  -- Status fields
+  status              BOOLEAN     NOT NULL DEFAULT true,
+
+  -- Audit (in all tables)
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at          TIMESTAMPTZ,
+  created_by          UUID,
+  updated_by          UUID,
+  deleted_by          UUID,
+  row_version         BIGINT      NOT NULL DEFAULT 1
+);
+```
+
+**Data dictionary:**
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| cohort_id | BIGSERIAL | Auto-incremental cohort identifier | `1` |
+| program_id | INT | Program (FK → program) | `1` |
+| academic_period_id | INT | Academic period (FK → academic_period) | `1` |
+| code | VARCHAR | Globally unique cohort code | `ING-SIS-2026-S1-01` |
+| status | BOOLEAN | Active/inactive flag | `true` |
+| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_by | UUID | User who created this record | `550e8400-...` |
+| updated_by | UUID | User who last updated this record | `550e8400-...` |
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
+
+---
+
+## 5. Table: course
+
+**Purpose:** Courses within a program, with credit hours.
 
 ```sql
 CREATE TABLE course (
   -- Business fields
   course_id     SERIAL      PRIMARY KEY,
-  school_id     UUID        NOT NULL,
-  course_name   VARCHAR     NOT NULL,
-  course_code   VARCHAR     NOT NULL,
+  program_id    INT         NOT NULL,
+  code          VARCHAR     NOT NULL,
+  name          VARCHAR     NOT NULL,
+  credit_hours  SMALLINT    NOT NULL,
 
   -- Status fields
   status        BOOLEAN     NOT NULL DEFAULT true,
@@ -141,11 +235,12 @@ CREATE TABLE course (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at    TIMESTAMPTZ,
   created_by    UUID,
-  updated_by    UUID
+  updated_by    UUID,
+  deleted_by    UUID,
+  row_version   BIGINT      NOT NULL DEFAULT 1
 );
 
-CREATE UNIQUE INDEX uq_course_code_school ON course (school_id, course_code);
-CREATE INDEX idx_course_deleted ON course (deleted_at) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_course_code_program ON course (program_id, code);
 ```
 
 **Data dictionary:**
@@ -153,148 +248,151 @@ CREATE INDEX idx_course_deleted ON course (deleted_at) WHERE deleted_at IS NULL;
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
 | course_id | SERIAL | Auto-incremental course identifier | `1` |
-| school_id | UUID | Owning school | `550e8400-...` |
-| course_name | VARCHAR | Course name | `Mathematics` |
-| course_code | VARCHAR | Course code | `MAT-101` |
+| program_id | INT | Owning program (FK → program) | `1` |
+| code | VARCHAR | Course code within the program | `MAT-101` |
+| name | VARCHAR | Course name | `Calculus I` |
+| credit_hours | SMALLINT | Number of credit hours | `4` |
 | status | BOOLEAN | Active/inactive flag | `true` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
 
 ---
 
-## 5. Table: classroom
+## 6. Table: academic_actor_type
 
-**Purpose:** Record of physical classrooms where classes are held.
+**Purpose:** Catalog of academic actor types (STUDENT, INSTRUCTOR).
 
 ```sql
-CREATE TABLE classroom (
+CREATE TABLE academic_actor_type (
   -- Business fields
-  classroom_id    SERIAL      PRIMARY KEY,
-  school_id       UUID        NOT NULL,
-  classroom_name  VARCHAR     NOT NULL,
-
-  -- Status fields
-  status          BOOLEAN     NOT NULL DEFAULT true,
+  actor_type_id SMALLINT    PRIMARY KEY,
+  code          VARCHAR     NOT NULL UNIQUE,
+  name          VARCHAR     NOT NULL,
 
   -- Audit (in all tables)
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at      TIMESTAMPTZ,
-  created_by      UUID,
-  updated_by      UUID
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at    TIMESTAMPTZ,
+  created_by    UUID,
+  updated_by    UUID,
+  deleted_by    UUID,
+  row_version   BIGINT      NOT NULL DEFAULT 1
 );
-
-CREATE UNIQUE INDEX uq_classroom_name_school ON classroom (school_id, classroom_name);
-CREATE INDEX idx_classroom_deleted ON classroom (deleted_at) WHERE deleted_at IS NULL;
 ```
 
 **Data dictionary:**
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
-| classroom_id | SERIAL | Auto-incremental classroom identifier | `1` |
-| school_id | UUID | Owning school | `550e8400-...` |
-| classroom_name | VARCHAR | Classroom name | `Room 101` |
-| status | BOOLEAN | Active/inactive flag | `true` |
+| actor_type_id | SMALLINT | Auto-incremental type identifier | `1` |
+| code | VARCHAR | Type code (unique) | `STUDENT` |
+| name | VARCHAR | Type name | `Student` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
 
 ---
 
-## 6. Table: period
+## 7. Table: academic_actor
 
-**Purpose:** Academic periods (semesters, trimesters, etc.).
-
-```sql
-CREATE TABLE period (
-  -- Business fields
-  period_id   SERIAL      PRIMARY KEY,
-  school_id   UUID        NOT NULL,
-  name        VARCHAR     NOT NULL,
-  start_date  DATE        NOT NULL,
-  end_date    DATE        NOT NULL,
-
-  -- Status fields
-  is_active   BOOLEAN     NOT NULL DEFAULT false,
-
-  -- Audit (in all tables)
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at  TIMESTAMPTZ,
-  created_by  UUID,
-  updated_by  UUID
-);
-
-CREATE UNIQUE INDEX uq_period_name_school ON period (school_id, name);
-CREATE INDEX idx_period_deleted ON period (deleted_at) WHERE deleted_at IS NULL;
-```
-
-**Data dictionary:**
-
-| Column | Type | Description | Example |
-|--------|------|-------------|---------|
-| period_id | SERIAL | Auto-incremental period identifier | `1` |
-| school_id | UUID | Owning school | `550e8400-...` |
-| name | VARCHAR | Period name | `2026-S1` |
-| start_date | DATE | Period start date | `2026-01-15` |
-| end_date | DATE | Period end date | `2026-06-30` |
-| is_active | BOOLEAN | Whether this is the current active period | `true` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
-| created_by | UUID | User who created this record | `550e8400-...` |
-| updated_by | UUID | User who last updated this record | `550e8400-...` |
-
-**Modeling decisions:**
-1. `is_active` allows identifying the current period without computing date ranges.
-2. Only one period can be active per school (business rule, not schema-level).
-
----
-
-## 7. Table: enrollment
-
-**Purpose:** Student enrollment record for a course within a specific period.
+**Purpose:** Unified table for students and instructors. Replaces separate Student/Teacher tables.
 
 ```sql
-CREATE TABLE enrollment (
+CREATE TABLE academic_actor (
   -- Business fields
-  enrollment_id     BIGSERIAL   PRIMARY KEY,
-  school_id         UUID        NOT NULL,
-  student_id        UUID        NOT NULL,
-  course_id         INT         NOT NULL,
-  period_id         INT         NOT NULL,
-  enrollment_date   TIMESTAMPTZ NOT NULL,
+  academic_actor_id BIGSERIAL   PRIMARY KEY,
+  person_id         UUID        NOT NULL,
+  actor_type_id     SMALLINT    NOT NULL,
+  school_id         INT         NOT NULL,
+  actor_code        VARCHAR     NOT NULL,
+  started_on        DATE        NOT NULL,
+  ended_on          DATE,
 
   -- Status fields
-  status            VARCHAR     NOT NULL DEFAULT 'Active',
+  status            BOOLEAN     NOT NULL DEFAULT true,
 
   -- Audit (in all tables)
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at        TIMESTAMPTZ,
   created_by        UUID,
-  updated_by        UUID
+  updated_by        UUID,
+  deleted_by        UUID,
+  row_version       BIGINT      NOT NULL DEFAULT 1
 );
 
-CREATE UNIQUE INDEX uq_enrollment_student_course_period
-  ON enrollment (student_id, course_id, period_id);
-CREATE INDEX idx_enrollment_student ON enrollment (student_id);
-CREATE INDEX idx_enrollment_course ON enrollment (course_id);
-CREATE INDEX idx_enrollment_period ON enrollment (period_id);
-CREATE INDEX idx_enrollment_deleted ON enrollment (deleted_at) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_actor_code_school_type
+  ON academic_actor (school_id, actor_type_id, actor_code);
+CREATE UNIQUE INDEX uq_actor_person_type_school
+  ON academic_actor (person_id, actor_type_id, school_id);
+CREATE INDEX idx_actor_deleted ON academic_actor (deleted_at) WHERE deleted_at IS NULL;
+```
 
-ALTER TABLE enrollment ADD CONSTRAINT fk_enrollment_student
-  FOREIGN KEY (student_id) REFERENCES student(student_id);
-ALTER TABLE enrollment ADD CONSTRAINT fk_enrollment_course
-  FOREIGN KEY (course_id) REFERENCES course(course_id);
-ALTER TABLE enrollment ADD CONSTRAINT fk_enrollment_period
-  FOREIGN KEY (period_id) REFERENCES period(period_id);
+**Data dictionary:**
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| academic_actor_id | BIGSERIAL | Auto-incremental actor identifier | `1` |
+| person_id | UUID | External identity (→ Identity.person) | `550e8400-...` |
+| actor_type_id | SMALLINT | Actor type (FK → academic_actor_type) | `1` |
+| school_id | INT | School (FK → school) | `1` |
+| actor_code | VARCHAR | Institutional code for this actor | `EST-2024-001` |
+| started_on | DATE | When the actor started in this role | `2024-01-15` |
+| ended_on | DATE | When the actor ended this role (NULL = active) | `NULL` |
+| status | BOOLEAN | Active/inactive flag | `true` |
+| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_by | UUID | User who created this record | `550e8400-...` |
+| updated_by | UUID | User who last updated this record | `550e8400-...` |
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
+
+**Modeling decisions:**
+1. Unified table: a person can be both student and instructor (different `actor_type_id`).
+2. `person_id` is an external reference to Identity — no cross-context FK.
+3. Two unique constraints: code per school+type, and person per type+school.
+
+---
+
+## 8. Table: enrollment
+
+**Purpose:** Enrollment of an academic_actor in a cohort.
+
+```sql
+CREATE TABLE enrollment (
+  -- Business fields
+  enrollment_id       BIGSERIAL   PRIMARY KEY,
+  academic_actor_id   BIGINT      NOT NULL,
+  cohort_id           BIGINT      NOT NULL,
+  enrolled_on         DATE        NOT NULL,
+
+  -- Status fields
+  enrollment_status   VARCHAR     NOT NULL,
+
+  -- Audit (in all tables)
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at          TIMESTAMPTZ,
+  created_by          UUID,
+  updated_by          UUID,
+  deleted_by          UUID,
+  row_version         BIGINT      NOT NULL DEFAULT 1
+);
+
+CREATE UNIQUE INDEX uq_enrollment_actor_cohort
+  ON enrollment (academic_actor_id, cohort_id);
+CREATE INDEX idx_enrollment_cohort ON enrollment (cohort_id);
+CREATE INDEX idx_enrollment_deleted ON enrollment (deleted_at) WHERE deleted_at IS NULL;
 ```
 
 **Data dictionary:**
@@ -302,93 +400,17 @@ ALTER TABLE enrollment ADD CONSTRAINT fk_enrollment_period
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
 | enrollment_id | BIGSERIAL | Auto-incremental enrollment identifier | `1` |
-| school_id | UUID | School | `550e8400-...` |
-| student_id | UUID | Enrolled student (FK → student) | `550e8400-...` |
-| course_id | INT | Course enrolled in (FK → course) | `1` |
-| period_id | INT | Academic period (FK → period) | `1` |
-| enrollment_date | TIMESTAMPTZ | When the enrollment was made | `2024-01-15T10:30:00Z` |
-| status | VARCHAR | Lifecycle status: Active, Withdrawn, Completed | `Active` |
+| academic_actor_id | BIGINT | Enrolled actor (FK → academic_actor) | `1` |
+| cohort_id | BIGINT | Target cohort (FK → cohort) | `1` |
+| enrolled_on | DATE | Enrollment date | `2024-01-15` |
+| enrollment_status | VARCHAR | Status: Active, Withdrawn, Completed | `Active` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
-
-**Modeling decisions:**
-1. Unique constraint on (student_id, course_id, period_id) ensures one enrollment per student-course-period.
-2. `status` uses values: Active (enrolled), Withdrawn (dropped), Completed (passed).
-3. `BIGSERIAL` because the table can grow significantly over time.
-
----
-
-## 8. Table: schedule
-
-**Purpose:** Class schedule programming (which teacher teaches which course in which classroom and day).
-
-```sql
-CREATE TABLE schedule (
-  -- Business fields
-  schedule_id     BIGSERIAL   PRIMARY KEY,
-  school_id       UUID        NOT NULL,
-  period_id       INT         NOT NULL,
-  course_id       INT         NOT NULL,
-  teacher_id      UUID        NOT NULL,
-  classroom_id    INT         NOT NULL,
-  day             VARCHAR     NOT NULL,
-  start_time      TIME        NOT NULL,
-  end_time        TIME        NOT NULL,
-
-  -- Audit (in all tables)
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at      TIMESTAMPTZ,
-  created_by      UUID,
-  updated_by      UUID
-);
-
-CREATE UNIQUE INDEX uq_schedule_classroom_slot
-  ON schedule (classroom_id, day, start_time, period_id);
-CREATE UNIQUE INDEX uq_schedule_teacher_slot
-  ON schedule (teacher_id, day, start_time, period_id);
-CREATE INDEX idx_schedule_period ON schedule (period_id);
-CREATE INDEX idx_schedule_course ON schedule (course_id);
-CREATE INDEX idx_schedule_teacher ON schedule (teacher_id);
-CREATE INDEX idx_schedule_classroom ON schedule (classroom_id);
-CREATE INDEX idx_schedule_deleted ON schedule (deleted_at) WHERE deleted_at IS NULL;
-
-ALTER TABLE schedule ADD CONSTRAINT fk_schedule_period
-  FOREIGN KEY (period_id) REFERENCES period(period_id);
-ALTER TABLE schedule ADD CONSTRAINT fk_schedule_course
-  FOREIGN KEY (course_id) REFERENCES course(course_id);
-ALTER TABLE schedule ADD CONSTRAINT fk_schedule_teacher
-  FOREIGN KEY (teacher_id) REFERENCES teacher(teacher_id);
-ALTER TABLE schedule ADD CONSTRAINT fk_schedule_classroom
-  FOREIGN KEY (classroom_id) REFERENCES classroom(classroom_id);
-```
-
-**Data dictionary:**
-
-| Column | Type | Description | Example |
-|--------|------|-------------|---------|
-| schedule_id | BIGSERIAL | Auto-incremental schedule identifier | `1` |
-| school_id | UUID | School | `550e8400-...` |
-| period_id | INT | Academic period (FK → period) | `1` |
-| course_id | INT | Course (FK → course) | `1` |
-| teacher_id | UUID | Teacher delivering the class (FK → teacher) | `550e8400-...` |
-| classroom_id | INT | Classroom where it is held (FK → classroom) | `1` |
-| day | VARCHAR | Day of the week (ENUM Days) | `Lunes` |
-| start_time | TIME | Class start time | `08:00` |
-| end_time | TIME | Class end time | `09:30` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
-| created_by | UUID | User who created this record | `550e8400-...` |
-| updated_by | UUID | User who last updated this record | `550e8400-...` |
-
-**Modeling decisions:**
-1. Two unique constraints prevent double-booking conflicts (classroom or teacher).
-2. `day` is ENUM to ensure valid values.
-3. `start_time` and `end_time` are TIME (no timezone) — timezone is handled at the application level.
+| deleted_by | UUID | User who soft-deleted this record | `NULL` |
+| row_version | BIGINT | Optimistic lock version counter | `1` |
 
 ---
 
@@ -396,64 +418,61 @@ ALTER TABLE schedule ADD CONSTRAINT fk_schedule_classroom
 
 ```mermaid
 erDiagram
-    STUDENT {
-        uuid student_id PK
-        uuid school_id
-        uuid person_id UK
-        varchar student_code
-        boolean status
+    SCHOOL {
+        serial school_id PK
+        varchar code UK
+        varchar name
+        int city_id
     }
-    TEACHER {
-        uuid teacher_id PK
-        uuid school_id
-        uuid person_id UK
-        varchar teacher_code
-        boolean status
+    PROGRAM {
+        serial program_id PK
+        int school_id FK
+        varchar code
+        varchar name
+    }
+    ACADEMIC_PERIOD {
+        serial academic_period_id PK
+        int school_id FK
+        varchar name
+        date starts_on
+        date ends_on
+        boolean is_active
+    }
+    COHORT {
+        bigserial cohort_id PK
+        int program_id FK
+        int academic_period_id FK
+        varchar code UK
     }
     COURSE {
         serial course_id PK
-        uuid school_id
-        varchar course_name
-        varchar course_code
-    }
-    CLASSROOM {
-        serial classroom_id PK
-        uuid school_id
-        varchar classroom_name
-    }
-    PERIOD {
-        serial period_id PK
-        uuid school_id
+        int program_id FK
+        varchar code
         varchar name
-        date start_date
-        date end_date
-        boolean is_active
+        smallint credit_hours
+    }
+    ACADEMIC_ACTOR {
+        bigserial academic_actor_id PK
+        uuid person_id
+        smallint actor_type_id FK
+        int school_id FK
+        varchar actor_code
     }
     ENROLLMENT {
         bigserial enrollment_id PK
-        uuid student_id FK
-        int course_id FK
-        int period_id FK
-        varchar status
-    }
-    SCHEDULE {
-        bigserial schedule_id PK
-        int period_id FK
-        int course_id FK
-        uuid teacher_id FK
-        int classroom_id FK
-        varchar day
-        time start_time
-        time end_time
+        bigserial academic_actor_id FK
+        bigserial cohort_id FK
+        varchar enrollment_status
     }
 
-    STUDENT ||--o{ ENROLLMENT : "enrolls in"
-    COURSE ||--o{ ENROLLMENT : "has"
-    PERIOD ||--o{ ENROLLMENT : "during"
-    PERIOD ||--o{ SCHEDULE : "scheduled in"
-    COURSE ||--o{ SCHEDULE : "taught in"
-    TEACHER ||--o{ SCHEDULE : "teaches in"
-    CLASSROOM ||--o{ SCHEDULE : "located in"
+    SCHOOL ||--o{ PROGRAM : "offers"
+    SCHOOL ||--o{ ACADEMIC_PERIOD : "has"
+    PROGRAM ||--o{ COHORT : "has"
+    ACADEMIC_PERIOD ||--o{ COHORT : "during"
+    PROGRAM ||--o{ COURSE : "contains"
+    SCHOOL ||--o{ ACADEMIC_ACTOR : "has"
+    ACADEMIC_ACTOR ||--o{ ENROLLMENT : "enrolls in"
+    COHORT ||--o{ ENROLLMENT : "has"
 ```
 
 ---
@@ -462,10 +481,12 @@ erDiagram
 
 | From | To | Reference Type | Mechanism |
 |------|----|----------------|-----------|
-| Student.person_id | Identity.Person.person_id | External ID (no FK) | Cross-context reference by UUID |
-| Teacher.person_id | Identity.Person.person_id | External ID (no FK) | Cross-context reference by UUID |
-| Attendance.Class_Session.schedule_id | Academic.Schedule.schedule_id | External ID (no FK) | Cross-context reference by BIGINT |
-| IoT.Device_Assignment.classroom_id | Academic.Classroom.classroom_id | External ID (no FK) | Cross-context reference by SERIAL |
+| School.city_id | Identity.City.city_id | External ID (no FK) | Cross-context reference by SERIAL |
+| Academic_Actor.person_id | Identity.Person.person_id | External ID (no FK) | Cross-context reference by UUID |
+| Scheduling.Schedule_Block.cohort_id | Academic.Cohort.cohort_id | External ID (no FK) | Cross-context reference by BIGINT |
+| Scheduling.Schedule_Block.course_id | Academic.Course.course_id | External ID (no FK) | Cross-context reference by SERIAL |
+| Scheduling.Class_Session.opened_by | Academic.Academic_Actor.academic_actor_id | External ID (no FK) | Cross-context reference by BIGINT |
+| Attendance.Attendance_Record.academic_actor_id | Academic.Academic_Actor.academic_actor_id | External ID (no FK) | Cross-context reference by BIGINT |
 
 ---
 

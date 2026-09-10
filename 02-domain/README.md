@@ -1,13 +1,13 @@
 # 02 — Problem Domain
 
-> **What is this?** The mental model of the business. It is not technology — it is understanding
+> The mental model of the business. It is not technology — it is understanding
 > the problem the system solves before writing code. This section comes from Domain-Driven Design (DDD).
 
 ## Why this section exists
 
 This section describes the domain model of the **FaceAttend EDU** project, understood as the business representation of the system. It defines the main concepts used by the educational institution to manage attendance, the entities involved in the process, the rules that must always be satisfied, and the events that occur during platform operation.
 
-FaceAttend EDU should not be understood solely as an application with screens, forms, or records. From a domain perspective, the system revolves around concepts such as user, person, role, permission, cohort, environment, schedule, facial record, attendance, late arrival, absence, justification, supporting document, approval, history, report, and notification.
+FaceAttend EDU should not be understood solely as an application with screens, forms, or records. From a domain perspective, the system revolves around concepts such as person, user, role, permission, school, program, cohort, environment, schedule, class session, attendance record, facial embedding, fingerprint embedding, justification, alert, and audit log.
 
 The purpose of this section is to build a common language among the development team, the instructor, and project stakeholders so that everyone understands the business terms in the same way.
 
@@ -15,21 +15,21 @@ The purpose of this section is to build a common language among the development 
 
 The domain section aims to:
 
-- Identify the main subdomains of FaceAttend EDU.
+- Identify the main bounded contexts of FaceAttend EDU.
 - Define the business entities involved in attendance control.
 - Establish the rules or invariants that the system must never violate.
 - Describe the domain events that occur when a user interacts with the system.
 - Serve as a basis for architecture, API, testing, and persistence design.
-- Avoid ambiguity among terms such as user, person, cohort, environment, attendance, late arrival, absence, and justification.
+- Avoid ambiguity among terms such as person, user, cohort, environment, attendance, and justification.
 
 ## Scope of This Section
 
 This section includes:
 
-- Domain map and main contexts.
-- Business entities.
+- Domain map and bounded contexts (9 contexts aligned with the data model).
+- Business entities and their relationships.
 - Business rules and invariants.
-- Domain events.
+- Domain events and their side effects.
 - Relationships among system concepts.
 - Ubiquitous language shared by the team.
 
@@ -49,31 +49,34 @@ Example of the difference:
 
 | Approach | Question answered | Example |
 |---|---|---|
-| Domain | What does a cohort mean in the business? | A cohort represents a group of learners associated with a responsible user, a schedule, and an environment. |
-| Data | How is that cohort stored in persistence? | It is stored in a structure or table with identifiers, relationships, and specific fields. |
+| Domain | What does a cohort mean in the business? | A cohort represents a group of learners associated with a program, an academic period, and an instructor. |
+| Data | How is that cohort stored in persistence? | It is stored in the `cohort` table with `cohort_id`, `program_id`, `period_id`, `school_id`, and specific fields. |
 
-## Planned Subdomains
+## Bounded Contexts
 
-Based on the SRS, the FaceAttend EDU domain can initially be organized into the following subdomains:
+Based on the data model, the FaceAttend EDU domain is organized into the following 9 bounded contexts:
 
-| Subdomain | Preliminary description | Related requirements |
-|---|---|---|
-| Security, Identity, and Access | Manages users, credentials, roles, permissions, activation, deactivation, password recovery, auditing, and sensitive-data protection. | RF 1, RF 4.6, RF 5.2, RNF 4 |
-| Academic Structure | Includes environments, cohorts, courses, schedules, responsible users, instructors, and curriculum. | RF 2, RF 8 |
-| Attendance Recording | Covers facial scanning, alternative records, entries, exits, unregistered users, late arrivals, and absences. | RF 3 |
-| Justification Management | Manages supporting-document uploads, superior review, approval, rejection, and result notification. | RF 6, RF 4.7 |
-| Histories and Reports | Enables consultation of histories, dashboards, date-range reports, and filters by cohort, environment, instructor, or user. | RF 5, RF 7 |
-| Configuration and Alerts | Includes notification, language, color-palette, user-parameter, and system-alert configuration. | RF 4 |
+| Context | Type | Main entities | Related requirements |
+|---|---|---|---|
+| Identity | Cross-cutting supporting | Person, App_User, City | RF 1, RNF 4 |
+| Authorization | Cross-cutting supporting | Role, Permission, Role_Permission, User_Role | RF 1.1.1, RF 1.1.2, RF 4.6 |
+| Academic | Core | School, Program, Academic_Period, Cohort, Course, Academic_Actor, Enrollment | RF 2, RF 8 |
+| Scheduling | Core | Environment, Schedule_Block, Class_Session | RF 2.1, RF 2.3.2 |
+| Attendance | System core | Attendance_Record, Justification_Type, Justification, Supporting_Document | RF 3, RF 6 |
+| Biometric | Supporting (NoSQL) | Facial_Embedding, Fingerprint_Embedding | RF 3.1.1, RNF 4 |
+| Notification | Supporting | Alert_Type, Alert | RF 4.1 |
+| Audit | Supporting | Audit_Log, Error_Log | RF 5.2, RNF 4 |
+| Configuration | Cross-cutting supporting | Academic_Configuration, Security_Configuration, Biometric_Update_Case | RF 4 |
 
-> The **Security, Identity, and Access** subdomain is considered cross-cutting because other subdomains depend on it to validate who the user is, which role they have, and which actions they may perform.
+> The **Identity** and **Authorization** contexts are cross-cutting because all other contexts depend on them to validate who the user is, which role they have, and which actions they may perform.
 
 ## Section Files
 
-| File | Description | Question answered | Status |
-|---|---|---|---|
-| [domain-map.md](./domain-map.md) | Domain map and main contexts. | What are the main business areas and how are they related? | 🟡 |
-| [entities-and-rules.md](./entities-and-rules.md) | Entities, invariants, and business rules. | Which objects are important to the business and which rules must always be satisfied? | 🟡 |
-| [domain-events.md](./domain-events.md) | Domain events and functional meaning. | Which facts occur within the system that are relevant to the business? | 🟡 |
+| File | Description | Question answered |
+|---|---|---|
+| [domain-map.md](./domain-map.md) | Domain map and bounded contexts. | What are the main business areas and how are they related? |
+| [entities-and-rules.md](./entities-and-rules.md) | Entities, invariants, and business rules. | Which objects are important to the business and which rules must always be satisfied? |
+| [domain-events.md](./domain-events.md) | Domain events and functional meaning. | Which facts occur within the system that are relevant to the business? |
 
 ## Relationship to the SRS
 
@@ -88,50 +91,46 @@ The information in this section is mainly based on the FaceAttend EDU Software R
 - RF 7: Advanced visualization and reporting.
 - RF 8: School management.
 - RNF 4: Security.
-- Use cases related to facial recording, facial scanning, absence justification, face registration, and user consultation.
 
 ## Key Domain Concepts
 
 The following important terms must remain consistent throughout this section:
 
-- User.
 - Person.
+- App_User.
 - Role.
 - Permission.
+- School.
+- Program.
+- Academic_Period.
 - Cohort.
+- Course.
+- Academic_Actor.
+- Enrollment.
 - Environment.
-- Schedule.
-- Responsible user.
-- Instructor.
-- Student.
-- Attendance record.
-- Late arrival.
-- Absence.
+- Schedule_Block.
+- Class_Session.
+- Attendance_Record.
 - Justification.
-- Supporting document.
-- Facial parameter.
-- NN user.
-- Dashboard.
-- History.
-- Report.
+- Supporting_Document.
+- Facial_Embedding.
+- Fingerprint_Embedding.
+- Alert.
+- Audit_Log.
 
 ## Modeling Conventions
 
-To maintain consistency within the domain documentation, the following is recommended:
+To maintain consistency within the domain documentation:
 
-- Write entities with clear business names, for example: `User`, `Person`, `Cohort`, `Environment`, `Schedule`, `AttendanceRecord`, `Justification`.
-- Write domain events in the past tense because they represent something that has already occurred, for example: `AttendanceRegistered`, `LateArrivalDetected`, `JustificationApproved`.
-- Define invariants as mandatory rules, for example: “A user cannot have more than one entry record for the same schedule.”
+- Write entities with clear business names, for example: `Person`, `App_User`, `Cohort`, `Attendance_Record`.
+- Write domain events in the past tense because they represent something that has already occurred, for example: `AttendanceRecorded`, `JustificationApproved`.
+- Define invariants as mandatory rules, for example: "An academic_actor can have only one attendance_record per class_session."
 - Avoid discussing tables, columns, or queries in this section.
 - Keep the ubiquitous language aligned with the project's general glossary.
-- Validate with the team any term specific to the SENA context, such as cohort, environment, or instructor.
 
-## Current Status
+## Correlations
 
-The domain section is currently being defined. The detail files are pending completion, but the overall structure is based on the functional and non-functional requirements defined in the SRS.
-
-| Document | Status |
-|---|---|
-| [domain-map.md](./domain-map.md) | 🟡 In progress |
-| [entities-and-rules.md](./entities-and-rules.md) | 🟡 In progress |
-| [domain-events.md](./domain-events.md) | 🟡 In progress |
+- Data model → `06-data/`
+- Domain entities → `06-data/domains/`
+- Architecture decisions → `05-architecture/decisions/records/`
+- API contracts → `07-api/contracts/openapi/`

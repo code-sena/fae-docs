@@ -17,7 +17,7 @@ Without a clear product definition:
 
 This section is the agreement between the team and stakeholders about **what will be built, why it will be built, and what will be excluded during the current project cycle**.
 
-For FaceAttend EDU, this section prevents the team from prematurely building advanced analytics, complex IoT integrations, grading modules, payment features, or physical-access control before validating the core attendance problem.
+For FaceAttend EDU, this section prevents the team from prematurely building advanced analytics, grading modules, payment features, or physical-access control before validating the core attendance problem.
 
 ---
 
@@ -41,7 +41,7 @@ The product definition is based on:
 
 Articulates the problem before proposing solutions.
 
-For FaceAttend EDU, this file should explain the attendance-control problem in educational environments before describing facial recognition as the solution.
+For FaceAttend EDU, this file should explain the attendance-control problem in educational environments before describing facial recognition and alternative registration methods as the solution.
 
 **Suggested content from the SRS:**
 

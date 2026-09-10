@@ -14,7 +14,7 @@
 **is a** web and mobile attendance-management product based on facial recognition and reliable attendance records  
 **that** automates entry and exit recording, centralizes attendance histories, supports justification workflows, and provides role-based reports and alerts,  
 **unlike** manual attendance lists, paper records, or disconnected spreadsheets,  
-**our product** combines facial recognition with alternative recording methods, role-based visibility, justification traceability, and data-protection-oriented design for educational contexts such as SENA.
+**our product** combines facial recognition with manual and import registration methods, role-based visibility, justification traceability, biometric update workflows, and data-protection-oriented design for educational contexts such as SENA.
 
 ### Problem summary
 
@@ -33,11 +33,9 @@ FaceAttend EDU addresses this problem through a technological solution that auto
 
 | User | Main need | Value delivered |
 |---|---|---|
-| Student | Record attendance quickly, consult their history, and receive notifications related to their participation. | Fast, contactless recording, personal history visibility, and justification support. |
-| Teacher / Instructor | View group attendance, receive absence alerts, and reduce the time spent taking attendance manually. | Less manual work, organized attendance information, and alerts for timely follow-up. |
+| Student / Learner | Record attendance quickly, consult their history, and receive notifications related to their participation. | Fast, contactless recording, personal history visibility, and justification support. |
+| Instructor / Teacher | View group attendance, receive absence alerts, and reduce the time spent taking attendance manually. | Less manual work, organized attendance information, and alerts for timely follow-up. |
 | Administrator | Manage users, roles, permissions, environments, and general system configuration. | Centralized control of users, roles, academic structure, and system settings. |
-| Supervisor | Monitor system operation, review reports, and control general recording. | Consolidated visibility, reports, and alerts for academic and operational monitoring. |
-| Parent or guardian, if applicable | Consult relevant information about the student's attendance according to the permissions defined by the institution. | Controlled access to attendance information when the institution allows it. |
 
 ---
 
@@ -76,5 +74,5 @@ Phase 1 (0-3 months) ──── Phase 2 (3-6 months) ──── Phase 3 (6-1
         │                         │                          │
       [MVP]                [Traceability]              [Scale / Expansion]
  Validate core             Justifications,             Advanced analytics,
- attendance                dashboards, alerts,         IoT alerts, scalability,
- hypothesis                and configuration           and integrations
+ attendance                dashboards, alerts,         fingerprint biometrics,
+ hypothesis                and configuration           and scalability

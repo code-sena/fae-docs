@@ -18,8 +18,6 @@
 | Instructor / Teacher | Responsible for taking attendance, monitoring group participation, identifying absences or late arrivals, and generating or reviewing attendance reports. | 1 instructor per cohort or training group; more than 30 learners per instructor according to SRS justification. Total number to be defined. | High |
 | Student / Learner | Needs to register attendance quickly, consult personal attendance history, receive notifications, and justify absences or late arrivals when necessary. | More than 30 learners per instructor. Total number to be defined. | High |
 | Administrator | Manages users, roles, permissions, environments, cohorts, schedules, reports, and general system configuration. | Small number per institution. Total number to be defined. | High |
-| Supervisor | Monitors general attendance operation, reviews consolidated reports, and validates or oversees attendance-related information. | Small number per institution. Total number to be defined. | Medium |
-| Parent / Guardian, if applicable | Consults attendance information for a student when the institution allows it. | Variable, depending on institutional policy. | Low / Conditional |
 
 ### Jobs-to-be-done (JTBD)
 
@@ -52,14 +50,6 @@
 **When** users, roles, environments, cohorts, schedules, or permissions change,  
 **I want** to manage those changes centrally and securely,  
 **so that** only authorized people can access or modify attendance information.
-
----
-
-#### Supervisor
-
-**When** I need to monitor attendance across groups or training environments,  
-**I want** to access role-based dashboards, histories, and reports,  
-**so that** I can make timely decisions and detect unusual patterns.
 
 ---
 
@@ -146,7 +136,7 @@ Percentage of expected attendance events successfully captured automatically and
 | Connectivity or device limitations affect attendance capture. | Medium | High | Test devices, network conditions, camera availability, and error handling before pilot deployment. |
 | The problem is not as frequent or painful as assumed. | Medium | Medium | Interview instructors, administrators, and learners; review current attendance practices; and validate with a small pilot. |
 | Biometric data processing does not comply with data-protection requirements. | Low / Medium | High | Validate consent, encryption, access control, retention policies, and compliance with applicable regulations such as Colombian Law 1581 of 2012. |
-| Scope grows beyond the core attendance problem, adding IoT, QR, advanced analytics, or integrations too early. | High | Medium | Maintain a clear roadmap, backlog prioritization, and explicit out-of-scope decisions. |
+| Scope grows beyond the core attendance problem, adding advanced analytics or integrations too early. | High | Medium | Maintain a clear roadmap, backlog prioritization, and explicit out-of-scope decisions. |
 | Institutional roles and permissions are more complex than expected. | Medium | Medium | Validate role matrix with administrators and instructors before implementing fine-grained permissions. |
 
 ---
@@ -158,9 +148,8 @@ Percentage of expected attendance events successfully captured automatically and
 - **Grading or academic-mark management:** FaceAttend EDU focuses on attendance, not academic evaluation.
 - **Financial management, payments, or enrollment billing:** The product does not solve tuition, payments, or financial processes.
 - **Physical access control:** The system does not control doors, turnstiles, or building-entry hardware.
-- **Fingerprint biometrics:** The current version focuses on facial recognition; fingerprint authentication is out of scope unless validated later.
-- **QR-code or Wi-Fi-based attendance as primary methods:** The SRS mentions these technologies in objectives, but the current functional scope centers on facial recognition and alternative registration for failed scans.
-- **Complex IoT device management:** IoT alerts may be considered if validated, but complete device lifecycle management is out of scope.
+- **QR-code or Wi-Fi-based attendance as primary methods:** The SRS mentions these technologies in objectives, but the current functional scope centers on facial recognition and manual/import registration.
+- **IoT device management:** The IoT context is not part of the current data model. Device-related alerts are not included.
 - **Advanced predictive analytics:** Dropout prediction, behavioral analytics, or AI-based academic-risk models are not included in the initial version.
 - **External integrations not approved by the team:** Integration with institutional academic systems, identity providers, or communication platforms must be explicitly approved.
 - **Multi-institution deployment before pilot validation:** The initial product should be validated in a controlled educational context before expanding.

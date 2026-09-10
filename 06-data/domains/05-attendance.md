@@ -60,7 +60,7 @@ CREATE INDEX idx_attendance_deleted ON attendance_record (deleted_at) WHERE dele
 | academic_actor_id | BIGINT | Actor being tracked (external ID → Academic.academic_actor) | `1` |
 | captured_at | TIMESTAMPTZ | When attendance was captured | `2024-06-01T08:05:00Z` |
 | attendance_status | VARCHAR | Status: Present, Absent, Late, Justified | `Present` |
-| capture_method | VARCHAR | Method: FACIAL, MANUAL, IOT, IMPORT | `FACIAL` |
+| capture_method | VARCHAR | Method: FACIAL, MANUAL, IMPORT | `FACIAL` |
 | match_score | DECIMAL(5,4) | Biometric match score (0.0000..1.0000) | `0.9876` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T08:05:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T08:05:00Z` |
@@ -72,7 +72,7 @@ CREATE INDEX idx_attendance_deleted ON attendance_record (deleted_at) WHERE dele
 
 **Modeling decisions:**
 1. One record per actor per session (uniqueness on class_session_id, academic_actor_id).
-2. `match_score` stores biometric confidence for FACIAL/IOT captures.
+2. `match_score` stores biometric confidence for FACIAL captures.
 3. `capture_method` replaces the old `source` field with a controlled vocabulary.
 
 ---

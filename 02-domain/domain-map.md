@@ -1,6 +1,6 @@
 # Domain Map — Bounded Contexts
 
-> **What to fill in here:** The domain map is the central DDD (Domain-Driven Design) artifact.
+> The domain map is the central DDD (Domain-Driven Design) artifact.
 > It defines the system's boundaries and how they relate to each other.
 > Build it first with the team and domain experts in an Event Storming session.
 
@@ -14,56 +14,47 @@ This document does not describe tables, columns, or database details. It describ
 
 | Context | Type | Purpose | Related requirements |
 |---|---|---|---|
-| Security, Identity, and Access | Cross-cutting supporting subdomain | Manage users, roles, permissions, authentication, data protection, and auditing. | RF 1, RF 4.6, RF 5.2, RNF 4 |
-| Academic Structure | Core subdomain | Manage environments, cohorts, courses, responsible users, schedules, and curriculum. | RF 2, RF 8 |
-| Attendance Recording | System core | Record entries and exits through facial recognition or alternative methods. | RF 3 |
-| Justification Management | Core subdomain | Manage supporting documents, approvals, and rejections of absences or late arrivals. | RF 6, RF 4.7 |
-| Histories and Reports | Supporting subdomain | Consult histories, dashboards, and role-based report exports. | RF 5, RF 7 |
-| Configuration and Preferences | Supporting subdomain | Manage alerts, languages, color palettes, and configurable user or system parameters. | RF 4 |
+| Identity | Cross-cutting supporting subdomain | Manage persons, users, authentication, sessions, and password policies. | RF 1, RNF 4 |
+| Authorization | Cross-cutting supporting subdomain | Manage roles, permissions, and role-permission assignments. | RF 1.1.1, RF 1.1.2, RF 4.6 |
+| Academic | Core subdomain | Manage schools, programs, periods, cohorts, courses, academic actors, and enrollments. | RF 2, RF 8 |
+| Scheduling | Core subdomain | Manage environments, schedule blocks, and class sessions. | RF 2.1, RF 2.3.2 |
+| Attendance | System core | Record attendance through facial recognition or alternative methods. Manage justifications and supporting documents. | RF 3, RF 6 |
+| Biometric | Supporting subdomain | Store and manage facial and fingerprint embeddings (NoSQL). | RF 3.1.1, RNF 4 |
+| Notification | Supporting subdomain | Manage alert types and alerts for system events. | RF 4.1 |
+| Audit | Supporting subdomain | Record all system actions and errors for traceability. | RF 5.2, RNF 4 |
+| Configuration | Cross-cutting supporting subdomain | Manage academic, security, and biometric-update configuration parameters. | RF 4 |
 
 ---
 
-## 1. Security, Identity, and Access
+## 1. Identity
 
 ### Purpose
-Ensure that only authorized people can access the system and perform actions according to their roles. This context handles authentication, authorization, user management, role assignment, permissions, sensitive-data protection, and traceability of critical actions.
+Ensure that only authorized people can access the system. This context handles person management, user credentials, authentication, sessions, and password policies.
 
 ### Context Type
 Cross-cutting supporting subdomain.
 
 ### Relationship to the Project
-This domain is necessary because FaceAttend EDU handles sensitive academic information, attendance records, personal data, and facial parameters. Different roles such as Supervisor, Administrator, Teacher/Instructor, and Student must have different permissions.
+This domain is necessary because FaceAttend EDU handles sensitive academic information, attendance records, personal data, and biometric parameters. Every other context references Person through external IDs.
 
 ### Main Concepts
-- User.
 - Person.
+- App_User.
+- City.
 - Credentials.
-- Role.
-- Permission.
 - Session.
-- Authentication.
-- Authorization.
-- User status.
-- Password recovery.
-- Change auditing.
-- Facial parameter as sensitive data.
+- Password policy.
 
 ### Responsibilities
-- Register users individually or in bulk through CSV files.
-- Validate sign-in.
-- Recover and change passwords.
+- Register persons individually or in bulk through CSV files.
+- Manage user credentials and authentication.
+- Handle password recovery and changes.
 - Activate or deactivate users.
-- Delete users when they no longer have an active relationship with the system.
-- Assign roles to users.
-- Control permissions according to the role.
-- Protect personal and biometric data.
-- Record relevant system actions for auditing purposes.
+- Record sessions and last access.
 
 ### Related Requirements
 - RF 1: User management.
 - RF 1.1: Register users.
-- RF 1.1.1: Role assignment.
-- RF 1.1.2: Permission assignment.
 - RF 1.2: User registration through CSV.
 - RF 1.3: Sign-in.
 - RF 1.4: Password recovery.
@@ -71,291 +62,366 @@ This domain is necessary because FaceAttend EDU handles sensitive academic infor
 - RF 1.6: Activate or deactivate users.
 - RF 1.7: Delete users.
 - RF 1.8: Consult user information.
-- RF 4.6: Change a user's role.
-- RF 5.2: User change history.
 - RNF 4: Security.
 
 ### Business Rules
-- Every user must authenticate before accessing system functions.
-- Every user must have a defined role.
-- System permissions must depend on the assigned role.
-- A user cannot have permissions greater than those corresponding to their role.
-- Users with Student or Parent roles must not be able to consult other users' information.
-- A user may be deleted only when they no longer have active relationships with attendance control.
-- Sensitive data, such as passwords and facial parameters, must be protected according to security and privacy criteria.
-- Important actions must be recorded for auditing.
+- Every App_User must be associated with a valid Person.
+- A Person may exist without an active App_User.
+- A Person cannot be deleted if they have active associated records.
+- Credentials must be stored and transmitted securely.
+- Every authentication attempt must be recorded.
 
 ### Possible Events
-- `UsuarioRegistrado`
-- `UsuarioActualizado`
-- `UsuarioActivado`
-- `UsuarioDesactivado`
-- `UsuarioEliminado`
-- `RolModificado`
-- `SesionIniciada`
-- `ContrasenaRecuperada`
-- `ContrasenaCambiada`
-- `ParametroFacialActualizado`
-- `CambioAuditado`
+- `UserRegistered`
+- `UserUpdated`
+- `UserActivated`
+- `UserDeactivated`
+- `UserDeleted`
+- `SessionStarted`
+- `PasswordRecovered`
+- `PasswordChanged`
 
 ### Relationship to Other Contexts
-The Security, Identity, and Access context provides the foundation for other contexts to function correctly:
-
+- **Authorization:** needs to know which user has which role.
+- **Academic:** needs to identify persons and link them to academic actors.
 - **Attendance:** needs to know who the user is and whether they are active.
 - **Justifications:** needs to validate who requests and who approves.
-- **Reports:** needs to validate what information each role can see.
-- **Academic structure:** needs to identify instructors, students, and responsible users.
-- **Configuration:** needs to validate which users may modify alerts, languages, colors, or system parameters.
+- **Audit:** records all identity-related actions.
 
 ---
 
-## 2. Academic Structure
+## 2. Authorization
 
 ### Purpose
-Organize the institutional information needed for the system to relate users, groups, environments, responsible users, and schedules.
+Control which actions each user may perform based on their assigned roles and permissions.
+
+### Context Type
+Cross-cutting supporting subdomain.
+
+### Main Concepts
+- Role.
+- Permission.
+- Role_Permission.
+- User_Role.
+
+### Responsibilities
+- Define roles (Administrator, Instructor/Teacher, Student/Learner).
+- Define permissions per action.
+- Associate roles with permissions.
+- Assign roles to users per school.
+
+### Related Requirements
+- RF 1.1.1: Role assignment.
+- RF 1.1.2: Permission assignment.
+- RF 4.6: Change a user's role.
+
+### Business Rules
+- Every App_User must have at least one assigned role.
+- A user's role may be changed only by a user with administrative permissions.
+- Access permissions must depend on the assigned role.
+- A user cannot execute an action without permission associated with their role.
+
+### Possible Events
+- `RoleAssigned`
+- `RoleRemoved`
+- `PermissionGranted`
+- `PermissionRevoked`
+
+---
+
+## 3. Academic
+
+### Purpose
+Organize the institutional information needed for the system to relate users, groups, programs, courses, and periods.
+
+### Context Type
+Core subdomain.
 
 ### Main Concepts
 - School.
-- Course.
+- Program.
+- Academic_Period.
 - Cohort.
-- Group.
-- Environment.
-- Classroom.
-- Responsible user.
-- Instructor.
-- Teacher.
-- Schedule.
-- Training block.
-- Curriculum.
+- Course.
+- Academic_Actor_Type.
+- Academic_Actor.
+- Enrollment.
 
 ### Responsibilities
-- Register environments or classrooms.
-- Register cohorts or courses.
-- Assign responsible users.
-- Assign cohorts to responsible users.
-- Assign schedules or time blocks.
-- Add or delete courses.
-- View the curriculum.
+- Register schools (multi-tenant root).
+- Register programs and academic periods.
+- Register cohorts and courses.
+- Manage academic actors (students and instructors).
+- Track enrollments.
 
 ### Related Requirements
 - RF 2: Environment management.
 - RF 2.1: Register environments/classrooms.
 - RF 2.2: Register cohorts/courses.
 - RF 2.3: Assign responsible users.
-- RF 2.3.1: Assign cohorts.
-- RF 2.3.2: Assign schedules.
 - RF 8: School management.
 - RF 8.1: Add or delete courses.
-- RF 8.2: Subject curriculum.
 
 ### Business Rules
-- A responsible user must be a valid system user.
-- A cohort must exist before being associated with a responsible user.
-- A schedule must not overlap another schedule assigned to the same responsible user.
-- A cohort must have availability for assigning a time block.
-- A course must exist to be deleted and must not exist to be added.
+- All academic data must belong to a School.
+- A Program may be added only if it does not already exist in the same School.
+- A Cohort must have a valid instructor before attendance recording begins.
+- An Academic_Actor must reference a valid Person.
 
 ### Possible Events
-- `EnvironmentRegistered`
+- `SchoolRegistered`
+- `ProgramCreated`
 - `CohortRegistered`
-- `ResponsibleUserAssigned`
-- `ScheduleAssigned`
+- `EnrollmentCreated`
 - `CourseAdded`
 - `CourseDeleted`
-- `CurriculumConsulted`
 
 ---
 
-## 3. Attendance Recording
+## 4. Scheduling
 
 ### Purpose
-Reliably record user entries and exits through facial recognition or alternative methods.
+Manage physical environments, recurring time blocks, and concrete class sessions. Prevents double-booking of rooms and instructors.
+
+### Context Type
+Core subdomain.
 
 ### Main Concepts
-- Entry record.
-- Exit record.
-- Attendance.
-- Absence.
-- Late arrival.
-- Facial scan.
-- Facial parameter.
-- Alternative record.
-- NN user.
-- Casual user.
-- Attendance cohort.
+- Environment.
+- Schedule_Block.
+- Class_Session.
 
 ### Responsibilities
-- Record entries and exits.
-- Validate facial recognition.
-- Allow alternative records when facial scanning fails.
-- Control entry of unregistered personnel.
-- Validate that the record corresponds to the assigned schedule.
+- Register environments (classrooms, labs, auditoriums).
+- Define schedule blocks (recurring time slots).
+- Generate class sessions from schedule blocks.
+- Prevent scheduling conflicts.
+
+### Related Requirements
+- RF 2.1: Register environments/classrooms.
+- RF 2.3.2: Assign schedules.
+
+### Business Rules
+- An Environment must exist before being associated with a Cohort or Class_Session.
+- A Schedule_Block cannot overlap another Schedule_Block assigned to the same Instructor in the same Environment.
+- A time block must have a start time earlier than its end time.
+
+### Possible Events
+- `EnvironmentRegistered`
+- `ScheduleBlockCreated`
+- `ScheduleBlockConflictDetected`
+- `ClassSessionOpened`
+- `ClassSessionClosed`
+
+---
+
+## 5. Attendance
+
+### Purpose
+Reliably record student attendance in class sessions through facial recognition or alternative methods. Manage justifications for absences.
+
+### Context Type
+System core.
+
+### Main Concepts
+- Attendance_Record.
+- Justification_Type.
+- Justification.
+- Supporting_Document.
+- Capture method.
+- Attendance status.
+
+### Responsibilities
+- Record attendance (Present, Absent, Late, Justified).
+- Support multiple capture methods (FACIAL, MANUAL, IMPORT).
+- Manage justification requests and reviews.
+- Track supporting documents.
 
 ### Related Requirements
 - RF 3: Generate entry and exit records.
 - RF 3.1: Record entries and exits.
 - RF 3.1.1: Facial recording.
 - RF 3.1.2: Alternative recording.
-- RF 3.2: Control entry of unregistered personnel.
-- RF 3.2.1: Alternative recording for NN users.
-
-### Business Rules
-- The user must be registered in the system.
-- The facial parameter must correspond to a registered user.
-- A user must have a single entry record and a single exit record per schedule.
-- Entry and exit times must correspond to the assigned training block.
-- If facial scanning fails, an alternative record may be used.
-- NN users must be classified as unregistered or casual personnel.
-
-### Possible Events
-- `AttendanceRecorded`
-- `ExitRecorded`
-- `LateArrivalDetected`
-- `AbsenceDetected`
-- `FacialScanFailed`
-- `AlternativeRecordUsed`
-- `NNUserRegistered`
-
----
-
-## 4. Justification Management
-
-### Purpose
-Manage justifications for absences or late arrivals, allowing supporting documents to be uploaded, validity to be evaluated, and the result to be notified.
-
-### Main Concepts
-- Absence.
-- Late arrival.
-- Justification.
-- Supporting document.
-- Valid excuse.
-- Approval.
-- Rejection.
-- Superior.
-- Result notification.
-
-### Responsibilities
-- Upload justification supporting documents.
-- Validate whether the supporting document applies to the absence or late arrival.
-- Approve or reject the justification.
-- Automatically notify the result.
-- Configure which types of justification are valid.
-
-### Related Requirements
 - RF 6: Justification management.
 - RF 6.1: Upload justification supporting documents.
 - RF 6.2: Approval and rejection.
-- RF 6.3: Automatic result notification.
-- RF 4.7: Configuration of late arrivals and justifications.
 
 ### Business Rules
-- The user must have a case to justify.
-- The supporting document must be uploaded correctly.
-- The justification must be evaluated by a superior.
-- The supporting document must be valid according to criteria defined by the administrator or superior.
-- The justification result must be notified to the user.
+- An academic_actor can have only one attendance_record per class_session.
+- The attendance record must correspond to an Open class_session.
+- A justification must reference exactly one attendance_record.
+- If the justification_type requires an attachment, at least one supporting_document must be uploaded.
+- When a justification is approved, the attendance_status updates to "Justified".
 
 ### Possible Events
+- `AttendanceRecorded`
+- `LateArrivalDetected`
+- `AbsenceDetected`
 - `JustificationRequested`
 - `SupportingDocumentUploaded`
 - `JustificationApproved`
 - `JustificationRejected`
-- `ResultNotified`
 
 ---
 
-## 5. Histories and Reports
+## 6. Biometric
 
 ### Purpose
-Enable consultation of historical attendance, absence, late-arrival, and other indicator information according to the user's role.
+Store and manage biometric embeddings (facial and fingerprint) used for identity verification during attendance capture.
+
+### Context Type
+Supporting subdomain.
+
+### Persistence
+This context persists entirely in **MongoDB** (NoSQL) — no SQL tables.
 
 ### Main Concepts
-- History.
-- Report.
-- Dashboard.
-- Filter.
-- Date range.
-- Cohort.
-- Environment.
-- Instructor.
-- User.
-- Late arrival.
-- Absence.
+- Facial_Embedding.
+- Fingerprint_Embedding.
+- Model version.
+- Template version.
 
 ### Responsibilities
-- Consult attendance and absences.
-- Filter by date, cohort, environment, instructor, or person.
-- Generate reports.
-- Export reports.
-- View analytical dashboards.
-- Consult late arrivals and absences by parameters.
+- Store facial embedding vectors.
+- Store fingerprint template vectors.
+- Manage active/inactive status per embedding.
+- Support template versioning for model updates.
 
 ### Related Requirements
-- RF 5: Generate histories.
-- RF 5.1: Attendance and absences.
-- RF 7: Advanced visualization and reporting.
-- RF 7.1: Export report.
-- RF 7.2: Analytical dashboard.
-- RF 7.3: Reports by date range.
-- RF 7.4: Query late arrivals and absences by parameters.
+- RF 3.1.1: Facial recording.
+- RNF 4: Security.
 
 ### Business Rules
-- The user must be registered in the system.
-- Report access must depend on the user's role.
-- Filters must validate that the requested information exists.
-- Entered dates must be valid.
-- Each role may access only permitted reports.
+- Biometric embeddings reference a Person via external ID — no cross-context FK.
+- Each person may have only one active facial embedding at a time.
+- Fingerprint embeddings support up to 10 fingers per person.
+- Embedding updates require a Biometric_Update_Case approved by an administrator.
 
 ### Possible Events
-- `HistoryConsulted`
-- `ReportGenerated`
-- `ReportExported`
-- `DashboardViewed`
+- `FacialEmbeddingEnrolled`
+- `FacialEmbeddingUpdated`
+- `FingerprintEmbeddingEnrolled`
+- `FingerprintEmbeddingUpdated`
 
 ---
 
-## 6. Configuration and Preferences
+## 7. Notification
 
 ### Purpose
-Manage customization options, alerts, languages, appearance, and user or system parameters.
+Generate and manage alerts for system events such as absence thresholds, schedule conflicts, or biometric update requests.
+
+### Context Type
+Supporting subdomain.
 
 ### Main Concepts
+- Alert_Type.
 - Alert.
-- Notification.
-- Language.
-- Color palette.
-- User parameter.
-- Facial parameter.
-- System configuration.
 
 ### Responsibilities
-- Activate or deactivate alerts.
-- Change the notification tone.
-- Configure languages.
-- Update color palettes.
-- Update user parameters.
-- Manage IoT device-failure alerts.
+- Define alert types (catalog).
+- Raise alerts for relevant events.
+- Track alert resolution.
+
+### Related Requirements
+- RF 4.1: Configure alerts.
+- RF 4.1.1: Enable/disable alerts.
+
+### Business Rules
+- Alerts are generated by the system for defined event types.
+- An alert may be resolved by a user with appropriate permissions.
+
+### Possible Events
+- `AlertRaised`
+- `AlertResolved`
+
+---
+
+## 8. Audit
+
+### Purpose
+Record every relevant system action and error for traceability, compliance, and debugging.
+
+### Context Type
+Supporting subdomain.
+
+### Main Concepts
+- Audit_Log.
+- Error_Log.
+
+### Responsibilities
+- Record all CRUD actions on critical entities.
+- Record authentication attempts.
+- Record system errors and exceptions.
+- Support queries by actor, aggregate, date, and school.
+
+### Related Requirements
+- RF 5.2: User change history.
+- RNF 4: Security.
+
+### Business Rules
+- Audit logs are append-only — records must never be modified or deleted.
+- Every authentication attempt must be recorded.
+- Error logs include validation, auth, and system errors.
+
+### Possible Events
+- `ActionAudited`
+- `ErrorLogged`
+
+---
+
+## 9. Configuration
+
+### Purpose
+Manage system-wide and per-school configuration parameters, including biometric update workflows.
+
+### Context Type
+Cross-cutting supporting subdomain.
+
+### Main Concepts
+- Academic_Configuration.
+- Security_Configuration.
+- Biometric_Update_Case.
+
+### Responsibilities
+- Store academic parameters per school (e.g., tardy tolerance).
+- Store global security parameters (e.g., max login attempts).
+- Manage biometric update request workflow (Pending → In_Review → Approved/Rejected).
 
 ### Related Requirements
 - RF 4: System configuration.
-- RF 4.1: Configure alerts.
-- RF 4.1.1: Enable/disable alerts.
-- RF 4.1.2: Change notification tone.
-- RF 4.2: Configure languages.
-- RF 4.3: Update color palettes.
 - RF 4.4: Update user parameters.
-- RF 4.5: Manage IoT device-failure alerts.
 
 ### Business Rules
-- The user must be signed in to modify personal settings.
-- Only the administrator may modify global system settings.
-- Color palettes must be configured according to the administrator's criteria.
-- IoT device-failure alerts must be visible to responsible roles.
+- Academic configuration is scoped per school.
+- Security configuration is global.
+- Biometric update cases require administrator review.
+- The biometric_type field distinguishes FACIAL vs FINGERPRINT cases.
 
 ### Possible Events
-- `AlertConfigured`
-- `AlertDisabled`
-- `LanguageUpdated`
-- `ColorPaletteUpdated`
-- `UserParameterUpdated`
-- `IoTDeviceFailureReported`
+- `AcademicConfigurationUpdated`
+- `SecurityConfigurationUpdated`
+- `BiometricUpdateRequested`
+- `BiometricUpdateApproved`
+- `BiometricUpdateRejected`
+
+---
+
+## Context Relationships
+
+```mermaid
+graph LR
+    Identity --> Authorization
+    Identity --> Academic
+    Identity --> Attendance
+    Identity --> Biometric
+    Identity --> Audit
+    Authorization --> Attendance
+    Academic --> Scheduling
+    Academic --> Attendance
+    Scheduling --> Attendance
+    Biometric --> Attendance
+    Attendance --> Notification
+    Attendance --> Audit
+    Configuration --> Academic
+    Configuration --> Biometric
+```

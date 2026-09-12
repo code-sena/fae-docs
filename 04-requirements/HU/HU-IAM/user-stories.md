@@ -1,4 +1,4 @@
-># HU-IAM-001: User login
+# HU-IAM-001: User login
 
 ## Story
 
@@ -84,7 +84,7 @@
 
 ---
 
-># HU-IAM-002: User registration with role assignment
+# HU-IAM-002: User registration with role assignment
 
 ## Story
 
@@ -177,7 +177,7 @@
 
 ---
 
-># HU-IAM-003: Role-based permission assignment
+# HU-IAM-003: Role-based permission assignment
 
 ## Story
 

@@ -1,0 +1,1511 @@
+openapi: 3.0.3
+info:
+  title: Academic Service API
+  version: 1.0.0
+  description: |
+    Servicio académico: gestión de estudiantes, profesores, cursos, aulas, períodos, matrículas y horarios.
+
+    ## Autenticación
+    Todos los endpoints requieren un JWT válido en el header:
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    ## Manejo de errores
+    Todos los errores siguen el esquema `ErrorResponse` definido en `_shared.yaml`.
+
+    ## Paginación
+    Los endpoints de lista soportan paginación via `?page=1&limit=20`.
+
+servers:
+  - url: http://localhost:8084
+    description: Local development
+  - url: https://api.dev.{domain}/api/v1/academic
+    description: Development
+    variables:
+      domain:
+        default: example.com
+  - url: https://api.{domain}/api/v1/academic
+    description: Production
+    variables:
+      domain:
+        default: example.com
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Student
+    description: Gestión de estudiantes
+  - name: Teacher
+    description: Gestión de profesores
+  - name: Course
+    description: Gestión de cursos/materias
+  - name: Classroom
+    description: Gestión de aulas/aulas
+  - name: Period
+    description: Gestión de períodos académicos
+  - name: Enrollment
+    description: Gestión de matrículas
+  - name: Schedule
+    description: Gestión de horarios
+  - name: Health
+    description: Estado del servicio
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  dependencies:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        enum: [ok, degraded, down]
+                      redis:
+                        type: string
+                        enum: [ok, degraded, down]
+              example:
+                status: ok
+                timestamp: '2024-01-15T10:30:00Z'
+                dependencies:
+                  database: ok
+                  redis: ok
+        '503':
+          description: Servicio no disponible
+
+  /students:
+    get:
+      summary: Listar estudiantes
+      operationId: listStudents
+      tags: [Student]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: schoolId
+          in: query
+          description: Filtrar por escuela
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          description: Filtrar por estado
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, GRADUATED]
+      responses:
+        '200':
+          description: Lista de estudiantes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StudentResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Registrar estudiante
+      operationId: createStudent
+      tags: [Student]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStudentRequest'
+            example:
+              personId: "550e8400-e29b-41d4-a716-446655440000"
+              schoolId: "660e8400-e29b-41d4-a716-446655440001"
+              studentCode: "EST-2024-001"
+      responses:
+        '201':
+          description: Estudiante registrado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '409':
+          description: Estudiante ya registrado en esa escuela
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /students/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener estudiante por ID
+      operationId: getStudentById
+      tags: [Student]
+      responses:
+        '200':
+          description: Estudiante encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar estudiante
+      operationId: updateStudent
+      tags: [Student]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStudentRequest'
+      responses:
+        '200':
+          description: Estudiante actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar estudiante
+      operationId: deleteStudent
+      tags: [Student]
+      responses:
+        '204':
+          description: Eliminado exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /teachers:
+    get:
+      summary: Listar profesores
+      operationId: listTeachers
+      tags: [Teacher]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: schoolId
+          in: query
+          description: Filtrar por escuela
+          schema:
+            type: string
+            format: uuid
+        - name: department
+          in: query
+          description: Filtrar por departamento
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de profesores
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TeacherResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Registrar profesor
+      operationId: createTeacher
+      tags: [Teacher]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTeacherRequest'
+            example:
+              personId: "550e8400-e29b-41d4-a716-446655440000"
+              schoolId: "660e8400-e29b-41d4-a716-446655440001"
+              teacherCode: "PROF-2024-001"
+              department: "Matemáticas"
+      responses:
+        '201':
+          description: Profesor registrado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '409':
+          description: Profesor ya registrado en esa escuela
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /teachers/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener profesor por ID
+      operationId: getTeacherById
+      tags: [Teacher]
+      responses:
+        '200':
+          description: Profesor encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar profesor
+      operationId: updateTeacher
+      tags: [Teacher]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTeacherRequest'
+      responses:
+        '200':
+          description: Profesor actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar profesor
+      operationId: deleteTeacher
+      tags: [Teacher]
+      responses:
+        '204':
+          description: Eliminado exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /courses:
+    get:
+      summary: Listar cursos
+      operationId: listCourses
+      tags: [Course]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: schoolId
+          in: query
+          description: Filtrar por escuela
+          schema:
+            type: string
+            format: uuid
+        - name: periodId
+          in: query
+          description: Filtrar por período
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de cursos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CourseResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear curso
+      operationId: createCourse
+      tags: [Course]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCourseRequest'
+            example:
+              name: "Matemáticas I"
+              code: "MAT-101"
+              schoolId: "660e8400-e29b-41d4-a716-446655440001"
+              periodId: "770e8400-e29b-41d4-a716-446655440002"
+              teacherId: "880e8400-e29b-41d4-a716-446655440003"
+              grade: "10mo"
+      responses:
+        '201':
+          description: Curso creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /courses/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener curso por ID
+      operationId: getCourseById
+      tags: [Course]
+      responses:
+        '200':
+          description: Curso encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar curso
+      operationId: updateCourse
+      tags: [Course]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCourseRequest'
+      responses:
+        '200':
+          description: Curso actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar curso
+      operationId: deleteCourse
+      tags: [Course]
+      responses:
+        '204':
+          description: Eliminado exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /classrooms:
+    get:
+      summary: Listar aulas
+      operationId: listClassrooms
+      tags: [Classroom]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: schoolId
+          in: query
+          description: Filtrar por escuela
+          schema:
+            type: string
+            format: uuid
+        - name: building
+          in: query
+          description: Filtrar por edificio
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de aulas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ClassroomResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear aula
+      operationId: createClassroom
+      tags: [Classroom]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClassroomRequest'
+            example:
+              name: "Aula 101"
+              code: "A-101"
+              schoolId: "660e8400-e29b-41d4-a716-446655440001"
+              capacity: 30
+              building: "Edificio A"
+              floor: 1
+      responses:
+        '201':
+          description: Aula creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassroomResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /classrooms/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener aula por ID
+      operationId: getClassroomById
+      tags: [Classroom]
+      responses:
+        '200':
+          description: Aula encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassroomResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar aula
+      operationId: updateClassroom
+      tags: [Classroom]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClassroomRequest'
+      responses:
+        '200':
+          description: Aula actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassroomResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar aula
+      operationId: deleteClassroom
+      tags: [Classroom]
+      responses:
+        '204':
+          description: Eliminada exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /periods:
+    get:
+      summary: Listar períodos académicos
+      operationId: listPeriods
+      tags: [Period]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: schoolId
+          in: query
+          description: Filtrar por escuela
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          description: Filtrar por estado
+          schema:
+            type: string
+            enum: [ACTIVE, UPCOMING, CLOSED]
+      responses:
+        '200':
+          description: Lista de períodos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PeriodResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear período académico
+      operationId: createPeriod
+      tags: [Period]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePeriodRequest'
+            example:
+              name: "Primer Semestre 2024"
+              schoolId: "660e8400-e29b-41d4-a716-446655440001"
+              startDate: "2024-01-15"
+              endDate: "2024-06-30"
+      responses:
+        '201':
+          description: Período creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeriodResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /periods/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener período por ID
+      operationId: getPeriodById
+      tags: [Period]
+      responses:
+        '200':
+          description: Período encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeriodResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar período
+      operationId: updatePeriod
+      tags: [Period]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePeriodRequest'
+      responses:
+        '200':
+          description: Período actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeriodResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar período
+      operationId: deletePeriod
+      tags: [Period]
+      responses:
+        '204':
+          description: Eliminado exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /enrollments:
+    get:
+      summary: Listar matrículas
+      operationId: listEnrollments
+      tags: [Enrollment]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: studentId
+          in: query
+          description: Filtrar por estudiante
+          schema:
+            type: string
+            format: uuid
+        - name: courseId
+          in: query
+          description: Filtrar por curso
+          schema:
+            type: string
+            format: uuid
+        - name: periodId
+          in: query
+          description: Filtrar por período
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de matrículas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EnrollmentResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear matrícula
+      operationId: createEnrollment
+      tags: [Enrollment]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEnrollmentRequest'
+            example:
+              studentId: "550e8400-e29b-41d4-a716-446655440000"
+              courseId: "660e8400-e29b-41d4-a716-446655440001"
+              periodId: "770e8400-e29b-41d4-a716-446655440002"
+      responses:
+        '201':
+          description: Matrícula creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '409':
+          description: Estudiante ya matriculado en ese curso
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /enrollments/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener matrícula por ID
+      operationId: getEnrollmentById
+      tags: [Enrollment]
+      responses:
+        '200':
+          description: Matrícula encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar matrícula
+      operationId: updateEnrollment
+      tags: [Enrollment]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEnrollmentRequest'
+      responses:
+        '200':
+          description: Matrícula actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Anular matrícula
+      operationId: deleteEnrollment
+      tags: [Enrollment]
+      responses:
+        '204':
+          description: Matrícula anulada
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /schedules:
+    get:
+      summary: Listar horarios
+      operationId: listSchedules
+      tags: [Schedule]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: courseId
+          in: query
+          description: Filtrar por curso
+          schema:
+            type: string
+            format: uuid
+        - name: teacherId
+          in: query
+          description: Filtrar por profesor
+          schema:
+            type: string
+            format: uuid
+        - name: classroomId
+          in: query
+          description: Filtrar por aula
+          schema:
+            type: string
+            format: uuid
+        - name: dayOfWeek
+          in: query
+          description: Filtrar por día de la semana
+          schema:
+            type: string
+            enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY]
+      responses:
+        '200':
+          description: Lista de horarios
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScheduleResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear horario
+      operationId: createSchedule
+      tags: [Schedule]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleRequest'
+            example:
+              courseId: "660e8400-e29b-41d4-a716-446655440001"
+              teacherId: "880e8400-e29b-41d4-a716-446655440003"
+              classroomId: "990e8400-e29b-41d4-a716-446655440004"
+              dayOfWeek: "MONDAY"
+              startTime: "08:00"
+              endTime: "09:30"
+      responses:
+        '201':
+          description: Horario creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '409':
+          description: Conflicto de horario (aula o profesor ocupado)
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /schedules/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener horario por ID
+      operationId: getScheduleById
+      tags: [Schedule]
+      responses:
+        '200':
+          description: Horario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar horario
+      operationId: updateSchedule
+      tags: [Schedule]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduleRequest'
+      responses:
+        '200':
+          description: Horario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar horario
+      operationId: deleteSchedule
+      tags: [Schedule]
+      responses:
+        '204':
+          description: Eliminado exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+components:
+  schemas:
+    # ─── Student ────────────────────────────────────────────────────────
+    CreateStudentRequest:
+      type: object
+      required: [personId, schoolId, studentCode]
+      properties:
+        personId:
+          type: string
+          format: uuid
+          description: ID de la persona asociada
+        schoolId:
+          type: string
+          format: uuid
+          description: ID de la escuela
+        studentCode:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Código único del estudiante
+        grade:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: Grado actual
+
+    UpdateStudentRequest:
+      type: object
+      properties:
+        grade:
+          type: string
+          nullable: true
+          maxLength: 50
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, GRADUATED]
+
+    StudentResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, personId, schoolId, studentCode, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            personId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            schoolId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            studentCode:
+              type: string
+              example: "EST-2024-001"
+            grade:
+              type: string
+              nullable: true
+              example: "10mo"
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE, GRADUATED]
+              example: ACTIVE
+
+    # ─── Teacher ────────────────────────────────────────────────────────
+    CreateTeacherRequest:
+      type: object
+      required: [personId, schoolId, teacherCode]
+      properties:
+        personId:
+          type: string
+          format: uuid
+          description: ID de la persona asociada
+        schoolId:
+          type: string
+          format: uuid
+          description: ID de la escuela
+        teacherCode:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Código único del profesor
+        department:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: Departamento o área
+
+    UpdateTeacherRequest:
+      type: object
+      properties:
+        department:
+          type: string
+          nullable: true
+          maxLength: 100
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+
+    TeacherResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, personId, schoolId, teacherCode, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            personId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            schoolId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            teacherCode:
+              type: string
+              example: "PROF-2024-001"
+            department:
+              type: string
+              nullable: true
+              example: "Matemáticas"
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE]
+              example: ACTIVE
+
+    # ─── Course ─────────────────────────────────────────────────────────
+    CreateCourseRequest:
+      type: object
+      required: [name, code, schoolId, periodId]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Nombre del curso
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Código único del curso
+        schoolId:
+          type: string
+          format: uuid
+          description: ID de la escuela
+        periodId:
+          type: string
+          format: uuid
+          description: ID del período académico
+        teacherId:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID del profesor principal
+        grade:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: Grado al que pertenece
+
+    UpdateCourseRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        teacherId:
+          type: string
+          format: uuid
+          nullable: true
+        grade:
+          type: string
+          nullable: true
+          maxLength: 50
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+
+    CourseResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, name, code, schoolId, periodId, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            name:
+              type: string
+              example: "Matemáticas I"
+            code:
+              type: string
+              example: "MAT-101"
+            schoolId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            periodId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            teacherId:
+              type: string
+              format: uuid
+              nullable: true
+            grade:
+              type: string
+              nullable: true
+              example: "10mo"
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE]
+              example: ACTIVE
+
+    # ─── Classroom ──────────────────────────────────────────────────────
+    CreateClassroomRequest:
+      type: object
+      required: [name, code, schoolId]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Nombre del aula
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Código único del aula
+        schoolId:
+          type: string
+          format: uuid
+          description: ID de la escuela
+        capacity:
+          type: integer
+          minimum: 1
+          description: Capacidad máxima
+        building:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: Edificio
+        floor:
+          type: integer
+          nullable: true
+          description: Piso
+
+    UpdateClassroomRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        capacity:
+          type: integer
+          minimum: 1
+        building:
+          type: string
+          nullable: true
+          maxLength: 100
+        floor:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+
+    ClassroomResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, name, code, schoolId, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            name:
+              type: string
+              example: "Aula 101"
+            code:
+              type: string
+              example: "A-101"
+            schoolId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            capacity:
+              type: integer
+              example: 30
+            building:
+              type: string
+              nullable: true
+              example: "Edificio A"
+            floor:
+              type: integer
+              nullable: true
+              example: 1
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE]
+              example: ACTIVE
+
+    # ─── Period ─────────────────────────────────────────────────────────
+    CreatePeriodRequest:
+      type: object
+      required: [name, schoolId, startDate, endDate]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Nombre del período
+        schoolId:
+          type: string
+          format: uuid
+          description: ID de la escuela
+        startDate:
+          type: string
+          format: date
+          description: Fecha de inicio
+        endDate:
+          type: string
+          format: date
+          description: Fecha de fin
+
+    UpdatePeriodRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [ACTIVE, UPCOMING, CLOSED]
+
+    PeriodResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, name, schoolId, startDate, endDate, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            name:
+              type: string
+              example: "Primer Semestre 2024"
+            schoolId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            startDate:
+              type: string
+              format: date
+              example: "2024-01-15"
+            endDate:
+              type: string
+              format: date
+              example: "2024-06-30"
+            status:
+              type: string
+              enum: [ACTIVE, UPCOMING, CLOSED]
+              example: ACTIVE
+
+    # ─── Enrollment ─────────────────────────────────────────────────────
+    CreateEnrollmentRequest:
+      type: object
+      required: [studentId, courseId, periodId]
+      properties:
+        studentId:
+          type: string
+          format: uuid
+          description: ID del estudiante
+        courseId:
+          type: string
+          format: uuid
+          description: ID del curso
+        periodId:
+          type: string
+          format: uuid
+          description: ID del período
+
+    UpdateEnrollmentRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, DROPPED, COMPLETED]
+
+    EnrollmentResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, studentId, courseId, periodId, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            studentId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            courseId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            periodId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            status:
+              type: string
+              enum: [ACTIVE, DROPPED, COMPLETED]
+              example: ACTIVE
+
+    # ─── Schedule ───────────────────────────────────────────────────────
+    CreateScheduleRequest:
+      type: object
+      required: [courseId, teacherId, classroomId, dayOfWeek, startTime, endTime]
+      properties:
+        courseId:
+          type: string
+          format: uuid
+          description: ID del curso
+        teacherId:
+          type: string
+          format: uuid
+          description: ID del profesor
+        classroomId:
+          type: string
+          format: uuid
+          description: ID del aula
+        dayOfWeek:
+          type: string
+          enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY]
+          description: Día de la semana
+        startTime:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+          description: Hora de inicio (formato HH:mm)
+          example: "08:00"
+        endTime:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+          description: Hora de fin (formato HH:mm)
+          example: "09:30"
+
+    UpdateScheduleRequest:
+      type: object
+      properties:
+        teacherId:
+          type: string
+          format: uuid
+        classroomId:
+          type: string
+          format: uuid
+        dayOfWeek:
+          type: string
+          enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY]
+        startTime:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+        endTime:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+
+    ScheduleResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, courseId, teacherId, classroomId, dayOfWeek, startTime, endTime, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            courseId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            teacherId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            classroomId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            dayOfWeek:
+              type: string
+              enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY]
+              example: "MONDAY"
+            startTime:
+              type: string
+              example: "08:00"
+            endTime:
+              type: string
+              example: "09:30"
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE]
+              example: ACTIVE
+
+  securitySchemes:
+    bearerAuth:
+      $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

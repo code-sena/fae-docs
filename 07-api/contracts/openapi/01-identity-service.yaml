@@ -1,0 +1,762 @@
+openapi: 3.0.3
+info:
+  title: Identity Service API
+  version: 1.0.0
+  description: |
+    Servicio de identidad: gestión de escuelas, personas y usuarios del sistema.
+
+    ## Autenticación
+    Todos los endpoints requieren un JWT válido en el header:
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    ## Manejo de errores
+    Todos los errores siguen el esquema `ErrorResponse` definido en `_shared.yaml`.
+
+    ## Paginación
+    Los endpoints de lista soportan paginación via `?page=1&limit=20`.
+
+servers:
+  - url: http://localhost:8081
+    description: Local development
+  - url: https://api.dev.{domain}/api/v1/identity
+    description: Development
+    variables:
+      domain:
+        default: example.com
+  - url: https://api.{domain}/api/v1/identity
+    description: Production
+    variables:
+      domain:
+        default: example.com
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: School
+    description: Gestión de escuelas/instituciones
+  - name: Person
+    description: Gestión de personas (estudiantes, profesores, administrativos)
+  - name: User
+    description: Gestión de usuarios del sistema
+  - name: Health
+    description: Estado del servicio
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  dependencies:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        enum: [ok, degraded, down]
+                      redis:
+                        type: string
+                        enum: [ok, degraded, down]
+              example:
+                status: ok
+                timestamp: '2024-01-15T10:30:00Z'
+                dependencies:
+                  database: ok
+                  redis: ok
+        '503':
+          description: Servicio no disponible
+
+  /schools:
+    get:
+      summary: Listar escuelas
+      operationId: listSchools
+      tags: [School]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: name
+          in: query
+          description: Filtrar por nombre
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filtrar por estado
+          schema:
+            type: string
+            enum: [ACTIVA, INACTIVA]
+      responses:
+        '200':
+          description: Lista de escuelas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SchoolResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear escuela
+      operationId: createSchool
+      tags: [School]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSchoolRequest'
+            example:
+              name: "Colegio San José"
+              code: "CSJ001"
+              address: "Av. Principal 123"
+              phone: "+58-212-5551234"
+              email: "info@colegiosanjose.edu.ve"
+      responses:
+        '201':
+          description: Escuela creada exitosamente
+          headers:
+            Location:
+              description: URL del recurso creado
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchoolResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './_shared.yaml#/components/responses/Forbidden'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /schools/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener escuela por ID
+      operationId: getSchoolById
+      tags: [School]
+      responses:
+        '200':
+          description: Escuela encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchoolResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar escuela
+      operationId: updateSchool
+      tags: [School]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSchoolRequest'
+      responses:
+        '200':
+          description: Escuela actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchoolResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './_shared.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar escuela
+      operationId: deleteSchool
+      tags: [School]
+      responses:
+        '204':
+          description: Eliminada exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './_shared.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /persons:
+    get:
+      summary: Listar personas
+      operationId: listPersons
+      tags: [Person]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: documentId
+          in: query
+          description: Filtrar por documento de identidad
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Filtrar por tipo de persona
+          schema:
+            type: string
+            enum: [STUDENT, TEACHER, ADMINISTRATIVE]
+      responses:
+        '200':
+          description: Lista de personas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PersonResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear persona
+      operationId: createPerson
+      tags: [Person]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePersonRequest'
+            example:
+              firstName: "María"
+              lastName: "García"
+              documentType: "V"
+              documentId: "12345678"
+              email: "maria.garcia@email.com"
+              phone: "+58-412-5551234"
+              birthDate: "1990-05-15"
+              gender: "F"
+      responses:
+        '201':
+          description: Persona creada exitosamente
+          headers:
+            Location:
+              description: URL del recurso creado
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '409':
+          description: Persona ya existe con ese documento
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /persons/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener persona por ID
+      operationId: getPersonById
+      tags: [Person]
+      responses:
+        '200':
+          description: Persona encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar persona
+      operationId: updatePerson
+      tags: [Person]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePersonRequest'
+      responses:
+        '200':
+          description: Persona actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar persona
+      operationId: deletePerson
+      tags: [Person]
+      responses:
+        '204':
+          description: Eliminada exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /users:
+    get:
+      summary: Listar usuarios
+      operationId: listUsers
+      tags: [User]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - name: email
+          in: query
+          description: Filtrar por email
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filtrar por estado
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, LOCKED]
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserResponse'
+                  meta:
+                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    post:
+      summary: Crear usuario
+      operationId: createUser
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            example:
+              personId: "550e8400-e29b-41d4-a716-446655440000"
+              email: "usuario@example.com"
+              password: "SecurePass123!"
+      responses:
+        '201':
+          description: Usuario creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '409':
+          description: Email ya registrado
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+  /users/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IdParam'
+
+    get:
+      summary: Obtener usuario por ID
+      operationId: getUserById
+      tags: [User]
+      responses:
+        '200':
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+        '500':
+          $ref: './_shared.yaml#/components/responses/InternalError'
+
+    patch:
+      summary: Actualizar usuario
+      operationId: updateUser
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar usuario
+      operationId: deleteUser
+      tags: [User]
+      responses:
+        '204':
+          description: Eliminado exitosamente
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+components:
+  schemas:
+    # ─── School ─────────────────────────────────────────────────────────
+    CreateSchoolRequest:
+      type: object
+      required: [name, code]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Nombre de la escuela
+          example: "Colegio San José"
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Código único de la escuela
+          example: "CSJ001"
+        address:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: Dirección física
+          example: "Av. Principal 123"
+        phone:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: Teléfono de contacto
+          example: "+58-212-5551234"
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email de contacto
+          example: "info@colegiosanjose.edu.ve"
+
+    UpdateSchoolRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        address:
+          type: string
+          nullable: true
+          maxLength: 500
+        phone:
+          type: string
+          nullable: true
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          nullable: true
+
+    SchoolResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, name, code, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            name:
+              type: string
+              example: "Colegio San José"
+            code:
+              type: string
+              example: "CSJ001"
+            address:
+              type: string
+              nullable: true
+              example: "Av. Principal 123"
+            phone:
+              type: string
+              nullable: true
+              example: "+58-212-5551234"
+            email:
+              type: string
+              nullable: true
+              example: "info@colegiosanjose.edu.ve"
+            status:
+              type: string
+              enum: [ACTIVA, INACTIVA]
+              example: ACTIVA
+
+    # ─── Person ─────────────────────────────────────────────────────────
+    CreatePersonRequest:
+      type: object
+      required: [firstName, lastName, documentType, documentId]
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Nombre
+          example: "María"
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Apellido
+          example: "García"
+        documentType:
+          type: string
+          enum: [V, E, J, G, P]
+          description: Tipo de documento (Venezuela: V=Venezolano, E=Extranjero, J=Jurídico, G=Gobierno, P=Pasaporte)
+          example: "V"
+        documentId:
+          type: string
+          minLength: 1
+          maxLength: 20
+          description: Número de documento
+          example: "12345678"
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email personal
+          example: "maria.garcia@email.com"
+        phone:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: Teléfono
+          example: "+58-412-5551234"
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+          description: Fecha de nacimiento
+          example: "1990-05-15"
+        gender:
+          type: string
+          enum: [M, F, O]
+          nullable: true
+          description: Género (M=Masculino, F=Femenino, O=Otro)
+          example: "F"
+
+    UpdatePersonRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+          maxLength: 50
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          type: string
+          enum: [M, F, O]
+          nullable: true
+
+    PersonResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, firstName, lastName, documentType, documentId, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            firstName:
+              type: string
+              example: "María"
+            lastName:
+              type: string
+              example: "García"
+            documentType:
+              type: string
+              example: "V"
+            documentId:
+              type: string
+              example: "12345678"
+            email:
+              type: string
+              nullable: true
+              example: "maria.garcia@email.com"
+            phone:
+              type: string
+              nullable: true
+              example: "+58-412-5551234"
+            birthDate:
+              type: string
+              format: date
+              nullable: true
+            gender:
+              type: string
+              nullable: true
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE]
+              example: ACTIVE
+
+    # ─── User ───────────────────────────────────────────────────────────
+    CreateUserRequest:
+      type: object
+      required: [personId, email, password]
+      properties:
+        personId:
+          type: string
+          format: uuid
+          description: ID de la persona asociada
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          description: Email para login
+          example: "usuario@example.com"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+          description: Contraseña (mínimo 8 caracteres, una mayúscula, un número)
+          example: "SecurePass123!"
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, LOCKED]
+
+    UserResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [id, personId, email, status]
+          properties:
+            id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            personId:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            email:
+              type: string
+              format: email
+              example: "usuario@example.com"
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE, LOCKED]
+              example: ACTIVE
+            lastLogin:
+              type: string
+              format: date-time
+              nullable: true
+
+  securitySchemes:
+    bearerAuth:
+      $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

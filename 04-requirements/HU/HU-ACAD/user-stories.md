@@ -1,4 +1,4 @@
-># HU-ACAD-001: Register environments/classrooms
+# HU-ACAD-001: Register environments/classrooms
 
 ## Story
 
@@ -79,7 +79,7 @@
 
 ---
 
-># HU-ACAD-002: Register cohorts/courses
+# HU-ACAD-002: Register cohorts/courses
 
 ## Story
 
@@ -163,7 +163,7 @@
 
 ---
 
-># HU-ACAD-003: Assign responsible instructors
+# HU-ACAD-003: Assign responsible instructors
 
 ## Story
 
@@ -252,7 +252,7 @@
 
 ---
 
-># HU-ACAD-004: Assign cohorts to responsible users
+# HU-ACAD-004: Assign cohorts to responsible users
 
 ## Story
 
@@ -338,7 +338,7 @@
 
 ---
 conference
-># HU-ACAD-005: Assign conference/time blocks
+# HU-ACAD-005: Assign conference/time blocks
 
 ## Story
 

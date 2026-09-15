@@ -1,4 +1,4 @@
-># HU-REP-001: Report export
+# HU-REP-001: Report export
 
 ## Story
 
@@ -118,7 +118,7 @@
 
 ---
 
-># HU-REP-002: Role-based analytical dashboard
+# HU-REP-002: Role-based analytical dashboard
 
 ## Story
 
@@ -237,7 +237,7 @@
 
 ---
 
-># HU-REP-003: Date-range reports
+# HU-REP-003: Date-range reports
 
 ## Story
 
@@ -352,7 +352,7 @@
 
 ---
 
-># HU-REP-004: Delay and absence query by parameters
+# HU-REP-004: Delay and absence query by parameters
 
 ## Story
 

@@ -1,4 +1,4 @@
-># HU-HIST-001: Attendance and absence query by parameters
+# HU-HIST-001: Attendance and absence query by parameters
 
 ## Story
 
@@ -138,7 +138,7 @@
 
 ---
 
-># HU-HIST-002: User change history
+# HU-HIST-002: User change history
 
 ## Story
 

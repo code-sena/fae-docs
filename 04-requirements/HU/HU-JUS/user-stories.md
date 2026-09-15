@@ -1,4 +1,4 @@
-># HU-JUS-001: Justification support upload
+# HU-JUS-001: Justification support upload
 
 ## Story
 
@@ -107,7 +107,7 @@
 
 ---
 
-># HU-JUS-002: Justification approval and rejection
+# HU-JUS-002: Justification approval and rejection
 
 ## Story
 
@@ -216,7 +216,7 @@
 
 ---
 
-># HU-JUS-003: Automatic notification of justification result
+# HU-JUS-003: Automatic notification of justification result
 
 ## Story
 

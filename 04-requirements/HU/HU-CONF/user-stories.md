@@ -1,4 +1,4 @@
-># HU-CONF-001: Configure system alerts
+# HU-CONF-001: Configure system alerts
 
 ## Story
 
@@ -90,7 +90,7 @@
 
 ---
 
-># HU-CONF-002: Enable or disable alerts
+# HU-CONF-002: Enable or disable alerts
 
 ## Story
 
@@ -186,7 +186,7 @@
 
 ---
 
-># HU-CONF-003: Change notification tone
+# HU-CONF-003: Change notification tone
 
 ## Story
 
@@ -283,7 +283,7 @@
 
 ---
 
-># HU-CONF-004: Configure application language
+# HU-CONF-004: Configure application language
 
 ## Story
 
@@ -384,7 +384,7 @@
 
 ---
 
-># HU-CONF-005: Update color palettes
+# HU-CONF-005: Update color palettes
 
 ## Story
 
@@ -479,7 +479,7 @@
 
 ---
 
-># HU-CONF-006: Update user facial parameters
+# HU-CONF-006: Update user facial parameters
 
 ## Story
 
@@ -579,7 +579,7 @@
 
 ---
 
-># HU-CONF-007: IoT device failure alerts management
+# HU-CONF-007: IoT device failure alerts management
 
 ## Story
 
@@ -680,7 +680,7 @@
 
 ---
 
-># HU-CONF-008: Delay and justification parametrization
+# HU-CONF-008: Delay and justification parametrization
 
 ## Story
 

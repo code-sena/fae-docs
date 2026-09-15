@@ -1,4 +1,4 @@
-># HU-ATT-001: Facial attendance registration
+# HU-ATT-001: Facial attendance registration
 
 ## Story
 
@@ -101,7 +101,7 @@
 
 ---
 
-># HU-ATT-002: Initial facial parameter enrollment
+# HU-ATT-002: Initial facial parameter enrollment
 
 ## Story
 
@@ -190,7 +190,7 @@
 
 ---
 
-># HU-ATT-003: Alternative registration for registered users with facial scan failure
+# HU-ATT-003: Alternative registration for registered users with facial scan failure
 
 ## Story
 
@@ -281,7 +281,7 @@
 
 ---
 
-># HU-ATT-004: Entry control for unregistered or NN users
+# HU-ATT-004: Entry control for unregistered or NN users
 
 ## Story
 

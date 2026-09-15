@@ -15,14 +15,15 @@
                                 │
                      ┌──────────▼───────────┐
                      │ Domain services      │
-                     │ 01 Identity          │
+                     │ 01 Identity (+auth)  │
                      │ 02 Authorization     │
                      │ 03 Academic          │
-                     │ 04 Attendance        │
-                     │ 05 Biometric         │
-                     │ 06 IoT               │
-                     │ 07 Audit             │
-                     │ 08 Configuration     │
+                     │ 04 Scheduling        │
+                     │ 05 Attendance        │
+                     │ 06 Biometric         │
+                     │ 07 Notification      │
+                     │ 08 Audit             │
+                     │ 09 Configuration     │
                      └──────────┬───────────┘
                                 │
                      ┌──────────▼───────────┐
@@ -31,7 +32,7 @@
                      └──────────────────────┘
 ```
 
-> The API gateway is infrastructure. The business model itself is formed by the eight bounded contexts above.
+> The API gateway is infrastructure. The business model itself is formed by the nine bounded contexts above.
 
 ---
 
@@ -39,13 +40,13 @@
 
 | # | Service | Main responsibility | Port | DB | DB type | Status |
 |---|---------|-------------------|------|-----|---------|--------|
-| 01 | `identity-service` | School, person, user, and authenticated session records | 8081 | PostgreSQL | Relational | 🟢 Active |
-| 02 | `auth-service` | User authentication, login, registration, and JWT token management | 8082 | Redis | Cache | 🟢 Active |
-| 03 | `authorization-service` | Roles, permissions, and role assignment policies | 8083 | PostgreSQL | Relational | 🟢 Active |
-| 04 | `academic-service` | Students, teachers, courses, periods, schedules, and enrollments | 8084 | PostgreSQL | Relational | 🟢 Active |
-| 05 | `attendance-service` | Real class sessions, attendance, and justification processing | 8085 | PostgreSQL | Relational | 🟢 Active |
+| 01 | `identity-service` (+ auth) | Person, user, authentication, sessions, JWT | 8081 | PostgreSQL | Relational | 🟢 Active |
+| 02 | `authorization-service` | Roles, permissions, and role assignment policies | 8083 | PostgreSQL | Relational | 🟢 Active |
+| 03 | `academic-service` | Students, teachers, courses, periods, enrollments | 8084 | PostgreSQL | Relational | 🟢 Active |
+| 04 | `scheduling-service` | Environments, schedule blocks, class sessions | 8087 | PostgreSQL | Relational | 🟢 Active |
+| 05 | `attendance-service` | Class sessions, attendance, and justification processing | 8085 | PostgreSQL | Relational | 🟢 Active |
 | 06 | `biometric-service` | Facial and fingerprint embeddings and update review cases | 8086 | MongoDB | NoSQL / Document | 🟢 Active |
-| 07 | `iot-service` | Physical devices and classroom assignment lifecycle | 8087 | PostgreSQL | Relational | 🟢 Active |
+| 07 | `notification-service` | Alert types and alert lifecycle management | 8090 | PostgreSQL | Relational | 🟢 Active |
 | 08 | `audit-service` | Traceability, operational audit, and error records | 8088 | PostgreSQL | Relational | 🟢 Active |
 | 09 | `configuration-service` | Academic and security configuration values and password policy | 8089 | PostgreSQL | Relational | 🟢 Active |
 | 99 | `api-gateway` | Edge routing and security enforcement for external clients | 8080 | Redis | Cache | 🟢 Active |
@@ -56,54 +57,35 @@
 
 ## Detail per service
 
-### 01 — `identity-service`
+### 01 — `identity-service` (+ auth merged)
 
 | Field | Value |
 |-------|-------|
 | **Folder** | `09-microservices/services/01-identity-service/` |
-| **Responsibility** | Owns school master data, person profiles, user credentials, and authentication sessions |
+| **Responsibility** | Owns person profiles, user credentials, authentication sessions, JWT issuance, and refresh token management |
 | **Type** | Core domain service |
 | **Port** | 8081 |
 | **DB** | PostgreSQL |
-| **Bounded context** | Identity |
+| **Bounded context** | Identity (includes Authentication) |
+| **Technology** | Java 21 + Spring Boot 3 |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
 - `School`
 - `Person`
-- `User`
+- `App_User`
 - `User_Session`
+- JWT access and refresh tokens
+- Redis session management
 
 **Cross-context rule:**
 - `Person.school_id` and `User.person_id` remain internal to Identity.
 - Authorization and other services use public IDs only.
+- Authentication is merged from the former `auth-service` — no separate auth microservice.
 
 ---
 
-### 02 — `auth-service`
-
-| Field | Value |
-|-------|-------|
-| **Folder** | `09-microservices/services/02-auth-service/` |
-| **Responsibility** | Handles user authentication, login, registration, and JWT token lifecycle |
-| **Type** | Infrastructure domain service |
-| **Port** | 8082 |
-| **DB** | Redis (session/cache) |
-| **Bounded context** | Authentication (cross-cutting) |
-| **Externally exposed** | Yes, via API Gateway |
-
-**Owned entities:**
-- User authentication sessions (Redis-backed)
-- JWT access and refresh tokens
-
-**Cross-context rule:**
-- Does not own user credentials or person data — delegates identity verification to
-  `identity-service`.
-- Provides authentication tokens consumed by the API Gateway and other services.
-
----
-
-### 03 — `authorization-service`
+### 02 — `authorization-service`
 
 | Field | Value |
 |-------|-------|
@@ -113,6 +95,7 @@
 | **Port** | 8083 |
 | **DB** | PostgreSQL |
 | **Bounded context** | Authorization |
+| **Technology** | Java 21 + Spring Boot 3 |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -126,16 +109,17 @@
 
 ---
 
-### 04 — `academic-service`
+### 03 — `academic-service`
 
 | Field | Value |
 |-------|-------|
 | **Folder** | `09-microservices/services/03-academic-service/` |
-| **Responsibility** | Manages students, teachers, courses, periods, classrooms, enrollments, and the timetable |
+| **Responsibility** | Manages students, teachers, courses, periods, enrollments, and the academic structure |
 | **Type** | Core domain service |
 | **Port** | 8084 |
 | **DB** | PostgreSQL |
 | **Bounded context** | Academic |
+| **Technology** | TypeScript + Fastify + Drizzle ORM |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -152,23 +136,50 @@
 
 ---
 
+### 04 — `scheduling-service`
+
+| Field | Value |
+|-------|-------|
+| **Folder** | `09-microservices/services/04-scheduling-service/` |
+| **Responsibility** | Manages physical environments, schedule blocks, and class sessions with anti-double-booking constraints |
+| **Type** | Core domain service |
+| **Port** | 8087 |
+| **DB** | PostgreSQL |
+| **Bounded context** | Scheduling |
+| **Technology** | Java 21 + Spring Boot 3 |
+| **Externally exposed** | Yes, via API Gateway |
+
+**Owned entities:**
+- `Environment`
+- `Schedule_Block`
+- `Class_Session`
+
+**Cross-context rule:**
+- `Environment.school_id` is an external reference to Academic.school.
+- `Schedule_Block.cohort_id`, `course_id`, `instructor_actor_id` are external references to Academic.
+- `Class_Session.opened_by` and `closed_by` are external references to Academic.
+
+---
+
 ### 05 — `attendance-service`
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/04-attendance-service/` |
+| **Folder** | `09-microservices/services/05-attendance-service/` |
 | **Responsibility** | Records actual class sessions, individual attendance data, and justification handling |
-| **Type** | Core domain service |
+| **Type** | Core domain service (critical path) |
 | **Port** | 8085 |
 | **DB** | PostgreSQL |
 | **Bounded context** | Attendance |
+| **Technology** | Java 21 + Spring Boot 3 |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
 - `Class_Session`
-- `Attendance`
+- `Attendance_Record`
 - `Justification_Type`
 - `Justification`
+- `Supporting_Document`
 
 **Cross-context rule:**
 - `student_id`, `schedule_id`, and `opened_by` are public references without FKs to other contexts.
@@ -179,12 +190,13 @@
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/05-biometric-service/` |
+| **Folder** | `09-microservices/services/06-biometric-service/` |
 | **Responsibility** | Stores biometric templates and review cases for recognition workflows |
 | **Type** | Specialized domain service |
 | **Port** | 8086 |
 | **DB** | MongoDB (document store with vector search indexing) |
 | **Bounded context** | Biometric |
+| **Technology** | Python 3.12 + FastAPI |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -201,24 +213,25 @@ vector search requirements of biometric embedding data.
 
 ---
 
-### 07 — `iot-service`
+### 07 — `notification-service`
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/06-iot-service/` |
-| **Responsibility** | Tracks physical devices and their assignment history across classrooms |
+| **Folder** | `09-microservices/services/07-notification-service/` |
+| **Responsibility** | Manages alert types and alert lifecycle for system-wide notifications |
 | **Type** | Support domain service |
-| **Port** | 8087 |
+| **Port** | 8090 |
 | **DB** | PostgreSQL |
-| **Bounded context** | IoT |
+| **Bounded context** | Notification |
+| **Technology** | Go 1.22 + Gin |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
-- `IoT_Device`
-- `Device_Assignment`
+- `Alert_Type`
+- `Alert`
 
 **Cross-context rule:**
-- `classroom_id` is a public reference from Academic and remains outside a direct FK.
+- `Alert.academic_actor_id` is an external reference to Academic — no cross-context FK.
 
 ---
 
@@ -226,16 +239,17 @@ vector search requirements of biometric embedding data.
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/07-audit-service/` |
+| **Folder** | `09-microservices/services/08-audit-service/` |
 | **Responsibility** | Records business and technical actions for traceability, governance, and incident review |
 | **Type** | Support domain service |
 | **Port** | 8088 |
 | **DB** | PostgreSQL |
 | **Bounded context** | Audit |
+| **Technology** | TypeScript + Fastify + pg |
 | **Externally exposed** | Yes, but primarily for internal and operational read access |
 
 **Owned entities:**
-- `Audit_Event`
+- `Audit_Log`
 - `Error_Log`
 
 **Cross-context rule:**
@@ -247,12 +261,13 @@ vector search requirements of biometric embedding data.
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/08-configuration-service/` |
+| **Folder** | `09-microservices/services/09-configuration-service/` |
 | **Responsibility** | Holds academic, security, and password-related configuration values used by the platform |
 | **Type** | Support domain service |
 | **Port** | 8089 |
 | **DB** | PostgreSQL |
 | **Bounded context** | Configuration |
+| **Technology** | TypeScript + Fastify |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -269,12 +284,13 @@ vector search requirements of biometric embedding data.
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/01-api-gateway/` |
+| **Folder** | `09-microservices/services/99-api-gateway/` |
 | **Responsibility** | Routes requests, enforces authentication and policy boundaries, and exposes the platform to clients |
 | **Type** | Infrastructure service |
 | **Port** | 8080 |
 | **DB** | Redis |
 | **Bounded context** | None; cross-cutting infrastructure |
+| **Technology** | Kong OSS |
 | **Externally exposed** | Yes |
 
 **Notes:**
@@ -290,17 +306,23 @@ vector search requirements of biometric embedding data.
 | API Gateway | Identity Service | HTTP/REST | Synchronous |
 | API Gateway | Authorization Service | HTTP/REST | Synchronous |
 | API Gateway | Academic Service | HTTP/REST | Synchronous |
+| API Gateway | Scheduling Service | HTTP/REST | Synchronous |
 | API Gateway | Attendance Service | HTTP/REST | Synchronous |
 | API Gateway | Biometric Service | HTTP/REST | Synchronous |
-| API Gateway | IoT Service | HTTP/REST | Synchronous |
+| API Gateway | Notification Service | HTTP/REST | Synchronous |
 | API Gateway | Audit Service | HTTP/REST | Synchronous |
 | API Gateway | Configuration Service | HTTP/REST | Synchronous |
 | Identity Service | Authorization Service | Event | Asynchronous |
+| Identity Service | Academic Service | Event | Asynchronous |
+| Identity Service | Configuration Service | Event | Asynchronous |
+| Academic Service | Scheduling Service | Event | Asynchronous |
 | Academic Service | Attendance Service | Event | Asynchronous |
+| Scheduling Service | Attendance Service | Event | Asynchronous |
 | Attendance Service | Audit Service | Event | Asynchronous |
 | Biometric Service | Attendance Service | Event | Asynchronous |
-| IoT Service | Attendance Service | Event | Asynchronous |
 | Configuration Service | Academic Service | Event | Asynchronous |
+| Configuration Service | Identity Service | Event | Asynchronous |
+| Attendance Service | Notification Service | Event | Asynchronous |
 
 ---
 
@@ -310,11 +332,12 @@ vector search requirements of biometric embedding data.
 |---------------|-----------------|----------------|
 | School, Person, User, User_Session | Identity Service | API + events |
 | Role, Permission, User_Role | Authorization Service | API + events |
-| Student, Teacher, Course, Classroom, Period, Enrollment, Schedule | Academic Service | API + events |
-| Class_Session, Attendance, Justification | Attendance Service | API + events |
+| Student, Teacher, Course, Classroom, Period, Enrollment | Academic Service | API + events |
+| Environment, Schedule_Block, Class_Session | Scheduling Service | API + events |
+| Attendance_Record, Justification_Type, Justification, Supporting_Document | Attendance Service | API + events |
 | Facial_Embedding, Fingerprint_Embedding, Facial_Update_Case | Biometric Service | API + events |
-| IoT_Device, Device_Assignment | IoT Service | API + events |
-| Audit_Event, Error_Log | Audit Service | API + events |
+| Alert_Type, Alert | Notification Service | API + events |
+| Audit_Log, Error_Log | Audit Service | API + events |
 | Academic_Configuration, Security_Configuration, Password_Policy | Configuration Service | API + events |
 
 No other bounded context should own or directly modify the canonical table rows of another context.

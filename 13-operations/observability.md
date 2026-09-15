@@ -53,7 +53,7 @@ All services must produce JSON logs with these minimum fields:
 {
   "timestamp": "2024-01-15T10:30:00.123Z",
   "level": "INFO",
-  "service": "auth-service",
+  "service": "identity-service",
   "version": "1.3.0",
   "environment": "production",
   "correlationId": "550e8400-e29b-41d4-a716-446655440000",
@@ -213,7 +213,7 @@ sdk.start();
 ```typescript
 import { trace } from '@opentelemetry/api';
 
-const tracer = trace.getTracer('auth-service');
+const tracer = trace.getTracer('identity-service');
 
 async function authenticateUser(email: string): Promise<Token> {
   return tracer.startActiveSpan('authenticate-user', async (span) => {

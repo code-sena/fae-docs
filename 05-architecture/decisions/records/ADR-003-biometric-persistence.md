@@ -38,7 +38,7 @@ contradiction that must be settled, not left ambiguous, before the Biometric mod
 This decision directly interacts with ADR-002: keeping Biometric on an external NoSQL engine
 would make it the one context that breaks the "single monolithic database" premise — similar
 in spirit to how Redis is already an accepted, documented exception for session/cache data in
-`auth-service` (see `09-microservices/services/02-auth-service/data-model.md`), but here
+`identity-service` (see `09-microservices/services/01-identity-service/`), but here
 applied to a context that is core to the system's primary use case (facial recognition
 attendance).
 
@@ -73,7 +73,7 @@ This approach:
 - Provides better performance characteristics for vector similarity search at scale compared to
   pgvector, which requires manual tuning of index parameters (ivfflat/hnsw)
 - Follows the established precedent in this project: Redis is already an accepted exception for
-  session/cache data in `auth-service` (see `09-microservices/services/02-auth-service/data-model.md`)
+  session/cache data in `identity-service` (see `09-microservices/services/01-identity-service/`)
 - Removes the contradiction between the data model's `vector` column types (which imply pgvector)
   and the documentation note (which states NoSQL) by choosing the NoSQL path and documenting
   MongoDB as the target

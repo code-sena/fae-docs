@@ -116,7 +116,7 @@ CREATE INDEX idx_error_school ON error_log (school_id);
 | error_type | VARCHAR | Error classification: VALIDATION, AUTH, SYSTEM | `AUTH` |
 | description | TEXT | Detailed error description | `Invalid credentials after 3 attempts` |
 | source_ip | VARCHAR | Originating IP address | `192.168.1.100` |
-| application | VARCHAR | Application that generated the error | `auth-service` |
+| application | VARCHAR | Application that generated the error | `identity-service` |
 | occurred_at | TIMESTAMPTZ | When the error actually occurred | `2024-06-01T08:15:00Z` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T08:15:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T08:15:00Z` |

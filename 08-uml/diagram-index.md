@@ -28,7 +28,7 @@
 Examples:
   c1-system-context.puml
   c2-container-diagram.puml
-  c3-auth-service.puml
+  c3-identity-service.puml
   seq-create-order.puml
   erd-orders-service.mmd
   state-order-lifecycle.puml
@@ -65,7 +65,7 @@ Examples:
 | ID | Name | Tool | Source file | Service |
 |----|------|------|-------------|---------|
 | ERD-01 | Orders DB | Mermaid | `source/erd-orders.mmd` | order-service |
-| ERD-02 | Auth DB | Mermaid | `source/erd-auth.mmd` | auth-service |
+| ERD-02 | Identity DB | Mermaid | `source/erd-identity.mmd` | identity-service |
 
 ---
 

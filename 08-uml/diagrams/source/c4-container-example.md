@@ -5,7 +5,7 @@
 > editores modernos (VS Code con extensión, Obsidian, etc.).
 >
 > **Instrucción:** Copia esta estructura, reemplaza los servicios de ejemplo (api-gateway,
-> auth-service) por los servicios reales de tu proyecto, y muévelo a `diagrams/source/c4-container.md`.
+> identity-service) por los servicios reales de tu proyecto, y muévelo a `diagrams/source/c4-container.md`.
 
 ---
 
@@ -24,13 +24,13 @@ C4Container
 
         Container(gateway, "API Gateway", "[Tu framework]", "Punto único de entrada. Autentica tokens JWT, enruta al servicio correcto, aplica rate limiting.")
 
-        Container(auth, "Auth Service", "[Tu stack]", "Gestiona autenticación (login/registro/refresh). Dueño de la entidad User y Role.")
+        Container(auth, "Identity Service", "[Tu stack]", "Gestiona personas, usuarios, autenticación (login/registro/refresh). Dueño de la entidad Person y User.")
 
         Container(servicio_a, "[Servicio A]", "[Tu stack]", "[Responsabilidad principal del servicio A. Dueño de [Entidad A].]")
 
         Container(servicio_b, "[Servicio B]", "[Tu stack]", "[Responsabilidad principal del servicio B. Dueño de [Entidad B].]")
 
-        ContainerDb(db_auth, "BD Auth", "PostgreSQL", "Usuarios, roles, refresh tokens.")
+        ContainerDb(db_auth, "BD Identity", "PostgreSQL", "Personas, usuarios, sesiones, tokens.")
         ContainerDb(db_a, "BD [Servicio A]", "[Motor elegido]", "Datos del dominio de [Servicio A].")
         ContainerDb(db_b, "BD [Servicio B]", "[Motor elegido]", "Datos del dominio de [Servicio B].")
         ContainerDb(redis, "Redis", "Redis", "Token blacklist, rate limiting, caché compartida.")

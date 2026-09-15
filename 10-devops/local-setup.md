@@ -45,14 +45,20 @@ Verify these ports are free before starting:
 
 | Port | Service | Description |
 |------|---------|-------------|
-| 8080 | api-gateway | Main entry point |
-| 3001 | auth-service | Authentication service |
-| 300X | [service-name] | [description] |
+| 8080 | api-gateway | Main entry point (Kong) |
+| 8081 | identity-service | Person, user, authentication, JWT |
+| 8083 | authorization-service | Roles, permissions |
+| 8084 | academic-service | Students, teachers, courses |
+| 8085 | attendance-service | Attendance records, justifications |
+| 8086 | biometric-service | Facial/fingerprint embeddings |
+| 8087 | scheduling-service | Environments, schedule blocks |
+| 8088 | audit-service | Audit logs, error logs |
+| 8089 | configuration-service | Config values |
+| 8090 | notification-service | Alerts |
 | 5432 | PostgreSQL | Relational database |
-| 6379 | Redis | Cache and message queue |
-| 5672 | RabbitMQ | Message broker (AMQP) |
-| 15672 | RabbitMQ Management | RabbitMQ web interface |
-| 9092 | Kafka | Message broker (if applicable) |
+| 6379 | Redis | Cache and session store |
+| 27017 | MongoDB | Biometric document store |
+| 9092 | Kafka | Message broker |
 
 **Check free ports:**
 ```bash

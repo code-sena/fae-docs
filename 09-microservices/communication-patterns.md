@@ -88,21 +88,24 @@ Services never use direct database joins across boundaries. Instead, they refere
 | API Gateway | Identity Service | HTTP/REST | Sync | Authentication, user CRUD |
 | API Gateway | Authorization Service | HTTP/REST | Sync | Role/permission checks |
 | API Gateway | Academic Service | HTTP/REST | Sync | Academic entity CRUD |
+| API Gateway | Scheduling Service | HTTP/REST | Sync | Schedule and environment management |
 | API Gateway | Attendance Service | HTTP/REST | Sync | Attendance queries and commands |
 | API Gateway | Biometric Service | HTTP/REST | Sync | Biometric enrollment and lookup |
-| API Gateway | IoT Service | HTTP/REST | Sync | Device management |
+| API Gateway | Notification Service | HTTP/REST | Sync | Alert queries and management |
 | API Gateway | Audit Service | HTTP/REST | Sync | Audit log queries |
 | API Gateway | Configuration Service | HTTP/REST | Sync | Configuration reads |
 | Identity Service | Authorization Service | Event | Async | User and school lifecycle |
 | Identity Service | Academic Service | Event | Async | Person creation |
 | Identity Service | Configuration Service | Event | Async | School creation |
+| Academic Service | Scheduling Service | Event | Async | Academic entity changes |
 | Academic Service | Attendance Service | Event | Async | Schedule creation |
+| Scheduling Service | Attendance Service | Event | Async | Class session lifecycle |
 | Attendance Service | Audit Service | Event | Async | Attendance recording |
+| Attendance Service | Notification Service | Event | Async | Absence threshold alerts |
 | Biometric Service | Attendance Service | Event | Async | Biometric verification |
-| IoT Service | Attendance Service | Event | Async | Device online status |
 | Configuration Service | Academic Service | Event | Async | Configuration changes |
 | Configuration Service | Identity Service | Event | Async | Policy changes |
-| Audit Service (consumes) | Identity, Attendance, IoT | Event | Async | Traceability |
+| Audit Service (consumes) | Identity, Attendance, Scheduling | Event | Async | Traceability |
 
 ---
 
@@ -135,12 +138,12 @@ Services never use direct database joins across boundaries. Instead, they refere
 | Service | DLQ Topic |
 |---------|-----------|
 | Identity | `identity.dlq` |
-| Auth | `auth.dlq` |
 | Authorization | `authorization.dlq` |
 | Academic | `academic.dlq` |
+| Scheduling | `scheduling.dlq` |
 | Attendance | `attendance.dlq` |
 | Biometric | `biometric.dlq` |
-| IoT | `iot.dlq` |
+| Notification | `notification.dlq` |
 | Audit | `audit.dlq` |
 | Configuration | `configuration.dlq` |
 

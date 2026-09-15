@@ -38,7 +38,7 @@
 |-------|-------------|----------------|-------------------------------------------|
 | UserCreated | identity-service | identity.user.events | Stores the identity lifecycle event for auditing |
 | AttendanceRecorded | attendance-service | attendance.attendance.events | Records the attendance transaction as an audit trail |
-| DeviceStatusChanged | iot-service | iot.device.events | Logs device health and assignment updates |
+| ClassSessionClosed | scheduling-service | scheduling.session.events | Logs class session closure for traceability |
 
 ---
 

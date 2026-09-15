@@ -18,7 +18,7 @@
 
 ## 2. Storage per service
 
-### Identity Service
+### Identity Service (+ auth merged)
 
 | Asset type | Storage | Retention | Max size |
 |-----------|---------|-----------|----------|
@@ -27,11 +27,6 @@
 | User credentials | PostgreSQL | Indefinite | N/A |
 | User sessions | PostgreSQL | 90 days (configurable) | N/A |
 | Profile images | S3 (object storage) | Duration of user account | 5 MB per image |
-
-### Auth Service
-
-| Asset type | Storage | Retention | Max size |
-|-----------|---------|-----------|----------|
 | JWT tokens | Ephemeral (in-memory / Redis) | Token TTL (15 min access, 7 days refresh) | 4 KB per token |
 | Authentication sessions | Redis | Session TTL (configurable) | 1 KB per session |
 
@@ -49,9 +44,16 @@
 |-----------|---------|-----------|----------|
 | Student / Teacher records | PostgreSQL | Indefinite | N/A |
 | Course and enrollment data | PostgreSQL | Indefinite | N/A |
-| Schedule data | PostgreSQL | Indefinite | N/A |
 | Academic documents (certificates, transcripts) | S3 (object storage) | 10 years after student graduation | 20 MB per document |
 | Course syllabi | S3 (object storage) | Duration of course offering | 10 MB per file |
+
+### Scheduling Service
+
+| Asset type | Storage | Retention | Max size |
+|-----------|---------|-----------|----------|
+| Environment records | PostgreSQL | Indefinite | N/A |
+| Schedule block records | PostgreSQL | Indefinite | N/A |
+| Class session records | PostgreSQL | Indefinite | N/A |
 
 ### Attendance Service
 
@@ -71,14 +73,12 @@
 | Facial update case images | S3 (object storage) | 30 days after review decision | 15 MB per image |
 | Biometric model metadata | MongoDB | Duration of model version | 10 KB per record |
 
-### IoT Service
+### Notification Service
 
 | Asset type | Storage | Retention | Max size |
 |-----------|---------|-----------|----------|
-| Device registry | PostgreSQL | Indefinite | N/A |
-| Assignment history | PostgreSQL | Indefinite | N/A |
-| Device firmware binaries | S3 (object storage) | Current + 2 previous versions | 50 MB per binary |
-| Telemetry snapshots | PostgreSQL | 90 days | N/A |
+| Alert type catalog | PostgreSQL | Indefinite | N/A |
+| Alert records | PostgreSQL | 2 years | N/A |
 
 ### Audit Service
 
@@ -106,7 +106,6 @@
 | Academic | PDFs, certificates, transcripts, syllabi | S3 |
 | Attendance | Justification documents (PDF, JPEG, PNG) | S3 |
 | Biometric | Facial images for review (JPEG, PNG) | S3 |
-| IoT | Firmware binaries (bin, hex, zip) | S3 |
 | Audit | Raw JSON payloads | S3 |
 
 ---
@@ -128,8 +127,6 @@ s3://
     ├── biometric/          ← facial update case images
     │   └── {schoolId}/
     │       └── {caseId}/
-    ├── iot/                ← firmware binaries
-    │   └── {deviceId}/
     └── audit/              ← raw event payloads
         └── {year}/
             └── {month}/
@@ -146,8 +143,8 @@ s3://
 | 7 years | Audit events (compliance) |
 | 5 years | Attendance justification documents |
 | 3 years | Audit raw payloads |
-| 2 years | Error logs |
-| 90 days | User sessions, IoT telemetry |
+| 2 years | Error logs, Notification alerts |
+| 90 days | User sessions |
 | 30 days | Biometric review images after decision |
 | Token TTL | JWT tokens and auth sessions (minutes to days) |
 
@@ -161,7 +158,6 @@ s3://
 | Max file size (academic document) | 20 MB | Academic |
 | Max file size (justification) | 10 MB | Attendance |
 | Max file size (biometric image) | 15 MB | Biometric |
-| Max file size (firmware binary) | 50 MB | IoT |
 | Max file size (audit payload) | 1 MB | Audit |
 
 ---

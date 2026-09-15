@@ -13,18 +13,11 @@
 | UserCreated | identity.user.events | Identity | Authorization, Biometric, Audit | `{userId, personId, username}` |
 | UserSessionStarted | identity.session.events | Identity | — | `{sessionId, userId, sourceIp}` |
 | UserSessionEnded | identity.session.events | Identity | — | `{sessionId, userId, sessionStatus}` |
+| UserAuthenticated | identity.auth.events | Identity | Audit | `{userId, sessionId, success, sourceIp}` |
 
 ---
 
-## 2. Auth Service
-
-| Event | Topic/Exchange | Producer | Consumers | Payload (key fields) |
-|-------|---------------|----------|-----------|----------------------|
-| AuthDomainUpdated | 02-auth-service.events | Auth | — | `{entityId, version, occurredAt}` |
-
----
-
-## 3. Authorization Service
+## 2. Authorization Service
 
 | Event | Topic/Exchange | Producer | Consumers | Payload (key fields) |
 |-------|---------------|----------|-----------|----------------------|
@@ -35,15 +28,24 @@
 
 ---
 
-## 4. Academic Service
+## 3. Academic Service
 
 | Event | Topic/Exchange | Producer | Consumers | Payload (key fields) |
 |-------|---------------|----------|-----------|----------------------|
 | CourseCreated | academic.course.events | Academic | — | `{courseId, schoolId, courseCode}` |
 | EnrollmentCreated | academic.enrollment.events | Academic | — | `{enrollmentId, studentId, courseId, periodId}` |
-| ScheduleCreated | academic.schedule.events | Academic | Attendance | `{scheduleId, courseId, teacherId, classroomId}` |
 | StudentProfileCreated | academic.student.events | Academic | — | `{studentId, personId, schoolId}` |
 | TeacherProfileCreated | academic.teacher.events | Academic | — | `{teacherId, personId, schoolId}` |
+
+---
+
+## 4. Scheduling Service
+
+| Event | Topic/Exchange | Producer | Consumers | Payload (key fields) |
+|-------|---------------|----------|-----------|----------------------|
+| ScheduleBlockCreated | scheduling.block.events | Scheduling | Attendance | `{scheduleBlockId, cohortId, courseId, environmentId, dayOfWeek}` |
+| ClassSessionOpened | scheduling.session.events | Scheduling | Attendance | `{classSessionId, scheduleBlockId, sessionDate, openedBy}` |
+| ClassSessionClosed | scheduling.session.events | Scheduling | Audit | `{classSessionId, scheduleBlockId, sessionDate, closedBy}` |
 
 ---
 
@@ -51,11 +53,9 @@
 
 | Event | Topic/Exchange | Producer | Consumers | Payload (key fields) |
 |-------|---------------|----------|-----------|----------------------|
-| ClassSessionOpened | attendance.session.events | Attendance | IoT | `{sessionId, scheduleId, date, openedBy}` |
-| ClassSessionClosed | attendance.session.events | Attendance | — | `{sessionId, scheduleId, date, closedBy}` |
-| AttendanceRecorded | attendance.attendance.events | Attendance | Audit | `{attendanceId, studentId, sessionId, status}` |
-| AttendanceCaptured | attendance.attendance.events | Attendance | Biometric | `{studentId, sessionId, deviceId, captureType, timestamp}` |
-| JustificationSubmitted | attendance.justification.events | Attendance | — | `{justificationId, attendanceId, approval}` |
+| AttendanceRecorded | attendance.attendance.events | Attendance | Audit, Notification | `{attendanceId, studentId, sessionId, status, captureType}` |
+| JustificationSubmitted | attendance.justification.events | Attendance | — | `{justificationId, attendanceId, reason}` |
+| JustificationReviewed | attendance.justification.events | Attendance | Notification | `{justificationId, status, reviewedBy}` |
 
 ---
 
@@ -65,22 +65,18 @@
 |-------|---------------|----------|-----------|----------------------|
 | FacialMatchSucceeded | biometric.match.events | Biometric | — | `{subjectId, schoolId, confidence}` |
 | FacialMatchFailed | biometric.match.events | Biometric | — | `{subjectId, schoolId, reason}` |
-| FingerprintMatchSucceeded | biometric.fingerprint.events | Biometric | — | `{subjectId, schoolId, finger}` |
 | BiometricVerified | biometric.verification.events | Biometric | Attendance | `{subjectId, schoolId, sessionId, matchType, confidence}` |
 | FacialUpdateRequested | biometric.review.events | Biometric | — | `{caseId, subjectId, reason}` |
 | FacialUpdateReviewed | biometric.review.events | Biometric | — | `{caseId, status, reviewedBy}` |
 
 ---
 
-## 7. IoT Service
+## 7. Notification Service
 
 | Event | Topic/Exchange | Producer | Consumers | Payload (key fields) |
 |-------|---------------|----------|-----------|----------------------|
-| DeviceRegistered | iot.device.events | IoT | — | `{deviceId, schoolId, deviceName}` |
-| DeviceAssigned | iot.assignment.events | IoT | — | `{deviceId, classroomId, assignedFrom}` |
-| DeviceStatusChanged | iot.device.events | IoT | Audit | `{deviceId, status, lastConnection}` |
-| DeviceOnline | iot.device.events | IoT | Attendance | `{deviceId, schoolId, classroomId, timestamp}` |
-| DeviceHeartbeat | iot.telemetry.events | IoT | — | `{deviceId, status, timestamp}` |
+| AlertRaised | notification.alert.events | Notification | — | `{alertId, alertTypeCode, academicActorId, raisedAt}` |
+| AlertResolved | notification.alert.events | Notification | — | `{alertId, alertTypeCode, resolvedAt}` |
 
 ---
 
@@ -98,9 +94,8 @@
 | Event | Topic/Exchange | Producer | Consumers | Payload (key fields) |
 |-------|---------------|----------|-----------|----------------------|
 | AcademicConfigurationChanged | configuration.academic.events | Configuration | Academic | `{schoolId, configurationName, configurationValue}` |
-| SecurityConfigurationChanged | configuration.security.events | Configuration | — | `{configurationName, configurationValue}` |
+| SecurityConfigurationChanged | configuration.security.events | Configuration | Identity | `{configurationName, configurationValue}` |
 | PasswordPolicyChanged | configuration.security.events | Configuration | Identity | `{policyId, minLength, expirationDays}` |
-| ConfigurationUpdated | configuration.system.events | Configuration | IoT | `{configurationType, configurationName, configurationValue, schoolId}` |
 
 ---
 

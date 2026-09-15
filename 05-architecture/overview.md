@@ -91,9 +91,16 @@ graph TB
 
 | # | Service | Responsibility | Port | DB | Communication type |
 |---|---------|---------------|------|-----|-------------------|
-| 1 | [api-gateway] | Routing, auth, rate limiting | 8080 | Redis (cache) | HTTP Proxy |
-| 2 | [auth-service] | Registration, login, JWT tokens | 3001 | PostgreSQL | REST + Events |
-| 3 | [xxx-service] | [responsibility] | 300X | [DB] | [REST/Async] |
+| 01 | identity-service (+auth) | Person, user, authentication, sessions, JWT | 8081 | PostgreSQL | REST + Events |
+| 02 | authorization-service | Roles, permissions, role assignments | 8083 | PostgreSQL | REST + Events |
+| 03 | academic-service | Students, teachers, courses, enrollments | 8084 | PostgreSQL | REST + Events |
+| 04 | scheduling-service | Environments, schedule blocks, class sessions | 8087 | PostgreSQL | REST + Events |
+| 05 | attendance-service | Attendance records, justifications | 8085 | PostgreSQL | REST + Events |
+| 06 | biometric-service | Facial/fingerprint embeddings | 8086 | MongoDB | REST + Events |
+| 07 | notification-service | Alert types, alerts | 8090 | PostgreSQL | REST + Events |
+| 08 | audit-service | Audit logs, error logs | 8088 | PostgreSQL | Events |
+| 09 | configuration-service | Academic/security config values | 8089 | PostgreSQL | REST + Events |
+| 99 | api-gateway | Routing, auth, rate limiting | 8080 | Redis (cache) | HTTP Proxy |
 
 > Full detail per service in `09-microservices/service-catalog.md`
 

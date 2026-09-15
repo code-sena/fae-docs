@@ -22,17 +22,19 @@
 | Classroom | Academic Service | Academic | API + events | PostgreSQL |
 | Period | Academic Service | Academic | API + events | PostgreSQL |
 | Enrollment | Academic Service | Academic | API + events | PostgreSQL |
-| Schedule | Academic Service | Academic | API + events | PostgreSQL |
-| Class_Session | Attendance Service | Attendance | API + events | PostgreSQL |
-| Attendance | Attendance Service | Attendance | API + events | PostgreSQL |
+| Environment | Scheduling Service | Scheduling | API + events | PostgreSQL |
+| Schedule_Block | Scheduling Service | Scheduling | API + events | PostgreSQL |
+| Class_Session | Scheduling Service | Scheduling | API + events | PostgreSQL |
+| Attendance_Record | Attendance Service | Attendance | API + events | PostgreSQL |
 | Justification_Type | Attendance Service | Attendance | API + events | PostgreSQL |
 | Justification | Attendance Service | Attendance | API + events | PostgreSQL |
+| Supporting_Document | Attendance Service | Attendance | API + events | PostgreSQL |
 | Facial_Embedding | Biometric Service | Biometric | API + events | MongoDB |
 | Fingerprint_Embedding | Biometric Service | Biometric | API + events | MongoDB |
 | Facial_Update_Case | Biometric Service | Biometric | API + events | MongoDB |
-| IoT_Device | IoT Service | IoT | API + events | PostgreSQL |
-| Device_Assignment | IoT Service | IoT | API + events | PostgreSQL |
-| Audit_Event | Audit Service | Audit | API + events | PostgreSQL |
+| Alert_Type | Notification Service | Notification | API + events | PostgreSQL |
+| Alert | Notification Service | Notification | API + events | PostgreSQL |
+| Audit_Log | Audit Service | Audit | API + events | PostgreSQL |
 | Error_Log | Audit Service | Audit | API + events | PostgreSQL |
 | Academic_Configuration | Configuration Service | Configuration | API + events | PostgreSQL |
 | Security_Configuration | Configuration Service | Configuration | API + events | PostgreSQL |
@@ -55,16 +57,15 @@
 | Consumer service | Reads from (via API or events) | Entities consumed |
 |------------------|-------------------------------|-------------------|
 | API Gateway | All services | Routes requests to owning services |
-| Auth Service | Identity Service | User credentials for authentication |
 | Authorization Service | Identity Service | User and school data for role assignment |
 | Academic Service | Identity Service | Person data for student/teacher profiles |
+| Scheduling Service | Academic Service | Cohort, course, instructor data for schedule blocks |
 | Attendance Service | Academic Service | Schedule, enrollment, and classroom data |
+| Attendance Service | Scheduling Service | Class session context for attendance recording |
 | Attendance Service | Biometric Service | Biometric verification status |
-| Attendance Service | IoT Service | Device online status |
 | Biometric Service | Identity Service | User metadata for correlation |
-| IoT Service | Attendance Service | Class session context |
-| IoT Service | Configuration Service | Operational settings |
-| Audit Service | Identity, Attendance, IoT | Business events for traceability |
+| Notification Service | Academic Service | Academic actor data for alert generation |
+| Audit Service | Identity, Attendance, Scheduling | Business events for traceability |
 | Configuration Service | Identity Service | School data for config initialization |
 
 ---

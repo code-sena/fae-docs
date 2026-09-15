@@ -39,9 +39,8 @@
 
 | Event | Published by | Topic/Exchange | What this service does when it receives it |
 |-------|-------------|----------------|-------------------------------------------|
-| ScheduleCreated | academic-service | academic.schedule.events | Builds the session schedule or validates class-day dependencies |
-| DeviceOnline | iot-service | iot.device.events | Allows the service to validate if a classroom device is active for capture |
-| BiometricVerified | biometric-service | biometric.recognition.events | Correlates successful identity recognition with attendance records |
+| ClassSessionOpened | scheduling-service | scheduling.session.events | Validates class session context for attendance |
+| BiometricVerified | biometric-service | biometric.verification.events | Correlates successful identity recognition with attendance records |
 
 ---
 

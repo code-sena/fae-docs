@@ -28,7 +28,7 @@
 | Local port | 8089 |
 | Repository | [Service repo URL] |
 | DB engine | PostgreSQL |
-| Communicates with | academic-service, attendance-service, iot-service |
+| Communicates with | academic-service, attendance-service, identity-service |
 | Consumed by | Operations, administrators, platform services |
 
 ---

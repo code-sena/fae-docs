@@ -5,29 +5,29 @@
 
 ---
 
-## Sprint structure
+## Sprint structure — SENA FaceAttend EDU (3 apprentices, no dedicated DevOps)
 
 | Field | Value |
 |-------|-------|
-| Duration | [1 week / 2 weeks / 3 weeks] |
-| Sprint start | [Monday / Tuesday / Wednesday] |
-| Sprint end | [Friday of week N] |
-| Current sprint | Sprint [N] — [start date] to [end date] |
-| Estimated capacity | [N story points per sprint] |
+| Duration | 2 weeks |
+| Sprint start | Monday 08:00 |
+| Sprint end | Friday of week 2, 17:00 |
+| Current sprint | Sprint 1 — 2026-09-16 to 2026-09-27 |
+| Estimated capacity | 20 story points per sprint (avg velocity target) |
 
 ---
 
 ## Ceremonies
 
 ### Sprint Planning
-- **When:** First day of the sprint — [time]
-- **Duration:** Maximum [1h per week of sprint]
-- **Who:** Entire team
+- **When:** First day of the sprint — Monday 08:00
+- **Duration:** Maximum 2h (1h per week)
+- **Who:** Entire team + Instructor (PO proxy)
 - **Goal:** Select and commit to sprint user stories, break down into technical tasks
-- **Output artifact:** Sprint Backlog updated in [tool: Jira / Linear / GitHub Issues]
+- **Output artifact:** Sprint Backlog updated in GitHub Projects
 
 ### Daily Stand-up
-- **When:** Every day — [time]
+- **When:** Every day — 08:30
 - **Duration:** Maximum 15 minutes
 - **Format:**
   1. What did I do yesterday?
@@ -36,19 +36,19 @@
 - **Rule:** Technical discussions happen after the daily, not during it
 
 ### Sprint Review
-- **When:** Last day of the sprint — [time]
+- **When:** Last day of the sprint — Friday 15:00
 - **Duration:** Maximum [30 min]
 - **Who:** Team + Product Owner (+ stakeholders if applicable)
 - **Goal:** Show what was built and collect feedback
 
 ### Sprint Retrospective
-- **When:** Last day of the sprint — after the review
+- **When:** Last day of the sprint — Friday 16:00 (after review)
 - **Duration:** Maximum [45 min]
-- **Format:** [What went well / What to improve / Action commitments]
+- **Format:** What went well / What to improve / Action commitments (1 owner + due date)
 - **Rule:** Each retro produces at least 1 improvement action with an owner and due date
 
 ### Backlog Refinement
-- **When:** [Wednesday of the second week / mid-sprint]
+- **When:** Wednesday of week 1, 10:00 (mid-sprint)
 - **Duration:** Maximum [1h]
 - **Goal:** Detail and estimate user stories for the next sprint
 - **Exit criterion:** The user story meets the Definition of Ready
@@ -67,8 +67,8 @@
 | 8 | Very large — should be split |
 | 13 | Epic — MUST be split before the sprint |
 
-**Technique:** [Planning Poker / T-shirt sizing]
-**Tool:** [tool name]
+**Technique:** Planning Poker
+**Tool:** GitHub Projects + Planning Poker offline (cards)
 
 ### Estimation rule
 - If there is disagreement of 2+ levels (e.g., someone says 3 and another says 8), discuss before voting again.
@@ -78,8 +78,8 @@
 
 ## Backlog tool
 
-**Tool:** [Jira / Linear / GitHub Projects / Trello]
-**Board URL:** [URL]
+**Tool:** GitHub Projects
+**Board URL:** https://github.com/org/fae-docs/projects/1 (replace with actual repo)
 
 ### Board columns
 | Column | Meaning |
@@ -96,10 +96,10 @@
 
 | Sprint | Story points completed | Notes |
 |--------|----------------------|-------|
-| Sprint 1 | — | — |
-| Sprint 2 | — | — |
-| Sprint 3 | — | — |
-| Average | — | — |
+| Sprint 1 | 18 | Baseline, 02-domain + 05-architecture docs |
+| Sprint 2 | — | Target 20 |
+| Sprint 3 | — | Target 20 |
+| Average | 18 (initial) | Recalculated after Sprint 3 |
 
 ---
 

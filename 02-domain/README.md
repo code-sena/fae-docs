@@ -7,7 +7,7 @@
 
 This section describes the domain model of the **FaceAttend EDU** project, understood as the business representation of the system. It defines the main concepts used by the educational institution to manage attendance, the entities involved in the process, the rules that must always be satisfied, and the events that occur during platform operation.
 
-FaceAttend EDU should not be understood solely as an application with screens, forms, or records. From a domain perspective, the system revolves around concepts such as person, user, role, permission, school, program, cohort, environment, schedule, class session, attendance record, facial embedding, fingerprint embedding, justification, alert, and audit log.
+FaceAttend EDU should not be understood solely as an application with screens, forms, or records. From a domain perspective, the system revolves around concepts such as person, user, role, permission, school, program, cohort, environment, schedule, class session, attendance record, facial embedding, fingerprint embedding, justification, and alert.
 
 The purpose of this section is to build a common language among the development team, the instructor, and project stakeholders so that everyone understands the business terms in the same way.
 
@@ -26,7 +26,7 @@ The domain section aims to:
 
 This section includes:
 
-- Domain map and bounded contexts (9 contexts aligned with the data model).
+- Domain map and bounded contexts (8 contexts aligned with the data model).
 - Business entities and their relationships.
 - Business rules and invariants.
 - Domain events and their side effects.
@@ -54,7 +54,7 @@ Example of the difference:
 
 ## Bounded Contexts
 
-Based on the data model, the FaceAttend EDU domain is organized into the following 9 bounded contexts:
+Based on the data model, the FaceAttend EDU domain is organized into the following 8 bounded contexts:
 
 | Context | Type | Main entities | Related requirements |
 |---|---|---|---|
@@ -65,7 +65,6 @@ Based on the data model, the FaceAttend EDU domain is organized into the followi
 | Attendance | System core | Attendance_Record, Justification_Type, Justification, Supporting_Document | RF 3, RF 6 |
 | Biometric | Supporting (NoSQL) | Facial_Embedding, Fingerprint_Embedding | RF 3.1.1, RNF 4 |
 | Notification | Supporting | Alert_Type, Alert | RF 4.1 |
-| Audit | Supporting | Audit_Log, Error_Log | RF 5.2, RNF 4 |
 | Configuration | Cross-cutting supporting | Academic_Configuration, Security_Configuration, Biometric_Update_Case | RF 4 |
 
 > The **Identity** and **Authorization** contexts are cross-cutting because all other contexts depend on them to validate who the user is, which role they have, and which actions they may perform.
@@ -116,7 +115,6 @@ The following important terms must remain consistent throughout this section:
 - Facial_Embedding.
 - Fingerprint_Embedding.
 - Alert.
-- Audit_Log.
 
 ## Modeling Conventions
 

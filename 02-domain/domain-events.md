@@ -10,11 +10,11 @@
 
 | Event | Trigger | Side effect |
 |---|---|---|
-| `UserRegistered` | A record is inserted into `app_user`. | The user can now authenticate. An audit record is created. |
+| `UserRegistered` | A record is inserted into `app_user`. | The user can now authenticate. |
 | `UserActivated` | `status` in `app_user` is set to active. | The user can access system functions. |
 | `UserDeactivated` | `status` in `app_user` is set to inactive. | The user cannot authenticate. Active sessions are invalidated. |
 | `SessionStarted` | A record is inserted into `user_session`. | The user can interact with the system for a limited period. |
-| `PasswordChanged` | `password_hash` in `app_user` is updated. | Previous credentials are invalidated. An audit record is created. |
+| `PasswordChanged` | `password_hash` in `app_user` is updated. | Previous credentials are invalidated. |
 | `RoleAssigned` | A record is inserted into `user_role`. | The user gains the permissions associated with the new role. |
 | `SchoolRegistered` | A record is inserted into `school`. | The school becomes available for academic data. |
 | `ProgramCreated` | A record is inserted into `program`. | Cohorts and courses can be associated with the program. |
@@ -39,8 +39,6 @@
 | `BiometricUpdateRequested` | A record is inserted into `biometric_update_case` (status = Pending). | An administrator is notified to review. |
 | `BiometricUpdateApproved` | `update_status` in `biometric_update_case` is updated to Approved. | The biometric embedding can be updated. |
 | `BiometricUpdateRejected` | `update_status` in `biometric_update_case` is updated to Rejected. | The requestor is notified. No embedding change. |
-| `ActionAudited` | A record is inserted into `audit_log`. | The action is permanently recorded for traceability. |
-| `ErrorLogged` | A record is inserted into `error_log`. | The error is available for debugging and monitoring. |
 
 ---
 

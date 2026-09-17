@@ -21,7 +21,6 @@ This document does not describe tables, columns, or database details. It describ
 | Attendance | System core | Record attendance through facial recognition or alternative methods. Manage justifications and supporting documents. | RF 3, RF 6 |
 | Biometric | Supporting subdomain | Store and manage facial and fingerprint embeddings (NoSQL). | RF 3.1.1, RNF 4 |
 | Notification | Supporting subdomain | Manage alert types and alerts for system events. | RF 4.1 |
-| Audit | Supporting subdomain | Record all system actions and errors for traceability. | RF 5.2, RNF 4 |
 | Configuration | Cross-cutting supporting subdomain | Manage academic, security, and biometric-update configuration parameters. | RF 4 |
 
 ---
@@ -86,7 +85,6 @@ This domain is necessary because FaceAttend EDU handles sensitive academic infor
 - **Academic:** needs to identify persons and link them to academic actors.
 - **Attendance:** needs to know who the user is and whether they are active.
 - **Justifications:** needs to validate who requests and who approves.
-- **Audit:** records all identity-related actions.
 
 ---
 
@@ -336,40 +334,7 @@ Supporting subdomain.
 
 ---
 
-## 8. Audit
-
-### Purpose
-Record every relevant system action and error for traceability, compliance, and debugging.
-
-### Context Type
-Supporting subdomain.
-
-### Main Concepts
-- Audit_Log.
-- Error_Log.
-
-### Responsibilities
-- Record all CRUD actions on critical entities.
-- Record authentication attempts.
-- Record system errors and exceptions.
-- Support queries by actor, aggregate, date, and school.
-
-### Related Requirements
-- RF 5.2: User change history.
-- RNF 4: Security.
-
-### Business Rules
-- Audit logs are append-only — records must never be modified or deleted.
-- Every authentication attempt must be recorded.
-- Error logs include validation, auth, and system errors.
-
-### Possible Events
-- `ActionAudited`
-- `ErrorLogged`
-
----
-
-## 9. Configuration
+## 8. Configuration
 
 ### Purpose
 Manage system-wide and per-school configuration parameters, including biometric update workflows.
@@ -414,14 +379,12 @@ graph LR
     Identity --> Academic
     Identity --> Attendance
     Identity --> Biometric
-    Identity --> Audit
     Authorization --> Attendance
     Academic --> Scheduling
     Academic --> Attendance
     Scheduling --> Attendance
     Biometric --> Attendance
     Attendance --> Notification
-    Attendance --> Audit
     Configuration --> Academic
     Configuration --> Biometric
 ```

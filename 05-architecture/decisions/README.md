@@ -18,8 +18,24 @@ ADRs document important architectural decisions. Each file = one decision.
 
 ## ADR register
 
-| # | Title | Status | Date |
-|---|-------|--------|------|
-| None yet | — | — | — |
+| # | Title | Status | Date | Scope |
+|---|-------|--------|------|-------|
+| ADR-001 | Documentation language | Accepted | 2026-09-01 | Cross-cutting |
+| ADR-002 | Modular monolith — schema-per-context | Accepted | 2026-09-03 | Architecture style |
+| ADR-003 | Biometric persistence (MongoDB vectors) | Accepted | 2026-09-04 | Data |
+| ADR-004 | Attendance consistency (Saga + Outbox) | Accepted | 2026-09-05 | Consistency |
+| ADR-005 | Technology stack per service | Proposed | 2026-09-12 | Stack |
+| ADR-006 | Message broker (Kafka) | Proposed | 2026-09-12 | Integration |
+| ADR-007 | API Gateway (Kong OSS) | Accepted | 2026-09-12 | Edge |
+| ADR-008 | Password hashing (bcrypt cost 12) | Accepted | 2026-09-12 | Security |
+| ADR-009 | File storage | Accepted | 2026-09-13 | Infra |
+| ADR-010 | Database migrations (Liquibase) | Accepted | 2026-09-13 | Data |
+| ADR-011 | CI/CD platform (Jenkins) | Accepted | 2026-09-13 | DevOps |
+| ADR-012 | Observability stack | Proposed | 2026-09-14 | Ops |
+| ADR-013 | Frontend technology | Proposed | 2026-09-14 | UX |
+| ADR-014 | Biometric SDK | Proposed | 2026-09-14 | Biometric |
+| ADR-015 | Caching strategy | Proposed | 2026-09-14 | Perf |
+| ADR-016 | Encryption at rest | Accepted | 2026-09-15 | Security |
+| ADR-017 | Localization | Proposed | 2026-09-15 | UX |
 
-> Add rows here as you create ADRs in `records/`
+> Update status to `Superseded by ADR-NNN` when replaced. Audit retirement (2026-09) is tracked in ADR-002/005/006 via `refactor/remove-audit-domain`.

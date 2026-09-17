@@ -4,9 +4,9 @@
 > It defines the system's boundaries and how they relate to each other.
 > Build it first with the team and domain experts in an Event Storming session.
 
-## Before filling in this document: Event Storming
+## Event Storming Outcome
 
-The FaceAttend EDU domain map describes the main business areas and system contexts. Its purpose is to organize the business model so the development team shares a common language and understands how system functions relate to one another.
+This map was refined from the SRS and a lightweight Event Storming (team + instructor as domain expert). Orange = domain events, blue = commands, yellow = aggregates, pink = hotspots. Outcome: 8 bounded contexts plus IoT as **external supporting context** (device provisioning) — kept out of the core attendance domain and modeled only in `09-microservices` for future hardware integration.
 
 This document does not describe tables, columns, or database details. It describes the business in terms of entities, responsibilities, rules, events, and contexts.
 
@@ -373,6 +373,8 @@ Cross-cutting supporting subdomain.
 
 ## Context Relationships
 
+Upstream → Downstream (arrow = depends on). `Identity` is upstream of all; `Configuration` is cross-cutting downstream consumer.
+
 ```mermaid
 graph LR
     Identity --> Authorization
@@ -387,4 +389,22 @@ graph LR
     Attendance --> Notification
     Configuration --> Academic
     Configuration --> Biometric
+    Configuration -.-> Attendance
 ```
+
+> **IoT note:** `IoT_Device` / `Device_Assignment` (see `09-microservices/services/06-iot-service`) is an **external supporting context** for classroom hardware. It is intentionally excluded from the 02-domain core map — attendance can operate without it, and it integrates via `attendance-service` only when hardware is present.
+
+## Ubiquitous Language — Consolidated
+
+| Term | Definition (business) | Not to confuse with |
+|---|---|---|
+| Person | Natural person in institution | App_User (credentials) |
+| App_User | Login account bound 1:1 to Person | Person |
+| Academic_Actor | Person acting as Student/Instructor in a School | Person |
+| Cohort | Group of learners in a Program+Period+School | Course, Program |
+| Course | Subject/module within a Program | Cohort |
+| Class_Session | Concrete occurrence of a Schedule_Block on a date | Schedule_Block (recurring template) |
+| Attendance_Record | Proof of presence for one actor in one session | Justification |
+| Justification | Pedido para eximir una ausencia, 1:1 con Attendance_Record | Supporting_Document |
+| Facial_Embedding | Vector matemático de rostro (MongoDB) | Foto |
+| Alert | Notificación por umbral o conflicto horario | Notification channel |

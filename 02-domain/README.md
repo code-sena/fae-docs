@@ -54,7 +54,7 @@ Example of the difference:
 
 ## Bounded Contexts
 
-Based on the data model, the FaceAttend EDU domain is organized into the following 8 bounded contexts:
+Based on the SRS and Event Storming, the FaceAttend EDU domain is organized into the following 8 bounded contexts (Audit retired in v1.1 — see history below):
 
 | Context | Type | Main entities | Related requirements |
 |---|---|---|---|
@@ -66,6 +66,10 @@ Based on the data model, the FaceAttend EDU domain is organized into the followi
 | Biometric | Supporting (NoSQL) | Facial_Embedding, Fingerprint_Embedding | RF 3.1.1, RNF 4 |
 | Notification | Supporting | Alert_Type, Alert | RF 4.1 |
 | Configuration | Cross-cutting supporting | Academic_Configuration, Security_Configuration, Biometric_Update_Case | RF 4 |
+
+> **History:** Audit (Audit_Log, Error_Log) was removed as DDD bounded context in `refactor/remove-audit-domain`. Traceability is now a cross-cutting infrastructure concern (Kafka event log + centralized logging), not a business aggregate. RN-30/31/37-41/44/45 retired.
+
+> **IoT:** `IoT_Device` / `Device_Assignment` (see `09-microservices/services/06-iot-service`) is a *technical* supporting context for future hardware, excluded from the core business map. It integrates only via `attendance-service` when devices are present.
 
 > The **Identity** and **Authorization** contexts are cross-cutting because all other contexts depend on them to validate who the user is, which role they have, and which actions they may perform.
 
@@ -93,28 +97,16 @@ The information in this section is mainly based on the FaceAttend EDU Software R
 
 ## Key Domain Concepts
 
-The following important terms must remain consistent throughout this section:
+The following terms must remain consistent (see `01-context/glossary.md` as source of truth and `domain-map.md#ubiquitous-language` for business definitions):
 
-- Person.
-- App_User.
-- Role.
-- Permission.
-- School.
-- Program.
-- Academic_Period.
-- Cohort.
-- Course.
-- Academic_Actor.
-- Enrollment.
-- Environment.
-- Schedule_Block.
-- Class_Session.
-- Attendance_Record.
-- Justification.
-- Supporting_Document.
-- Facial_Embedding.
-- Fingerprint_Embedding.
-- Alert.
+- Person / App_User / City / Credentials / Session.
+- Role / Permission / Role_Permission / User_Role.
+- School / Program / Academic_Period / Cohort / Course / Academic_Actor / Academic_Actor_Type / Enrollment.
+- Environment / Schedule_Block / Class_Session / Time_Block.
+- Attendance_Record / Justification_Type / Justification / Supporting_Document / Recording_Method.
+- Facial_Embedding / Fingerprint_Embedding / Biometric_Update_Case.
+- Alert_Type / Alert.
+- Academic_Configuration / Security_Configuration.
 
 ## Modeling Conventions
 

@@ -3,42 +3,44 @@
 > A domain event is a fact that occurred in the business.
 > They are the backbone of asynchronous communication between bounded contexts.
 > The name is ALWAYS in past tense and in the ubiquitous language of the domain.
+> Transport: Kafka (see `05-architecture/decisions/records/ADR-006`).
 
 ---
 
-## What is a domain event?
+## Event Catalog by Context (8 bounded contexts)
 
-| Event | Trigger | Side effect |
-|---|---|---|
-| `UserRegistered` | A record is inserted into `app_user`. | The user can now authenticate. |
-| `UserActivated` | `status` in `app_user` is set to active. | The user can access system functions. |
-| `UserDeactivated` | `status` in `app_user` is set to inactive. | The user cannot authenticate. Active sessions are invalidated. |
-| `SessionStarted` | A record is inserted into `user_session`. | The user can interact with the system for a limited period. |
-| `PasswordChanged` | `password_hash` in `app_user` is updated. | Previous credentials are invalidated. |
-| `RoleAssigned` | A record is inserted into `user_role`. | The user gains the permissions associated with the new role. |
-| `SchoolRegistered` | A record is inserted into `school`. | The school becomes available for academic data. |
-| `ProgramCreated` | A record is inserted into `program`. | Cohorts and courses can be associated with the program. |
-| `CohortRegistered` | A record is inserted into `cohort`. | Students can be enrolled and attendance can be tracked. |
-| `EnrollmentCreated` | A record is inserted into `enrollment`. | The student appears in the cohort's attendance roster. |
-| `EnvironmentRegistered` | A record is inserted into `environment`. | The environment can be assigned to schedule blocks. |
-| `ScheduleBlockCreated` | A record is inserted into `schedule_block`. | Class sessions can be generated from this block. |
-| `ClassSessionOpened` | `status` in `class_session` is set to Open. | Attendance can be recorded for this session. |
-| `ClassSessionClosed` | `status` in `class_session` is set to Closed. | No more attendance can be recorded. Reports can be generated. |
-| `FacialEmbeddingEnrolled` | A document is inserted into `facial_embeddings`. | The person can be identified by facial recognition. |
-| `FacialEmbeddingUpdated` | A document in `facial_embeddings` is updated. | The person's facial template version increments. |
-| `FingerprintEmbeddingEnrolled` | A document is inserted into `fingerprint_embeddings`. | The person can be identified by fingerprint. |
-| `AttendanceRecorded` | A record is inserted into `attendance_record`. | It calculates whether it is "Late" by comparing `captured_at` with `schedule_block` times. The Dashboard is updated. |
-| `LateArrivalDetected` | `attendance_status` is set to Late. | An alert may be raised for the instructor. |
-| `AbsenceDetected` | `attendance_status` is set to Absent after session closes. | An alert may be raised. The student can submit a justification. |
-| `JustificationRequested` | A record is inserted into `justification` (status = Pending). | A notification is sent to the reviewer. |
-| `SupportingDocumentUploaded` | A record is inserted into `supporting_document`. | The justification file is available for review. |
-| `JustificationApproved` | `review_status` in `justification` is updated to Approved. | The `attendance_status` is updated to "Justified". The student is notified. |
-| `JustificationRejected` | `review_status` in `justification` is updated to Rejected. | The student is notified. The absence record remains. |
-| `AlertRaised` | A record is inserted into `alert`. | The receiving user is notified. |
-| `AlertResolved` | `resolved_at` in `alert` is set. | The alert is marked as resolved. |
-| `BiometricUpdateRequested` | A record is inserted into `biometric_update_case` (status = Pending). | An administrator is notified to review. |
-| `BiometricUpdateApproved` | `update_status` in `biometric_update_case` is updated to Approved. | The biometric embedding can be updated. |
-| `BiometricUpdateRejected` | `update_status` in `biometric_update_case` is updated to Rejected. | The requestor is notified. No embedding change. |
+| Context | Event | Business trigger | Side effect / Consumer |
+|---|---|---|---|
+| Identity | `UserRegistered` | Administrator completes learner/instructor registration | Identity creates credentials; Authorization assigns default role |
+| Identity | `UserActivated` | Administrator re-enables a disabled account | User regains access to all contexts |
+| Identity | `UserDeactivated` | Administrator disables account (e.g., leave, sanction) | Active sessions invalidated; attendance capture blocked |
+| Identity | `SessionStarted` | Learner/instructor signs in successfully | Session available for API Gateway; last_access updated |
+| Identity | `PasswordChanged` | User completes password change flow | Previous sessions remain but credentials rotated |
+| Authorization | `RoleAssigned` | Administrator assigns Role to App_User for a School | Permissions embedded in next JWT |
+| Authorization | `RoleRemoved` | Role revoked | Permissions recalculated |
+| Academic | `SchoolRegistered` | New institution onboarded | Enables programs, cohorts, environments |
+| Academic | `ProgramCreated` | Academic coordinator creates program | Cohorts/courses can reference it |
+| Academic | `CohortRegistered` | Cohort linked to Program+Period+School | Enrollment and scheduling enabled |
+| Academic | `EnrollmentCreated` | Learner enrolled in cohort | Appears in roster; attendance can be recorded |
+| Scheduling | `EnvironmentRegistered` | Classroom/lab registered for a School | Available for schedule blocks |
+| Scheduling | `ScheduleBlockCreated` | Coordinator defines recurring slot (day/time/instructor/environment) | Class sessions can be generated; conflict check RN-18 |
+| Scheduling | `ClassSessionOpened` | Instructor opens session for today | Attendance capture allowed (RN-23) |
+| Scheduling | `ClassSessionClosed` | Instructor/system closes session | No further capture; Absence detection runs; reports available |
+| Biometric | `FacialEmbeddingEnrolled` | Biometric enrollment succeeds for Person | Person can use FACIAL capture |
+| Biometric | `FacialEmbeddingUpdated` | Re-enrollment approved via Biometric_Update_Case | Template version++ ; old embedding deactivated |
+| Biometric | `FingerprintEmbeddingEnrolled` | Fingerprint captured (1..10 per Person) | Alternative capture available |
+| Attendance | `AttendanceRecorded` | Learner captured via FACIAL/MANUAL/IMPORT during Open session | Late calculation vs Schedule_Block; Notification may raise alert |
+| Attendance | `LateArrivalDetected` | System marks arrival after tardy tolerance | Alert to instructor |
+| Attendance | `AbsenceDetected` | Session closes without record for enrolled actor | Alert; learner may submit Justification |
+| Attendance | `JustificationRequested` | Learner submits justification for an Absence | Review task for instructor/admin |
+| Attendance | `SupportingDocumentUploaded` | File attached to justification | Available for review |
+| Attendance | `JustificationApproved` | Reviewer approves justification | Attendance status → Justified; learner notified |
+| Attendance | `JustificationRejected` | Reviewer rejects justification | Absence remains; learner notified |
+| Notification | `AlertRaised` | Threshold/conflict detected | Recipient notified in-app |
+| Notification | `AlertResolved` | Authorized user resolves alert | Alert closed |
+| Configuration | `BiometricUpdateRequested` | Learner requests embedding update (Pending) | Administrator notified |
+| Configuration | `BiometricUpdateApproved` | Administrator approves case | Embedding may be re-enrolled |
+| Configuration | `BiometricUpdateRejected` | Administrator rejects case | No change; requestor notified |
 
 ---
 

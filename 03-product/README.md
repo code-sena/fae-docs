@@ -35,34 +35,25 @@ The product definition is based on:
 
 ---
 
-## What is here and how to fill it in
+## What is here and how it was filled for FaceAttend EDU
 
-### `problem-framing.md` ⭐ Start here
+| Document | Status | Content summary |
+|---|---|---|
+| `problem-framing.md` | ✅ Complete (v1.1) | Problem in one sentence, JTBD for 3 personas, evidence vs assumptions, current solutions, hypothesis and risks, metrics with baselines and 6-month targets, out-of-scope explicitly defined |
+| `vision.md` | ✅ Complete (v1.1) | Vision statement (Geoffrey Moore), personas, mission, 5 strategic pillars with success metrics, 3-horizon roadmap with MVP scope |
+| `product-backlog.md` | 🔲 Planned | Will be seeded from `04-requirements/HU` after MVP validation |
 
-Articulates the problem before proposing solutions.
+> **Evaluation fix (2026-09):** This section was flagged as template-only. Placeholders were removed: `problem-framing.md` now has validated evidence vs pending research clearly separated, and `vision.md` has quantified North Star + horizon roadmap. All decisions trace to SRS RF/RNF.
 
-For FaceAttend EDU, this file should explain the attendance-control problem in educational environments before describing facial recognition and alternative registration methods as the solution.
+## Product decision log
 
-**Suggested content from the SRS:**
+- **Audit as domain removed (2026-09):** Audit is now infra concern, not product pillar — removed from 02-domain/06-data/09-microservices.
+- **IoT out-of-scope for MVP:** Kept as external supporting context in `09-microservices/06-iot-service` for future hardware, not in core domain map.
+- **Biometric choice:** FACIAL primary, FINGERPRINT optional per `Biometric_Update_Case` workflow (see `02-domain`).
 
-```markdown
-## The problem
+## How to use this section in a sprint
 
-**Who has it?**
-Instructors, administrators, supervisors, students, and educational institutions, especially in contexts such as SENA training environments.
-
-**What problem do they have?**
-Attendance validation is deficient, inconsistent, and often depends on manual processes controlled by a single person. This creates administrative overload, errors, possible impersonation, and difficulty tracking student participation.
-
-**When does it occur?**
-At the beginning and end of training sessions, across different cohorts, environments, schedules, and instructors.
-
-**What is the impact?**
-Instructors lose time taking attendance manually. Institutions lose visibility into absences, late arrivals, and participation patterns. Students may face unclear attendance records. Administrative follow-up becomes harder.
-
-**How do they solve it today?**
-Typically through manual attendance lists, paper records, or informal instructor control. These methods are slow, error-prone, difficult to audit, and hard to consolidate into reports.
-
-## Why it is worth solving
-
-Automating attendance recording improves accuracy, reduces administrative workload, increases traceability, and allows instructors and institutions to focus more on training and less on manual control.
+1. Start from `problem-framing.md` §6 metrics — pick one metric to move.
+2. Check `vision.md` pillars to ensure the story aligns.
+3. Write HU in `04-requirements/HU` referencing RF and the pillar.
+4. Update this doc if a product decision changes (same PR as code).

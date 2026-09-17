@@ -34,8 +34,6 @@
 | Facial_Update_Case | Biometric Service | Biometric | API + events | MongoDB |
 | Alert_Type | Notification Service | Notification | API + events | PostgreSQL |
 | Alert | Notification Service | Notification | API + events | PostgreSQL |
-| Audit_Log | Audit Service | Audit | API + events | PostgreSQL |
-| Error_Log | Audit Service | Audit | API + events | PostgreSQL |
 | Academic_Configuration | Configuration Service | Configuration | API + events | PostgreSQL |
 | Security_Configuration | Configuration Service | Configuration | API + events | PostgreSQL |
 | Password_Policy | Configuration Service | Configuration | API + events | PostgreSQL |
@@ -65,7 +63,6 @@
 | Attendance Service | Biometric Service | Biometric verification status |
 | Biometric Service | Identity Service | User metadata for correlation |
 | Notification Service | Academic Service | Academic actor data for alert generation |
-| Audit Service | Identity, Attendance, Scheduling | Business events for traceability |
 | Configuration Service | Identity Service | School data for config initialization |
 
 ---

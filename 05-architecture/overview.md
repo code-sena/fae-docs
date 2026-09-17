@@ -98,8 +98,7 @@ graph TB
 | 05 | attendance-service | Attendance records, justifications | 8085 | PostgreSQL | REST + Events |
 | 06 | biometric-service | Facial/fingerprint embeddings | 8086 | MongoDB | REST + Events |
 | 07 | notification-service | Alert types, alerts | 8090 | PostgreSQL | REST + Events |
-| 08 | audit-service | Audit logs, error logs | 8088 | PostgreSQL | Events |
-| 09 | configuration-service | Academic/security config values | 8089 | PostgreSQL | REST + Events |
+| 08 | configuration-service | Academic/security config values | 8089 | PostgreSQL | REST + Events |
 | 99 | api-gateway | Routing, auth, rate limiting | 8080 | Redis (cache) | HTTP Proxy |
 
 > Full detail per service in `09-microservices/service-catalog.md`

@@ -28,7 +28,7 @@
 | Local port | 8086 |
 | Repository | [Service repo URL] |
 | DB engine | MongoDB / document storage with vector capability |
-| Communicates with | attendance-service, audit-service |
+| Communicates with | attendance-service |
 | Consumed by | Attendance validation workflow |
 
 ---

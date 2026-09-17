@@ -10,10 +10,10 @@
 |-------|---------------|----------|-----------|----------------------|
 | SchoolCreated | identity.school.events | Identity | Authorization, Academic, Configuration | `{schoolId, nit, name}` |
 | PersonCreated | identity.person.events | Identity | Academic | `{personId, schoolId, email}` |
-| UserCreated | identity.user.events | Identity | Authorization, Biometric, Audit | `{userId, personId, username}` |
+| UserCreated | identity.user.events | Identity | Authorization, Biometric | `{userId, personId, username}` |
 | UserSessionStarted | identity.session.events | Identity | — | `{sessionId, userId, sourceIp}` |
 | UserSessionEnded | identity.session.events | Identity | — | `{sessionId, userId, sessionStatus}` |
-| UserAuthenticated | identity.auth.events | Identity | Audit | `{userId, sessionId, success, sourceIp}` |
+| UserAuthenticated | identity.auth.events | Identity | — | `{userId, sessionId, success, sourceIp}` |
 
 ---
 
@@ -45,7 +45,7 @@
 |-------|---------------|----------|-----------|----------------------|
 | ScheduleBlockCreated | scheduling.block.events | Scheduling | Attendance | `{scheduleBlockId, cohortId, courseId, environmentId, dayOfWeek}` |
 | ClassSessionOpened | scheduling.session.events | Scheduling | Attendance | `{classSessionId, scheduleBlockId, sessionDate, openedBy}` |
-| ClassSessionClosed | scheduling.session.events | Scheduling | Audit | `{classSessionId, scheduleBlockId, sessionDate, closedBy}` |
+| ClassSessionClosed | scheduling.session.events | Scheduling | — | `{classSessionId, scheduleBlockId, sessionDate, closedBy}` |
 
 ---
 
@@ -53,7 +53,7 @@
 
 | Event | Topic/Exchange | Producer | Consumers | Payload (key fields) |
 |-------|---------------|----------|-----------|----------------------|
-| AttendanceRecorded | attendance.attendance.events | Attendance | Audit, Notification | `{attendanceId, studentId, sessionId, status, captureType}` |
+| AttendanceRecorded | attendance.attendance.events | Attendance | Notification | `{attendanceId, studentId, sessionId, status, captureType}` |
 | JustificationSubmitted | attendance.justification.events | Attendance | — | `{justificationId, attendanceId, reason}` |
 | JustificationReviewed | attendance.justification.events | Attendance | Notification | `{justificationId, status, reviewedBy}` |
 
@@ -80,16 +80,7 @@
 
 ---
 
-## 8. Audit Service
-
-| Event | Topic/Exchange | Producer | Consumers | Payload (key fields) |
-|-------|---------------|----------|-----------|----------------------|
-| AuditEventRecorded | audit.events | Audit | — | `{auditEventId, actorId, action, aggregateType}` |
-| ErrorLogged | audit.errors | Audit | — | `{errorId, errorType, occurredAt}` |
-
----
-
-## 9. Configuration Service
+## 8. Configuration Service
 
 | Event | Topic/Exchange | Producer | Consumers | Payload (key fields) |
 |-------|---------------|----------|-----------|----------------------|

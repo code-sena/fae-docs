@@ -29,7 +29,7 @@
 | Local port | 8085 |
 | Repository | [Service repo URL] |
 | DB engine | PostgreSQL |
-| Communicates with | biometric-service, academic-service, audit-service |
+| Communicates with | biometric-service, academic-service |
 | Consumed by | API Gateway, staff and administrators |
 
 ---

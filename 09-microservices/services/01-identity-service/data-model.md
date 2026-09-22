@@ -112,7 +112,7 @@
 ## Modeling decisions
 
 - **Local ownership:** The Identity context owns `School`, `Person`, `User`, and `User_Session`.
-- **External references:** `User` is referenced by public IDs from Authorization and Audit contexts, not by a direct cross-context FK.
+- **External references:** `User` is referenced by public IDs from Authorization context, not by a direct cross-context FK.
 - **Academic independence:** The person is not considered to be the owner of academic profiles such as Student or Teacher.
 
 ---

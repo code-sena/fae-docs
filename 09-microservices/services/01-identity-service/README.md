@@ -29,7 +29,7 @@
 | Local port | 8081 |
 | Repository | [Service repo URL] |
 | DB engine | PostgreSQL |
-| Communicates with | authorization-service, audit-service |
+| Communicates with | authorization-service |
 | Consumed by | API Gateway, authentication flows |
 
 ---

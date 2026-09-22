@@ -6,55 +6,57 @@
 
 ---
 
-## In Scope
+## In Scope — MVP (Horizon 1, 0-3 months)
 
-According to the requirements specification, the FaceAttend EDU project includes the following capabilities:
+According to SRS + `03-product/vision.md` roadmap (validated in `02-domain` 8 contexts):
 
-- User management.
-- User registration through CSV files, subject to correction of requirement RF 1.2.
-- Sign-in.
-- User information consultation.
-- Environment management.
-- Generation of entry and exit records.
-- System configuration.
-- Management of IoT device failure alerts, if applicable.
-- User role changes.
-- Configuration of late arrivals and justifications.
-- Generation of attendance and absence histories.
-- User change history.
-- Upload of justification supporting documents.
-- Approval and rejection of justifications.
-- Automatic notification of a justification result.
-- Report export.
-- Analytical dashboard.
-- Reports by date range.
-- Consultation of late arrivals and absences by parameters.
-- School management, including courses and subject curricula.
+- RF 1/1.1/1.2: User management + CSV registration — Identity
+- RF 1.3/1.4/1.5/1.6: Sign-in, password recovery/change, activate/deactivate — Identity
+- RF 1.1.1/4.6 + 1.1.2: Role/permission management and role changes — Authorization
+- RF 2/2.1/2.3/8: Environment, cohorts, programs, courses, periods, school management — Academic + Scheduling
+- RF 3/3.1/3.1.1/3.1.2: Entry/exit records via FACIAL + MANUAL/IMPORT fallback — Attendance + Biometric
+- RF 4/4.1/4.4: System and academic configuration (tardy tolerance, security params) — Configuration
+- RF 6 + 6.1/6.2: Justification workflow + supporting documents + approval/rejection — Attendance
+- RF 3/5/7: Attendance/absence history + reports by date range/cohort + analytical dashboard — Attendance
 
-## Out of Scope
+> **Post-Audit note (2026-09):** `User change history` (former RF 5.2/Audit) is now an **infra cross-cutting concern** (Kafka event log + centralized logging), not a business capability in `02-domain`. Not in MVP scope as product pillar.
 
-- Teacher payroll or payment processes.
-- Complete physical access control for facilities.
-- Integration with external enrollment or grading systems.
-- Advanced internal messaging functionality.
-- Predictive dropout analytics.
-- Development of native mobile applications if the project is limited to the web.
-- Purchase, installation, or maintenance of physical hardware.
+## Out of Scope — MVP
 
-## Assumptions
+- Teacher payroll, grading or payment processes.
+- Complete physical access control (doors/turnstiles).
+- Integration with external enrollment/grading/IdP systems (future candidate).
+- Advanced internal messaging beyond in-app alerts (SMS/WhatsApp — future).
+- Predictive dropout analytics / AI risk models.
+- IoT device failure alerts — external supporting context (`06-iot-service`) kept as **future hardware** integration, not in core 8 contexts (see `02-domain/domain-map.md` IoT note).
+- Audit bounded context (removed 2026-09; now infra logging).
+- Separate native mobile apps — MVP is **responsive web + mobile web** (React Native considered in Horizon 3, ADR-013).
 
-- Users have access to a compatible web browser.
-- The institution has environments or spaces registered in the system.
-- Users have roles defined according to their permissions.
-- Initial user, group, or environment data can be loaded beforehand.
-- The system will support educational management, not serve as the sole legal control mechanism.
-- If facial recognition or biometric data is used, the corresponding authorization and data processing will be in place.
+## Candidates for future versions (Horizon 2-3)
+
+- Fingerprint biometrics via `Biometric_Update_Case` workflow
+- IoT classroom hardware integration (when devices available)
+- Multi-school tenancy hardening, advanced analytics, gRPC internal path (see `05-architecture/overview.md` §9)
+
+## Assumptions (to validate in pilot, see `03-product/problem-framing.md` §7 risks)
+
+- Users have a modern browser + camera-capable device (mobile/web) and connectivity; fallback MANUAL/IMPORT available.
+- Institution has at least one School/Program/Period seeded before cohort creation.
+- Roles (Administrator/Instructor/Student) are pre-defined per `02-domain` Authorization.
+- Initial users/environments can be seeded via CSV (RF 1.2).
+- System supports educational management, not legal attendance enforcement — Law 1581 consent required for biometric (see ADR-017).
+- Biometric vectors handled as PII: encryption at rest (ADR-016), consent workflow.
 
 ## Constraints
 
-- Development is part of a SENA training project.
-- It must align with the requirements specification defined by the team.
-- It must consider information security and protection criteria.
-- It must meet the performance criteria established in the SRS.
-- It must be compatible with different browsers or devices, as defined.
-- It must respect the time and resources of the academic project.
+- SENA training project: 3 apprentices, no dedicated DevOps, 2-week sprints (`00-governance/agile-conventions.md`).
+- Must align with SRS RF 1-8 + RNF 4 and Law 1581.
+- Security/performance/portability per SRS §2; ports `8081/8083/8084/8085/8086/8087/8089/8090` + `8080` Gateway.
+- Time/resources as academic project — scope frozen to MVP Horizon 1 until pilot validation.
+
+## Correlations
+
+- Problem framing & vision → `03-product/problem-framing.md`, `03-product/vision.md`
+- Bounded contexts → `02-domain/domain-map.md` (8 contexts)
+- Architecture style → `05-architecture/overview.md` / `ADR-002`
+- Glossary source of truth → `01-context/glossary.md`

@@ -44,15 +44,15 @@
 
 ## Authorization
 
-### RBAC (Role-Based Access Control)
+### RBAC (Role-Based Access Control) — FaceAttend EDU
 
-| Role | Description | Permissions |
+| Role (02-domain) | Description | Example permissions |
 |------|-------------|------------|
-| `SUPER_ADMIN` | System technical administrator | All |
-| `ADMIN` | Business administrator | [define] |
-| `OPERATOR` | Operator with write permissions | [define] |
-| `VIEWER` | Read-only | [define] |
-| `[CUSTOM_ROLE]` | [description] | [define] |
+| `Administrator` | Business administrator (global) | `users:manage`, `roles:assign`, `academic:manage`, `configuration:manage`, `justification:review` |
+| `Instructor` / `Teacher` | Manages cohort attendance and reviews justifications | `attendance:record`, `justification:review`, `reports:read`, `schedule:manage` |
+| `Student` / `Learner` | Records own attendance and submits justifications | `attendance:self-record`, `justification:create`, `history:self-read` |
+
+> **Mapping:** `SUPER_ADMIN` technical role is reserved for DevOps (Kong/Jenkins) and is not a business role in `02-domain` Authorization. Roles are assigned per School via `User_Role` and embedded in JWT as `roles: ["Administrator"]` per `security-policy.md` §Validation.
 
 **Permission model:**
 
@@ -142,17 +142,19 @@ element.textContent = userProvidedContent;
 ### Validation with Zod / Joi
 
 ```typescript
-// Explicit validation schema in the controller
-const CreateOrderSchema = z.object({
-  clientId: z.string().uuid(),
-  items: z.array(z.object({
-    productId: z.string().uuid(),
-    quantity: z.number().int().positive().max(1000),
-    price: z.object({
-      amount: z.number().positive(),
-      currency: z.enum(['COP', 'USD']),
-    }),
-  })).min(1).max(50),
+// Explicit validation schema in the controller — FaceAttend example
+const RecordAttendanceSchema = z.object({
+  classSessionId: z.string().uuid(),
+  academicActorId: z.string().uuid(),
+  captureMethod: z.enum(['FACIAL', 'MANUAL', 'IMPORT']),
+  capturedAt: z.string().datetime(),
+});
+
+const CreateUserSchema = z.object({
+  schoolId: z.number().int().positive(),
+  documentNumber: z.string().min(5).max(20),
+  email: z.string().email().max(255),
+  role: z.enum(['Administrator', 'Instructor', 'Student']),
 });
 ```
 

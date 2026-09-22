@@ -1,0 +1,706 @@
+openapi: 3.0.3
+info:
+  title: Attendance Service API
+  version: 1.0.0
+  description: |
+    Servicio 05-ms-attendance (Java 21 Spring Boot :8085, schema `attendance`).
+    Registros de asistencia, tipos de justificación, justificaciones y documentos de soporte.
+    Critical path ACID con `@Transactional`.
+
+    ## Fuente real
+    - Controllers: `AttendanceRecordController`, `JustificationController`,
+      `JustificationTypeController`, `SupportingDocumentController`,
+      `AttendanceRelationsController`, `HealthController`, `QualityHealthController`
+    - Enums: `attendanceStatus Present/Absent/Late/Justified`, `captureMethod FACIAL/MANUAL/IOT/IMPORT`
+    - Bulk: `POST /api/v1/attendance-records/bulk`
+    - Review: `PATCH /api/v1/justifications/{id}/review {reviewStatus,reviewedBy,resolutionNotes}`
+    - Gateway `jwt` + `rate-limiting 200/min` (`kong.yml:69-87`).
+
+servers:
+  - url: http://localhost:8085
+    description: Direct (dev)
+  - url: http://localhost:8080
+    description: Via Kong gateway (dev, preferred)
+  - url: https://api.dev.{domain}
+    description: Development
+    variables:
+      domain:
+        default: example.com
+  - url: https://api.{domain}
+    description: Production
+    variables:
+      domain:
+        default: example.com
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: AttendanceRecord
+  - name: Justification
+  - name: JustificationType
+  - name: SupportingDocument
+  - name: Relations
+  - name: Health
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /api/v1/health:
+    get:
+      summary: Health versionado
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /health/quality:
+    get:
+      summary: Reporte de calidad
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Reporte ISO
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/QualityReport'
+
+  /api/v1/attendance-records:
+    get:
+      summary: Listar registros (filtros sesión/actor/estado)
+      operationId: listAttendanceRecords
+      tags: [AttendanceRecord]
+      parameters:
+        - name: classSessionId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: academicActorId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: attendanceStatus
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [Present, Absent, Late, Justified]
+      responses:
+        '200':
+          description: Lista de registros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttendanceRecordResponse'
+    post:
+      summary: Registrar asistencia
+      operationId: createAttendanceRecord
+      tags: [AttendanceRecord]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAttendanceRecordRequest'
+      responses:
+        '201':
+          description: Registro creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceRecordResponse'
+
+  /api/v1/attendance-records/bulk:
+    post:
+      summary: Registro masivo
+      operationId: bulkCreateAttendanceRecords
+      tags: [AttendanceRecord]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateAttendanceRecordRequest'
+      responses:
+        '201':
+          description: Registros creados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttendanceRecordResponse'
+
+  /api/v1/attendance-records/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    get:
+      summary: Obtener registro
+      operationId: getAttendanceRecord
+      tags: [AttendanceRecord]
+      responses:
+        '200':
+          description: Registro encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceRecordResponse'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar registro
+      operationId: updateAttendanceRecord
+      tags: [AttendanceRecord]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAttendanceRecordRequest'
+      responses:
+        '200':
+          description: Registro actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceRecordResponse'
+    delete:
+      summary: Eliminar registro
+      operationId: deleteAttendanceRecord
+      tags: [AttendanceRecord]
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/justifications:
+    get:
+      summary: Listar justificaciones (filtros estado/registro)
+      operationId: listJustifications
+      tags: [Justification]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: attendanceRecordId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Lista de justificaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JustificationResponse'
+    post:
+      summary: Crear justificación
+      operationId: createJustification
+      tags: [Justification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJustificationRequest'
+      responses:
+        '201':
+          description: Justificación creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JustificationResponse'
+
+  /api/v1/justifications/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    get:
+      summary: Obtener justificación
+      operationId: getJustification
+      tags: [Justification]
+      responses:
+        '200':
+          description: Justificación encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JustificationResponse'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    delete:
+      summary: Eliminar justificación
+      operationId: deleteJustification
+      tags: [Justification]
+      responses:
+        '204':
+          description: Eliminada
+
+  /api/v1/justifications/{id}/review:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    patch:
+      summary: Revisar justificación (Approved/Rejected)
+      operationId: reviewJustification
+      tags: [Justification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewJustificationRequest'
+      responses:
+        '200':
+          description: Justificación revisada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JustificationResponse'
+
+  /api/v1/justification-types:
+    get:
+      summary: Listar tipos de justificación
+      operationId: listJustificationTypes
+      tags: [JustificationType]
+      responses:
+        '200':
+          description: Lista de tipos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JustificationTypeResponse'
+    post:
+      summary: Crear tipo de justificación
+      operationId: createJustificationType
+      tags: [JustificationType]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJustificationTypeRequest'
+      responses:
+        '201':
+          description: Tipo creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JustificationTypeResponse'
+
+  /api/v1/justification-types/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IntIdParam'
+    get:
+      summary: Obtener tipo
+      operationId: getJustificationType
+      tags: [JustificationType]
+      responses:
+        '200':
+          description: Tipo encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JustificationTypeResponse'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar tipo
+      operationId: updateJustificationType
+      tags: [JustificationType]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateJustificationTypeRequest'
+      responses:
+        '200':
+          description: Tipo actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JustificationTypeResponse'
+    delete:
+      summary: Eliminar tipo
+      operationId: deleteJustificationType
+      tags: [JustificationType]
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/supporting-documents:
+    get:
+      summary: Listar documentos (filtro justificación)
+      operationId: listSupportingDocuments
+      tags: [SupportingDocument]
+      parameters:
+        - name: justificationId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Lista de documentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SupportingDocumentResponse'
+    post:
+      summary: Crear documento de soporte
+      operationId: createSupportingDocument
+      tags: [SupportingDocument]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSupportingDocumentRequest'
+      responses:
+        '201':
+          description: Documento creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportingDocumentResponse'
+
+  /api/v1/supporting-documents/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    get:
+      summary: Obtener documento
+      operationId: getSupportingDocument
+      tags: [SupportingDocument]
+      responses:
+        '200':
+          description: Documento encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportingDocumentResponse'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    delete:
+      summary: Eliminar documento
+      operationId: deleteSupportingDocument
+      tags: [SupportingDocument]
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/class-sessions/{id}/attendance:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    get:
+      summary: Asistencia por sesión
+      operationId: listAttendanceBySession
+      tags: [Relations]
+      responses:
+        '200':
+          description: Registros de la sesión
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttendanceRecordResponse'
+
+  /api/v1/academic-actors/{actorId}/attendance:
+    parameters:
+      - name: actorId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      summary: Asistencia por actor
+      operationId: listAttendanceByActor
+      tags: [Relations]
+      responses:
+        '200':
+          description: Registros del actor
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttendanceRecordResponse'
+
+  /api/v1/attendance/{id}/justification:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    get:
+      summary: Justificación por registro (single|null)
+      operationId: getJustificationByRecord
+      tags: [Relations]
+      responses:
+        '200':
+          description: Justificación del registro o null
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JustificationResponse'
+
+  /api/v1/justifications/{id}/documents:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    get:
+      summary: Documentos por justificación
+      operationId: listDocumentsByJustification
+      tags: [Relations]
+      responses:
+        '200':
+          description: Documentos de la justificación
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SupportingDocumentResponse'
+
+components:
+  schemas:
+    CreateAttendanceRecordRequest:
+      type: object
+      required: [classSessionId, academicActorId, attendanceStatus, captureMethod]
+      properties:
+        classSessionId:
+          type: integer
+          format: int64
+        academicActorId:
+          type: integer
+          format: int64
+        attendanceStatus:
+          type: string
+          enum: [Present, Absent, Late, Justified]
+        captureMethod:
+          type: string
+          enum: [FACIAL, MANUAL, IOT, IMPORT]
+        matchScore:
+          type: number
+          format: double
+          nullable: true
+          example: 0.97
+    UpdateAttendanceRecordRequest:
+      type: object
+      properties:
+        attendanceStatus:
+          type: string
+          enum: [Present, Absent, Late, Justified]
+        captureMethod:
+          type: string
+          enum: [FACIAL, MANUAL, IOT, IMPORT]
+        matchScore:
+          type: number
+          format: double
+          nullable: true
+        capturedAt:
+          $ref: './_shared.yaml#/components/schemas/Timestamp'
+    AttendanceRecordResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [attendanceRecordId, classSessionId, academicActorId, attendanceStatus, captureMethod]
+          properties:
+            attendanceRecordId:
+              type: integer
+              format: int64
+            classSessionId:
+              type: integer
+              format: int64
+            academicActorId:
+              type: integer
+              format: int64
+            attendanceStatus:
+              type: string
+              enum: [Present, Absent, Late, Justified]
+            captureMethod:
+              type: string
+              enum: [FACIAL, MANUAL, IOT, IMPORT]
+            capturedAt:
+              $ref: './_shared.yaml#/components/schemas/Timestamp'
+            matchScore:
+              type: number
+              format: double
+              nullable: true
+    CreateJustificationRequest:
+      type: object
+      required: [attendanceRecordId, justificationTypeId, reason]
+      properties:
+        attendanceRecordId:
+          type: integer
+          format: int64
+        justificationTypeId:
+          type: integer
+        reason:
+          type: string
+    ReviewJustificationRequest:
+      type: object
+      required: [reviewStatus]
+      properties:
+        reviewStatus:
+          type: string
+          example: Approved
+        reviewedBy:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+          nullable: true
+        resolutionNotes:
+          type: string
+          nullable: true
+    JustificationResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [justificationId, attendanceRecordId, justificationTypeId, reason]
+          properties:
+            justificationId:
+              type: integer
+              format: int64
+            attendanceRecordId:
+              type: integer
+              format: int64
+            justificationTypeId:
+              type: integer
+            reason:
+              type: string
+            submittedAt:
+              $ref: './_shared.yaml#/components/schemas/Timestamp'
+            reviewedBy:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+              nullable: true
+            reviewedAt:
+              $ref: './_shared.yaml#/components/schemas/Timestamp'
+              nullable: true
+            reviewStatus:
+              type: string
+              nullable: true
+            resolutionNotes:
+              type: string
+              nullable: true
+    CreateJustificationTypeRequest:
+      type: object
+      required: [name]
+      properties:
+        schoolId:
+          type: string
+          nullable: true
+        name:
+          type: string
+          maxLength: 255
+          example: Calamidad doméstica
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        requiresAttachment:
+          type: boolean
+          default: false
+        status:
+          type: boolean
+          default: true
+    UpdateJustificationTypeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        requiresAttachment:
+          type: boolean
+        status:
+          type: boolean
+    JustificationTypeResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [justificationTypeId, name]
+          properties:
+            justificationTypeId:
+              type: integer
+            schoolId:
+              type: string
+              nullable: true
+            name:
+              type: string
+            description:
+              type: string
+              nullable: true
+            requiresAttachment:
+              type: boolean
+            status:
+              type: boolean
+    CreateSupportingDocumentRequest:
+      type: object
+      required: [justificationId, fileName, storageUri, mimeType, sizeBytes]
+      properties:
+        justificationId:
+          type: integer
+          format: int64
+        fileName:
+          type: string
+        storageUri:
+          type: string
+        mimeType:
+          type: string
+        sizeBytes:
+          type: integer
+    SupportingDocumentResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [supportingDocumentId, justificationId, fileName, storageUri]
+          properties:
+            supportingDocumentId:
+              type: integer
+              format: int64
+            justificationId:
+              type: integer
+              format: int64
+            fileName:
+              type: string
+            storageUri:
+              type: string
+            mimeType:
+              type: string
+              nullable: true
+            sizeBytes:
+              type: integer
+              nullable: true
+  securitySchemes:
+    bearerAuth:
+      $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

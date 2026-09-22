@@ -3,44 +3,54 @@ info:
   title: Identity Service API
   version: 1.0.0
   description: |
-    Servicio de identidad: gestión de escuelas, personas y usuarios del sistema.
+    Servicio 01-ms-identity (Java 21 Spring Boot :8081, schema `identity`).
+    Personas, usuarios, ciudades, sesiones y políticas de contraseña.
 
-    ## Autenticación
-    Todos los endpoints requieren un JWT válido en el header:
-    ```
-    Authorization: Bearer <token>
-    ```
+    ## Fuente real
+    - Controllers: `AuthController`, `UserController`, `PersonController`,
+      `CityController`, `PasswordPolicyController`, `SessionController`, `HealthController`
+    - DTOs: `UserDto{userId,username,authenticationType,status}`,
+      `PersonDto{personId,name,lastName,email}`,
+      `CityDto{cityId,name(1-120),department}`,
+      `PasswordPolicyDto{policyId,minLength,maxLength,requiresUppercase,requiresNumbers,requiresSymbols,expirationDays}`,
+      `UserSessionDto{sessionId,userId,sessionStatus}`
+    - Seguridad local: `SecurityConfig permitAll /api/v1/**`. En Kong la ruta identity es **pública** (solo cors + rate-limit 60/min, sin jwt).
 
-    ## Manejo de errores
-    Todos los errores siguen el esquema `ErrorResponse` definido en `_shared.yaml`.
-
-    ## Paginación
-    Los endpoints de lista soportan paginación via `?page=1&limit=20`.
+    ## Gateway
+    Via Kong `http://localhost:8080/api/v1/persons|users|auth|sessions|cities|password-policies`
+    + nested `~/persons/.+/transfer`, `~/users/.+/activate` (`kong.yml:6-15`).
 
 servers:
   - url: http://localhost:8081
-    description: Local development
-  - url: https://api.dev.{domain}/api/v1/identity
+    description: Direct (dev)
+  - url: http://localhost:8080
+    description: Via Kong gateway (dev, preferred)
+  - url: https://api.dev.{domain}
     description: Development
     variables:
       domain:
         default: example.com
-  - url: https://api.{domain}/api/v1/identity
+  - url: https://api.{domain}
     description: Production
     variables:
       domain:
         default: example.com
 
-security:
-  - bearerAuth: []
+security: []
 
 tags:
-  - name: School
-    description: Gestión de escuelas/instituciones
-  - name: Person
-    description: Gestión de personas (estudiantes, profesores, administrativos)
+  - name: Auth
+    description: Login, logout, sesión actual
   - name: User
-    description: Gestión de usuarios del sistema
+    description: Cuentas de acceso
+  - name: Person
+    description: Personas (vínculo con academic-actor)
+  - name: City
+    description: Catálogo de ciudades
+  - name: PasswordPolicy
+    description: Políticas de contraseña
+  - name: Session
+    description: Sesiones de usuario
   - name: Health
     description: Estado del servicio
 
@@ -48,358 +58,94 @@ paths:
   /health:
     get:
       summary: Health check
+      operationId: healthCheck
       tags: [Health]
-      security: []
       responses:
         '200':
           description: Servicio saludable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    enum: [ok]
-                  timestamp:
-                    type: string
-                    format: date-time
-                  dependencies:
-                    type: object
-                    properties:
-                      database:
-                        type: string
-                        enum: [ok, degraded, down]
-                      redis:
-                        type: string
-                        enum: [ok, degraded, down]
-              example:
-                status: ok
-                timestamp: '2024-01-15T10:30:00Z'
-                dependencies:
-                  database: ok
-                  redis: ok
-        '503':
-          description: Servicio no disponible
-
-  /schools:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /api/v1/health:
     get:
-      summary: Listar escuelas
-      operationId: listSchools
-      tags: [School]
-      parameters:
-        - $ref: './_shared.yaml#/components/parameters/PageParam'
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
-        - name: name
-          in: query
-          description: Filtrar por nombre
-          schema:
-            type: string
-        - name: status
-          in: query
-          description: Filtrar por estado
-          schema:
-            type: string
-            enum: [ACTIVA, INACTIVA]
+      summary: Health check (alias versionado)
+      operationId: healthCheckV1
+      tags: [Health]
       responses:
         '200':
-          description: Lista de escuelas
+          description: Servicio saludable
           content:
             application/json:
               schema:
-                type: object
-                required: [data, meta]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/SchoolResponse'
-                  meta:
-                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
 
+  /api/v1/auth/login:
     post:
-      summary: Crear escuela
-      operationId: createSchool
-      tags: [School]
+      summary: Iniciar sesión
+      operationId: login
+      tags: [Auth]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateSchoolRequest'
+              $ref: '#/components/schemas/AuthRequest'
             example:
-              name: "Colegio San José"
-              code: "CSJ001"
-              address: "Av. Principal 123"
-              phone: "+58-212-5551234"
-              email: "info@colegiosanjose.edu.ve"
+              username: admin@example.com
+              password: Secret123!
       responses:
-        '201':
-          description: Escuela creada exitosamente
-          headers:
-            Location:
-              description: URL del recurso creado
-              schema:
-                type: string
+        '200':
+          description: Sesión creada (el sessionId es el bearer token actual)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SchoolResponse'
+                $ref: '#/components/schemas/UserSessionDto'
         '400':
           $ref: './_shared.yaml#/components/responses/BadRequest'
         '401':
           $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '403':
-          $ref: './_shared.yaml#/components/responses/Forbidden'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
 
-  /schools/{id}:
-    parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-
-    get:
-      summary: Obtener escuela por ID
-      operationId: getSchoolById
-      tags: [School]
-      responses:
-        '200':
-          description: Escuela encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SchoolResponse'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
-
-    patch:
-      summary: Actualizar escuela
-      operationId: updateSchool
-      tags: [School]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateSchoolRequest'
-      responses:
-        '200':
-          description: Escuela actualizada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SchoolResponse'
-        '400':
-          $ref: './_shared.yaml#/components/responses/BadRequest'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '403':
-          $ref: './_shared.yaml#/components/responses/Forbidden'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-
-    delete:
-      summary: Eliminar escuela
-      operationId: deleteSchool
-      tags: [School]
+  /api/v1/auth/logout:
+    post:
+      summary: Cerrar sesión
+      operationId: logout
+      tags: [Auth]
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          schema:
+            $ref: './_shared.yaml#/components/schemas/UUID'
       responses:
         '204':
-          description: Eliminada exitosamente
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '403':
-          $ref: './_shared.yaml#/components/responses/Forbidden'
+          description: Sesión cerrada
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
 
-  /persons:
+  /api/v1/auth/me:
     get:
-      summary: Listar personas
-      operationId: listPersons
-      tags: [Person]
+      summary: Usuario actual
+      operationId: getCurrentUser
+      tags: [Auth]
       parameters:
-        - $ref: './_shared.yaml#/components/parameters/PageParam'
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
-        - name: documentId
+        - name: username
           in: query
-          description: Filtrar por documento de identidad
+          required: true
           schema:
             type: string
-        - name: type
-          in: query
-          description: Filtrar por tipo de persona
-          schema:
-            type: string
-            enum: [STUDENT, TEACHER, ADMINISTRATIVE]
       responses:
         '200':
-          description: Lista de personas
+          description: Usuario actual
           content:
             application/json:
               schema:
                 type: object
-                required: [data, meta]
                 properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/PersonResponse'
-                  meta:
-                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
+                  username:
+                    type: string
 
-    post:
-      summary: Crear persona
-      operationId: createPerson
-      tags: [Person]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePersonRequest'
-            example:
-              firstName: "María"
-              lastName: "García"
-              documentType: "V"
-              documentId: "12345678"
-              email: "maria.garcia@email.com"
-              phone: "+58-412-5551234"
-              birthDate: "1990-05-15"
-              gender: "F"
-      responses:
-        '201':
-          description: Persona creada exitosamente
-          headers:
-            Location:
-              description: URL del recurso creado
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonResponse'
-        '400':
-          $ref: './_shared.yaml#/components/responses/BadRequest'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '409':
-          description: Persona ya existe con ese documento
-          content:
-            application/json:
-              schema:
-                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
-
-  /persons/{id}:
-    parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-
-    get:
-      summary: Obtener persona por ID
-      operationId: getPersonById
-      tags: [Person]
-      responses:
-        '200':
-          description: Persona encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonResponse'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
-
-    patch:
-      summary: Actualizar persona
-      operationId: updatePerson
-      tags: [Person]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdatePersonRequest'
-      responses:
-        '200':
-          description: Persona actualizada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonResponse'
-        '400':
-          $ref: './_shared.yaml#/components/responses/BadRequest'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-
-    delete:
-      summary: Eliminar persona
-      operationId: deletePerson
-      tags: [Person]
-      responses:
-        '204':
-          description: Eliminada exitosamente
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-
-  /users:
-    get:
-      summary: Listar usuarios
-      operationId: listUsers
-      tags: [User]
-      parameters:
-        - $ref: './_shared.yaml#/components/parameters/PageParam'
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
-        - name: email
-          in: query
-          description: Filtrar por email
-          schema:
-            type: string
-        - name: status
-          in: query
-          description: Filtrar por estado
-          schema:
-            type: string
-            enum: [ACTIVE, INACTIVE, LOCKED]
-      responses:
-        '200':
-          description: Lista de usuarios
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data, meta]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/UserResponse'
-                  meta:
-                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
-
+  /api/v1/users:
     post:
       summary: Crear usuario
       operationId: createUser
@@ -409,35 +155,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateUserRequest'
-            example:
-              personId: "550e8400-e29b-41d4-a716-446655440000"
-              email: "usuario@example.com"
-              password: "SecurePass123!"
+              $ref: '#/components/schemas/UserDto'
       responses:
         '201':
-          description: Usuario creado exitosamente
+          description: Usuario creado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
+                $ref: '#/components/schemas/UserDto'
         '400':
           $ref: './_shared.yaml#/components/responses/BadRequest'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
         '409':
-          description: Email ya registrado
-          content:
-            application/json:
-              schema:
-                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
+          $ref: './_shared.yaml#/components/responses/Conflict'
 
-  /users/{id}:
+  /api/v1/users/{id}:
     parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
     get:
       summary: Obtener usuario por ID
       operationId: getUserById
@@ -448,15 +185,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
+                $ref: '#/components/schemas/UserDto'
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
-
-    patch:
+    put:
       summary: Actualizar usuario
       operationId: updateUser
       tags: [User]
@@ -465,298 +197,469 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUserRequest'
+              $ref: '#/components/schemas/UserDto'
       responses:
-        '200':
-          description: Usuario actualizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserResponse'
+        '204':
+          description: Actualizado
         '400':
           $ref: './_shared.yaml#/components/responses/BadRequest'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
 
-    delete:
-      summary: Eliminar usuario
-      operationId: deleteUser
+  /api/v1/users/{id}/activate:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    post:
+      summary: Activar usuario
+      operationId: activateUser
       tags: [User]
       responses:
         '204':
-          description: Eliminado exitosamente
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
+          description: Activado
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
 
+  /api/v1/users/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    patch:
+      summary: Cambiar estado del usuario
+      operationId: setUserStatus
+      tags: [User]
+      parameters:
+        - name: status
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '204':
+          description: Estado actualizado
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/persons:
+    post:
+      summary: Crear persona
+      operationId: createPerson
+      tags: [Person]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonDto'
+      responses:
+        '201':
+          description: Persona creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDto'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '409':
+          $ref: './_shared.yaml#/components/responses/Conflict'
+
+  /api/v1/persons/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    get:
+      summary: Obtener persona por ID
+      operationId: getPersonById
+      tags: [Person]
+      responses:
+        '200':
+          description: Persona encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDto'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar persona
+      operationId: updatePerson
+      tags: [Person]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonDto'
+      responses:
+        '204':
+          description: Actualizada
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/persons/{id}/transfer:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    post:
+      summary: Transferir persona de escuela
+      operationId: transferPerson
+      tags: [Person]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newSchoolId]
+              properties:
+                newSchoolId:
+                  $ref: './_shared.yaml#/components/schemas/UUID'
+      responses:
+        '204':
+          description: Transferida
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/persons/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    patch:
+      summary: Cambiar estado de persona
+      operationId: setPersonStatus
+      tags: [Person]
+      parameters:
+        - name: status
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '204':
+          description: Estado actualizado
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/cities:
+    get:
+      summary: Listar ciudades (único listado Java con paginación real)
+      operationId: listCities
+      tags: [City]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista de ciudades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CityDto'
+    post:
+      summary: Crear ciudad
+      operationId: createCity
+      tags: [City]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CityDto'
+            example:
+              name: Medellín
+              department: Antioquia
+      responses:
+        '201':
+          description: Ciudad creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityDto'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+
+  /api/v1/cities/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IntIdParam'
+    get:
+      summary: Obtener ciudad por ID
+      operationId: getCityById
+      tags: [City]
+      responses:
+        '200':
+          description: Ciudad encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityDto'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar ciudad
+      operationId: updateCity
+      tags: [City]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CityDto'
+      responses:
+        '204':
+          description: Actualizada
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    delete:
+      summary: Eliminar ciudad
+      operationId: deleteCity
+      tags: [City]
+      responses:
+        '204':
+          description: Eliminada
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/password-policies:
+    get:
+      summary: Listar políticas de contraseña
+      operationId: listPasswordPolicies
+      tags: [PasswordPolicy]
+      responses:
+        '200':
+          description: Lista de políticas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasswordPolicyDto'
+    post:
+      summary: Crear política de contraseña
+      operationId: createPasswordPolicy
+      tags: [PasswordPolicy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordPolicyDto'
+      responses:
+        '201':
+          description: Política creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordPolicyDto'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+
+  /api/v1/password-policies/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IntIdParam'
+    get:
+      summary: Obtener política por ID
+      operationId: getPasswordPolicyById
+      tags: [PasswordPolicy]
+      responses:
+        '200':
+          description: Política encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordPolicyDto'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar política
+      operationId: updatePasswordPolicy
+      tags: [PasswordPolicy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordPolicyDto'
+      responses:
+        '204':
+          description: Actualizada
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/sessions:
+    post:
+      summary: Crear sesión
+      operationId: createSession
+      tags: [Session]
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            $ref: './_shared.yaml#/components/schemas/UUID'
+        - name: sourceIp
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Sesión creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSessionDto'
+
+  /api/v1/sessions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    delete:
+      summary: Cerrar sesión por ID
+      operationId: closeSession
+      tags: [Session]
+      responses:
+        '204':
+          description: Sesión cerrada
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/sessions/user/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    get:
+      summary: Sesiones por usuario
+      operationId: listSessionsByUser
+      tags: [Session]
+      responses:
+        '200':
+          description: Sesiones del usuario
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSessionDto'
+
 components:
   schemas:
-    # ─── School ─────────────────────────────────────────────────────────
-    CreateSchoolRequest:
+    AuthRequest:
       type: object
-      required: [name, code]
+      required: [username, password]
       properties:
-        name:
+        username:
           type: string
-          minLength: 1
-          maxLength: 255
-          description: Nombre de la escuela
-          example: "Colegio San José"
-        code:
-          type: string
-          minLength: 1
-          maxLength: 50
-          description: Código único de la escuela
-          example: "CSJ001"
-        address:
-          type: string
-          nullable: true
-          maxLength: 500
-          description: Dirección física
-          example: "Av. Principal 123"
-        phone:
-          type: string
-          nullable: true
-          maxLength: 50
-          description: Teléfono de contacto
-          example: "+58-212-5551234"
-        email:
-          type: string
-          format: email
-          nullable: true
-          description: Email de contacto
-          example: "info@colegiosanjose.edu.ve"
-
-    UpdateSchoolRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        address:
-          type: string
-          nullable: true
-          maxLength: 500
-        phone:
-          type: string
-          nullable: true
-          maxLength: 50
-        email:
-          type: string
-          format: email
-          nullable: true
-
-    SchoolResponse:
-      allOf:
-        - $ref: './_shared.yaml#/components/schemas/AuditFields'
-        - type: object
-          required: [id, name, code, status]
-          properties:
-            id:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            name:
-              type: string
-              example: "Colegio San José"
-            code:
-              type: string
-              example: "CSJ001"
-            address:
-              type: string
-              nullable: true
-              example: "Av. Principal 123"
-            phone:
-              type: string
-              nullable: true
-              example: "+58-212-5551234"
-            email:
-              type: string
-              nullable: true
-              example: "info@colegiosanjose.edu.ve"
-            status:
-              type: string
-              enum: [ACTIVA, INACTIVA]
-              example: ACTIVA
-
-    # ─── Person ─────────────────────────────────────────────────────────
-    CreatePersonRequest:
-      type: object
-      required: [firstName, lastName, documentType, documentId]
-      properties:
-        firstName:
-          type: string
-          minLength: 1
-          maxLength: 100
-          description: Nombre
-          example: "María"
-        lastName:
-          type: string
-          minLength: 1
-          maxLength: 100
-          description: Apellido
-          example: "García"
-        documentType:
-          type: string
-          enum: [V, E, J, G, P]
-          description: Tipo de documento (Venezuela: V=Venezolano, E=Extranjero, J=Jurídico, G=Gobierno, P=Pasaporte)
-          example: "V"
-        documentId:
-          type: string
-          minLength: 1
-          maxLength: 20
-          description: Número de documento
-          example: "12345678"
-        email:
-          type: string
-          format: email
-          nullable: true
-          description: Email personal
-          example: "maria.garcia@email.com"
-        phone:
-          type: string
-          nullable: true
-          maxLength: 50
-          description: Teléfono
-          example: "+58-412-5551234"
-        birthDate:
-          type: string
-          format: date
-          nullable: true
-          description: Fecha de nacimiento
-          example: "1990-05-15"
-        gender:
-          type: string
-          enum: [M, F, O]
-          nullable: true
-          description: Género (M=Masculino, F=Femenino, O=Otro)
-          example: "F"
-
-    UpdatePersonRequest:
-      type: object
-      properties:
-        firstName:
-          type: string
-          minLength: 1
-          maxLength: 100
-        lastName:
-          type: string
-          minLength: 1
-          maxLength: 100
-        email:
-          type: string
-          format: email
-          nullable: true
-        phone:
-          type: string
-          nullable: true
-          maxLength: 50
-        birthDate:
-          type: string
-          format: date
-          nullable: true
-        gender:
-          type: string
-          enum: [M, F, O]
-          nullable: true
-
-    PersonResponse:
-      allOf:
-        - $ref: './_shared.yaml#/components/schemas/AuditFields'
-        - type: object
-          required: [id, firstName, lastName, documentType, documentId, status]
-          properties:
-            id:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            firstName:
-              type: string
-              example: "María"
-            lastName:
-              type: string
-              example: "García"
-            documentType:
-              type: string
-              example: "V"
-            documentId:
-              type: string
-              example: "12345678"
-            email:
-              type: string
-              nullable: true
-              example: "maria.garcia@email.com"
-            phone:
-              type: string
-              nullable: true
-              example: "+58-412-5551234"
-            birthDate:
-              type: string
-              format: date
-              nullable: true
-            gender:
-              type: string
-              nullable: true
-            status:
-              type: string
-              enum: [ACTIVE, INACTIVE]
-              example: ACTIVE
-
-    # ─── User ───────────────────────────────────────────────────────────
-    CreateUserRequest:
-      type: object
-      required: [personId, email, password]
-      properties:
-        personId:
-          type: string
-          format: uuid
-          description: ID de la persona asociada
-          example: "550e8400-e29b-41d4-a716-446655440000"
-        email:
-          type: string
-          format: email
-          description: Email para login
-          example: "usuario@example.com"
+          example: admin@example.com
         password:
           type: string
-          minLength: 8
-          maxLength: 100
-          description: Contraseña (mínimo 8 caracteres, una mayúscula, un número)
-          example: "SecurePass123!"
-
-    UpdateUserRequest:
+          format: password
+          example: Secret123!
+    UserDto:
       type: object
+      required: [username]
       properties:
+        userId:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+        username:
+          type: string
+          example: admin@example.com
+        authenticationType:
+          type: string
+          example: PASSWORD
+        status:
+          type: boolean
+          example: true
+    PersonDto:
+      type: object
+      required: [name, lastName]
+      properties:
+        personId:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+        name:
+          type: string
+          example: María
+        lastName:
+          type: string
+          example: García
         email:
           type: string
           format: email
-        status:
+          nullable: true
+          example: maria.garcia@email.com
+    CityDto:
+      type: object
+      required: [name]
+      properties:
+        cityId:
+          type: integer
+          example: 1
+        name:
           type: string
-          enum: [ACTIVE, INACTIVE, LOCKED]
-
-    UserResponse:
-      allOf:
-        - $ref: './_shared.yaml#/components/schemas/AuditFields'
-        - type: object
-          required: [id, personId, email, status]
-          properties:
-            id:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            personId:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            email:
-              type: string
-              format: email
-              example: "usuario@example.com"
-            status:
-              type: string
-              enum: [ACTIVE, INACTIVE, LOCKED]
-              example: ACTIVE
-            lastLogin:
-              type: string
-              format: date-time
-              nullable: true
-
+          minLength: 1
+          maxLength: 120
+          example: Medellín
+        department:
+          type: string
+          maxLength: 120
+          nullable: true
+          example: Antioquia
+    PasswordPolicyDto:
+      type: object
+      properties:
+        policyId:
+          type: integer
+        minLength:
+          type: integer
+          example: 8
+        maxLength:
+          type: integer
+          example: 100
+        requiresUppercase:
+          type: boolean
+          example: true
+        requiresNumbers:
+          type: boolean
+          example: true
+        requiresSymbols:
+          type: boolean
+          example: false
+        expirationDays:
+          type: integer
+          example: 90
+    UserSessionDto:
+      type: object
+      required: [sessionId, userId]
+      properties:
+        sessionId:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+        userId:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+        sessionStatus:
+          type: string
+          example: Active
   securitySchemes:
     bearerAuth:
       $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

@@ -6,6 +6,9 @@ info:
     Schemas y componentes compartidos entre todos los contratos API del proyecto.
     Referencia estos componentes en tus contratos con: $ref: './_shared.yaml#/components/...'
 
+    Cubren la realidad de los 4 stacks: Java Spring (01,02,04,05), TS Fastify (03,07,09),
+    Python FastAPI (06) y Go Gin (08), más Kong Gateway (99).
+
 components:
   schemas:
     # ─── Paginación ───────────────────────────────────────────────────────────
@@ -30,6 +33,25 @@ components:
         totalPages:
           type: integer
           example: 8
+
+    LimitOffsetMeta:
+      type: object
+      description: Envelope real de 09-ms-quality (data/total/limit/offset)
+      required: [data, total, limit, offset]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+        total:
+          type: integer
+          example: 142
+        limit:
+          type: integer
+          example: 20
+        offset:
+          type: integer
+          example: 0
 
     # ─── Errores ──────────────────────────────────────────────────────────────
     ErrorResponse:
@@ -61,6 +83,14 @@ components:
           type: string
           description: ID de traza para correlacionar con logs
           example: 550e8400-e29b-41d4-a716-446655440000
+        path:
+          type: string
+          description: Path que originó el error (Java/Python)
+          example: /api/v1/cities/99
+        timestamp:
+          type: string
+          format: date-time
+          example: '2024-01-15T10:30:00Z'
 
     # ─── Tipos comunes ────────────────────────────────────────────────────────
     UUID:
@@ -73,23 +103,88 @@ components:
       format: date-time
       example: '2024-01-15T10:30:00Z'
 
+    Date:
+      type: string
+      format: date
+      example: '2024-01-15'
+
+    Time:
+      type: string
+      format: time
+      example: '08:00:00'
+
     AuditFields:
       type: object
-      description: Campos de auditoría incluidos en todas las entidades
+      description: Campos de auditoría incluidos en todas las entidades (created_at/updated_at/deleted_at/created_by/updated_by/deleted_by/row_version)
       properties:
         createdAt:
           $ref: '#/components/schemas/Timestamp'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
+        deletedAt:
+          $ref: '#/components/schemas/Timestamp'
+          nullable: true
         createdBy:
           $ref: '#/components/schemas/UUID'
+          nullable: true
+        updatedBy:
+          $ref: '#/components/schemas/UUID'
+          nullable: true
+        rowVersion:
+          type: integer
+          description: Versión optimista de la fila
+          example: 1
+
+    HealthResponse:
+      type: object
+      description: Respuesta de GET /health y /api/v1/health (todos los servicios, sin auth)
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+          example: ok
+        service:
+          type: string
+          example: identity-service
+        version:
+          type: string
+          example: 0.1.0
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+        uptimeSeconds:
+          type: integer
+          example: 1234
+        dependencies:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [ok, degraded, down]
+            redis:
+              type: string
+              enum: [ok, degraded, down]
+
+    QualityReport:
+      type: object
+      description: Respuesta de GET /health/quality y /api/v1/quality/report (02,03,04,05,07,08)
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+        checks:
+          type: object
+          additionalProperties:
+            type: string
 
   # ─── Parámetros reutilizables ────────────────────────────────────────────
   parameters:
     PageParam:
       name: page
       in: query
-      description: Número de página (empezando en 1)
+      description: Número de página docs-alias (backend usa offset; ver pagination.md)
       schema:
         type: integer
         minimum: 1
@@ -98,12 +193,21 @@ components:
     LimitParam:
       name: limit
       in: query
-      description: Cantidad de resultados por página
+      description: Cantidad de resultados (1..100, default 20; alert-types default 50)
       schema:
         type: integer
         minimum: 1
         maximum: 100
         default: 20
+
+    OffsetParam:
+      name: offset
+      in: query
+      description: Desplazamiento desde 0 (default 0)
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
 
     IdParam:
       name: id
@@ -112,6 +216,37 @@ components:
       description: ID único del recurso (UUID)
       schema:
         $ref: '#/components/schemas/UUID'
+
+    IntIdParam:
+      name: id
+      in: path
+      required: true
+      description: ID numérico local (cityId, roleId, environmentId, …)
+      schema:
+        type: integer
+
+    LongIdParam:
+      name: id
+      in: path
+      required: true
+      description: ID BIGINT de alto volumen (cohortId, scheduleBlockId, attendanceRecordId, alertId, …)
+      schema:
+        type: integer
+        format: int64
+
+    CorrelationIdHeader:
+      name: X-Correlation-Id
+      in: header
+      description: ID de traza propagado por Kong; mapea a traceId/correlationId/x-request-id
+      schema:
+        type: string
+        format: uuid
+
+  headers:
+    TotalCount:
+      description: Total de registros (TS 03/07/09 en listas 200)
+      schema:
+        type: integer
 
   # ─── Respuestas reutilizables ────────────────────────────────────────────
   responses:
@@ -129,7 +264,7 @@ components:
                 message: Formato de email inválido
 
     Unauthorized:
-      description: Token de autenticación ausente o inválido
+      description: Token de autenticación ausente o inválido (Kong jwt)
       content:
         application/json:
           schema:
@@ -139,7 +274,7 @@ components:
             message: Token de autenticación requerido
 
     Forbidden:
-      description: El usuario no tiene permisos para esta operación
+      description: El usuario no tiene permisos para esta operación (auth/evaluate allowed=false)
       content:
         application/json:
           schema:
@@ -158,6 +293,26 @@ components:
             error: NOT_FOUND
             message: El recurso solicitado no existe
 
+    Conflict:
+      description: Conflicto / duplicado (email o documento ya existe)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: CONFLICT
+            message: El recurso ya existe
+
+    Unprocessable:
+      description: Entidad semánticamente inválida (Python 422)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: UNPROCESSABLE_ENTITY
+            message: Invalid biometric payload
+
     InternalError:
       description: Error interno del servidor
       content:
@@ -175,5 +330,6 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: |
-        Token JWT obtenido del endpoint POST /auth/login del servicio IAM.
-        Incluir en el header: Authorization: Bearer <token>
+        Token JWT/Session obtenido en POST /api/v1/auth/login (identity 8081) o
+        POST user_session (mobile). Incluir en el header: Authorization: Bearer <token>.
+        Identidad es pública en Kong (dev HS256 faceattend-admin-key); el resto exige JWT.

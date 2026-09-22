@@ -29,9 +29,11 @@
 | Academic | School, Program, Academic_Period, Cohort, Course, Academic_Actor_Type, Academic_Actor, Enrollment | — |
 | Scheduling | Environment, Schedule_Block, Class_Session | Time Block |
 | Attendance | Attendance_Record, Justification_Type, Justification, Supporting_Document | Recording Method |
-| Biometric | Facial_Embedding, Fingerprint_Embedding | — |
+| Biometric | Facial_Embedding*, Fingerprint_Embedding* | — |
 | Notification | Alert_Type, Alert | — |
 | Configuration | Academic_Configuration, Security_Configuration, Biometric_Update_Case | — |
+
+> **Trazabilidad 02→06:** `*` Biometric embeddings persisten en **MongoDB** (`06-data/domains/06-biometric.md`), no en tabla SQL — calce 29 entidades → 31 tablas SQL + 2 colecciones. Ver `06-data/models.md` §3 y `normalization-assessment.md` §8.
 
 ---
 

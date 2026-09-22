@@ -19,12 +19,32 @@ In many academic processes, attendance depends on a single instructor taking man
 - **Administrator:** manages users/roles/permissions, schools/programs/cohorts/environments, and system configuration (per-school and global).
 - **System (future IoT):** external supporting actor for classroom hardware — out of MVP core (see `scope.md`).
 
-## Technology stack (v1.1, 8 contexts)
+## Technology stack (v1.1, 9 bounded contexts)
 
-- **Backend:** Modular monolith — Java 21 + Spring Boot 3 (identity/auth/scheduling/attendance), TypeScript + Fastify (academic/configuration), Python 3.12 + FastAPI (biometric), Go 1.22 + Gin (notification)
-- **Databases:** PostgreSQL 17 (8 schemas, schema-per-context) + MongoDB 7 (facial/fingerprint vectors) + Redis 7 (cache/sessions)
+- **Backend:** Modular monolith — Java 21 + Spring Boot 3 (identity/auth/scheduling/attendance), TypeScript + Fastify (academic/configuration/audit), Python 3.12 + FastAPI (biometric), Go 1.22 + Gin (notification)
+- **Databases:** PostgreSQL 17 (8 schemas relational + 1 MongoDB for vectors) + MongoDB 7 (facial/fingerprint vectors) + Redis 7 (cache/sessions)
 - **Edge:** Kong OSS API Gateway :8080, JWT + RBAC, Kafka-ready events (ADR-006)
 - **Infrastructure:** Docker Compose local, Flyway/Liquibase migrations (ADR-010), Jenkins CI/CD (ADR-011)
+
+## Main architecture — Bounded Contexts & Services (Database per Service)
+
+> **Ubiquitous Language:** service names below are the single source of truth — identical in `02-domain/domain-map.md`, `05-architecture/overview.md`, `09-microservices/service-catalog.md` and `06-data/models.md` (Informe 2026-09-22 §3.1-§3.2).
+
+| # | Service | Bounded Context | Main responsibility | Port | DB | Technology |
+|---|---|---|---|---|---|---|
+| 01 | `identity-service` | Identity | Person, App_User, City, User_Session, Password_Policy, auth/JWT | 8081 | PostgreSQL | Java 21 + Spring Boot 3 |
+| 02 | `authorization-service` | Authorization | Role, Permission, Role_Permission, User_Role (global roles) | 8083 | PostgreSQL | Java 21 + Spring Boot 3 |
+| 03 | `academic-service` | Academic | School, Program, Academic_Period, Cohort, Course, Academic_Actor, Enrollment | 8084 | PostgreSQL | TypeScript + Fastify |
+| 04 | `scheduling-service` | Scheduling | Environment, Schedule_Block, Class_Session (anti-double-booking) | 8087 | PostgreSQL | Java 21 + Spring Boot 3 |
+| 05 | `attendance-service` | Attendance | Attendance_Record, Justification_Type, Justification, Supporting_Document | 8085 | PostgreSQL | Java 21 + Spring Boot 3 |
+| 06 | `biometric-service` | Biometric | Facial_Embedding, Fingerprint_Embedding (MongoDB vectors) | 8086 | **MongoDB** | Python 3.12 + FastAPI |
+| 07 | `notification-service` | Notification | Alert_Type, Alert | 8090 | PostgreSQL | Go 1.22 + Gin |
+| 08 | `audit-service` | Audit | Audit_Log, Error_Log (append-only) | 8088 | PostgreSQL | TypeScript + Fastify |
+| 09 | `configuration-service` | Configuration | Academic_Configuration, Security_Configuration, Biometric_Update_Case | 8089 | PostgreSQL | TypeScript + Fastify |
+| 99 | `api-gateway` | — (infrastructure) | Routing, auth, rate limiting | 8080 | Redis (cache) | Kong OSS |
+
+- **Communication:** sync via REST through gateway; async via events (Kafka-ready) per `09-microservices/event-catalog.md` and `05-architecture/pattern-guide.md` (Saga + Outbox).
+- **Data isolation:** each service owns its DB/schema; cross-context refs are public IDs without physical FK (see `06-data/models.md` §4.5).
 
 ## Status
 

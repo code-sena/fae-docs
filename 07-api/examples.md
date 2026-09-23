@@ -60,7 +60,7 @@ curl -s -X POST http://localhost:8080/api/v1/attendance-records/bulk \
   -d '[{"classSessionId":12,"academicActorId":77,"attendanceStatus":"Present","captureMethod":"FACIAL","matchScore":0.97}]'
 curl -s -X PATCH http://localhost:8080/api/v1/justifications/5/review \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"reviewStatus":"Approved","resolutionNotes":"Soporte válido"}'
+  -d '{"reviewStatus":"Approved","resolutionNotes":"Valid supporting document"}'
 ```
 
 ## 6. Biometric (jwt)

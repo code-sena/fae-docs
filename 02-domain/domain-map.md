@@ -405,6 +405,6 @@ graph LR
 | Course | Subject/module within a Program | Cohort |
 | Class_Session | Concrete occurrence of a Schedule_Block on a date | Schedule_Block (recurring template) |
 | Attendance_Record | Proof of presence for one actor in one session | Justification |
-| Justification | Pedido para eximir una ausencia, 1:1 con Attendance_Record | Supporting_Document |
-| Facial_Embedding | Vector matemático de rostro (MongoDB) | Foto |
-| Alert | Notificación por umbral o conflicto horario | Notification channel |
+| Justification | Request to excuse an absence, 1:1 with Attendance_Record | Supporting_Document |
+| Facial_Embedding | Mathematical face vector (MongoDB) | Photo |
+| Alert | Threshold or schedule-conflict notification | Notification channel |

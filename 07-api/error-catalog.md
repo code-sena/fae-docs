@@ -7,8 +7,8 @@
 ```json
 {
   "error": "VALIDATION_ERROR",
-  "message": "Datos de entrada inválidos",
-  "details": [{ "field": "email", "message": "Formato de email inválido" }],
+  "message": "Invalid input data",
+  "details": [{ "field": "email", "message": "Invalid email format" }],
   "traceId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
@@ -63,7 +63,7 @@ Mapping: `ErrValidation→400`, `ErrNotFound→404`, `ErrDuplicate→409`; `NoRo
 ## 3. Frontend handling (real)
 
 - Mobile `useLoginViewModel.js:49-59`: `0/408→connectionError`, else `ApiError.message`, else `invalidCredentials`.
-- Web `useLoginViewModel.ts:52-62`: maps `Credenciales invalidas→Credenciales incorrectas` (mock only).
+- Web `useLoginViewModel.ts:52-62`: maps `Invalid credentials→Incorrect credentials` (mock only).
 - Alerts/verification: `useCustomAlert{showSuccess,showError,showConfirm}`; `VerificationError{INVALID_CODE,EXPIRED_CODE,NO_CODE,TIMEOUT,GENERIC}` with 15s timeout.
 
 ## 4. Rules

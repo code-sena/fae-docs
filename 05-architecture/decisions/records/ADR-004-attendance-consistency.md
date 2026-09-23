@@ -10,7 +10,7 @@
 ## Context
 
 The system's most critical use case — facial-scan attendance registration (SRS Use Case 1
-"Registro asistencia" and Use Case 2 "Escaneo facial"; RF 3.1, RF 3.1.1, RF 3.1.2) — spans at
+"Registro asistencia" [Attendance Registration] and Use Case 2 "Escaneo facial" [Facial Scan]; RF 3.1, RF 3.1.1, RF 3.1.2) — spans at
 least three bounded contexts in a single business operation:
 
 1. **Biometric** — the captured face is compared against stored embeddings
@@ -163,7 +163,7 @@ share a database connection — at that point, the Saga/Outbox patterns already 
 
 ## References
 
-- Use Cases this flow implements → SRS "Registro asistencia" (UC1) and "Escaneo facial" (UC2)
+- Use Cases this flow implements → SRS "Registro asistencia" [Attendance Registration] (UC1) and "Escaneo facial" [Facial Scan] (UC2)
 - Functional requirements → RF 3.1, RF 3.1.1, RF 3.1.2
 - Table constraints → the system's entity-relationship model (`Class_Session`, `Attendance`)
 - Mandatory audit logging → `00-governance/security-policy.md`

@@ -47,7 +47,7 @@ Caching is relevant for:
 | Attendance records | Write-once, read-for-reports; freshness required; low read volume |
 | Biometric embeddings | Already in MongoDB with vector search index; caching adds complexity |
 | Audit events | Append-only; read is rare and time-range based |
-| Justification documents | Stored in MinIO (ADR-009); binary data不适合 Redis |
+| Justification documents | Stored in MinIO (ADR-009); binary data not suitable for Redis |
 
 ### Cache key naming convention
 

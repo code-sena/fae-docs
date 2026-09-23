@@ -29,7 +29,7 @@ and how every document relates to the others.
 ```mermaid
 graph TD
     subgraph DISCOVERY["🔵 DISCOVERY"]
-        C1["01-context\nvisión · scope · glossary"]
+        C1["01-context\nvision · scope · glossary"]
         C2["02-domain\nDDD · entities · events"]
         C3["03-product\nPRD · vision · backlog"]
         C4["04-requirements\nuser stories · NFRs"]

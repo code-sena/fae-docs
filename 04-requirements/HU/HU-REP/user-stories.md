@@ -36,12 +36,12 @@
 
 - RF 7.1 indicates that the system must validate the user's role and associate it with the export types they are allowed to request.
 - The report types defined by the SRS are:
-  - Asistencias (attendances).
-  - Faltas (absences).
-  - Retardos (delays).
-  - Fichas/Grupos (cohorts/groups).
-  - Instructores/Profesores (instructors/teachers).
-  - Ambientes/Salón (environments/classrooms).
+  - Attendances (orig. ES "Asistencias").
+  - Absences (orig. ES "Faltas").
+  - Delays (orig. ES "Retardos").
+  - Cohorts/groups (orig. ES "Fichas/Grupos").
+  - Instructors/teachers (orig. ES "Instructores/Profesores").
+  - Environments/classrooms (orig. ES "Ambientes/Salón").
 - Role-based access matrix for reports should be defined by the team. Proposed initial matrix:
   - Student: personal attendance history only.
   - Instructor: assistances, delays, and absences for assigned cohorts.

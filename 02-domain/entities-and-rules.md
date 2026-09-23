@@ -33,7 +33,7 @@
 | Notification | Alert_Type, Alert | — |
 | Configuration | Academic_Configuration, Security_Configuration, Biometric_Update_Case | — |
 
-> **Trazabilidad 02→06:** `*` Biometric embeddings persisten en **MongoDB** (`06-data/domains/06-biometric.md`), no en tabla SQL — calce 29 entidades → 31 tablas SQL + 2 colecciones. Ver `06-data/models.md` §3 y `normalization-assessment.md` §8.
+> **Traceability 02→06:** `*` Biometric embeddings persist in **MongoDB** (`06-data/domains/06-biometric.md`), not in a SQL table — 29 entities map to 31 SQL tables + 2 collections. See `06-data/models.md` §3 and `normalization-assessment.md` §8.
 
 ---
 

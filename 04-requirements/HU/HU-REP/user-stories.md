@@ -275,12 +275,12 @@
 
 - RF 7.3 indicates that the system must validate the user's role and associate it with the export types they are allowed to request, similar to RF 7.1 but with date-range filtering.
 - The report types available for date-range export should align with HU-REP-001:
-  - Asistencias (attendances).
-  - Faltas (absences).
-  - Retardos (delays).
-  - Fichas/Grupos (cohorts/groups).
-  - Instructores/Profesores (instructors/teachers).
-  - Ambientes/Salón (environments/classrooms).
+  - Attendances (orig. ES "Asistencias").
+  - Absences (orig. ES "Faltas").
+  - Delays (orig. ES "Retardos").
+  - Cohorts/groups (orig. ES "Fichas/Grupos").
+  - Instructors/teachers (orig. ES "Instructores/Profesores").
+  - Environments/classrooms (orig. ES "Ambientes/Salón").
 - The team must define:
   - Maximum allowed date range (for example, 1 year).
   - Whether date-range export supports combined filters (cohort, environment, instructor).

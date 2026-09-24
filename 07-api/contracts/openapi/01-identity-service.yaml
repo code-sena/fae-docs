@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Identity Service API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     Servicio 01-ms-identity (Java 21 Spring Boot :8081, schema `identity`).
     Personas, usuarios, ciudades, sesiones y políticas de contraseña.
@@ -19,6 +19,14 @@ info:
     ## Gateway
     Via Kong `http://localhost:8080/api/v1/persons|users|auth|sessions|cities|password-policies`
     + nested `~/persons/.+/transfer`, `~/users/.+/activate` (`kong.yml:6-15`).
+
+    ## Alcance
+    La gestión de escuelas NO pertenece a este servicio: ver `03-academic-service.yaml`.
+
+    ## Cambios 1.1.0 (fusión docs/api-implementation, sin rompimientos)
+    Documentación aditiva sobre la base 1.0.0 de main: notas de `bcrypt cost 12`
+    (ADR-008), unicidades `uq_user_username` / `uq_person_document` y restricción
+    de activación con persona inactiva. Sin cambios de rutas, DTOs ni seguridad.
 
 servers:
   - url: http://localhost:8081
@@ -149,6 +157,11 @@ paths:
     post:
       summary: Crear usuario
       operationId: createUser
+      description: |
+        La contraseña se hashea en el servidor con bcrypt cost 12 (ADR-008) antes de
+        persistirse en `identity.app_user.password_hash`. `personId` debe referenciar
+        una persona existente; cada persona admite un único usuario
+        (`uq_app_user_person`) y `username` es único (`uq_user_username`).
       tags: [User]
       requestBody:
         required: true
@@ -216,6 +229,7 @@ paths:
     post:
       summary: Activar usuario
       operationId: activateUser
+      description: Falla si la persona asociada está inactiva.
       tags: [User]
       responses:
         '204':
@@ -518,6 +532,7 @@ paths:
           required: false
           schema:
             type: string
+            maxLength: 45
       responses:
         '201':
           description: Sesión creada

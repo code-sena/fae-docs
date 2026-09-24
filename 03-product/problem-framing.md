@@ -64,9 +64,9 @@
 | Documentary analysis — Objectives | SRS FaceAttend EDU, Section 1.d | 2025 | The project seeks to validate attendance efficiently using technologies such as biometrics, mobile applications, QR codes, Wi-Fi, and AI, while minimizing inconsistencies and improving instructor control. |
 | Documentary analysis — Use cases | SRS FaceAttend EDU, Section 4 | 2025 | Facial scanning may fail due to lighting, movement, camera issues, or unregistered faces. Alternative flows and justification management are needed. |
 | Documentary analysis — Constraints and assumptions | SRS FaceAttend EDU, Sections 2.c and 2.d | 2025 | The system depends on internet access, functional cameras, compatible devices, institutional accounts, basic ICT skills, adequate lighting, and compliance with data-protection rules. |
-| User interviews | Pending | Pending | No formal interviews documented yet. The team should validate the problem with instructors, learners, administrators, or supervisors before defining quantitative targets. |
-| Direct observation | Pending | Pending | No formal observation of attendance-taking sessions documented yet. A pilot or shadowing exercise is recommended. |
-| Benchmarking | Pending | Pending | The team should review existing attendance systems, biometric solutions, or institutional tools to understand alternative approaches. |
+| User interviews | Planned — interview guide in `04-requirements/HU` | 2026-10 (pilot cohort) | No formal interviews yet. 5 instructors + 30 learners target; instrument: semi-structured 20-min interview focused on JTBD §2. |
+| Direct observation | Planned — shadowing protocol | 2026-10 | No shadowing yet. 3 sessions to be observed (manual roll call time, error rate, interruption duration). |
+| Benchmarking | Initial desk research — 2026-09 | 2026-09-12 (internal) | Reviewed: SENA manual lists, generic biometric attendance vendors (ZKTeco), open-source face-api.js. Finding: manual consolidation >30 min/cohort; biometric vendors lack justification workflow. Gap: none integrates cohort+schedule+justification as FaceAttend does. |
 
 ### Assumptions requiring validation
 
@@ -113,14 +113,14 @@ The following assumptions are derived from the SRS and must be validated with re
 
 | Metric | Current baseline | 6-month target | How to measure it |
 |---|---:|---:|---|
-| Percentage of expected attendance events captured automatically without manual correction | Manual / not measured | To be defined | System event logs, pilot attendance reports, and comparison with manual records. |
-| Average time required to register attendance per student or per session | Manual time to be measured | To be defined | Timing tests, pilot logs, or instructor interviews. |
-| Percentage of successful facial recognition attempts under normal conditions | Not measured | To be defined | Facial recognition logs and pilot monitoring. |
-| Percentage of failed facial scans resolved through alternative registration | Not measured | To be defined | System logs and alternative-method usage reports. |
-| Percentage of justifications submitted and resolved inside the system | Manual / offline | To be defined | Justification workflow logs. |
-| Time required to generate or export an attendance report | Manual / not measured | To be defined | Report generation logs or user testing. |
-| Number of attendance inconsistencies, disputes, or correction requests | Not measured | Reduce by a target percentage | Support records, instructor feedback, or system audit logs. |
-| User satisfaction for instructors and students | Not measured | To be defined | Surveys, pilot feedback, or usability testing. |
+| % attendance automatically captured without correction | Manual (~0% auto) | 80% auto | System event logs vs roster; pilot reports |
+| Avg time to register per student | ~45s manual (est. from SRS, to validate in pilot) | ≤10s FACIAL, ≤20s MANUAL | Timing tests in shadowing + `captured_at` deltas |
+| % successful FACIAL under normal light | Not measured | ≥85% | Biometric service logs (confidence ≥ threshold) |
+| % failed scans resolved via MANUAL/IMPORT | Not measured | ≥95% of failures | Alternative-method usage ratio |
+| % justifications resolved inside system | Manual/offline (~10%) | ≥70% | Justification workflow logs |
+| Time to generate attendance report (cohort/month) | ~30 min manual consolidation | ≤30s | Report generation logs + user testing |
+| Inconsistencies/disputes per 100 records | Not measured (baseline in pilot) | −50% vs baseline | Support tickets + instructor feedback |
+| SUS satisfaction (instructors/learners) | Not measured | ≥75 SUS | Post-pilot survey (n≥20) |
 
 **North Star Metric:**  
 Percentage of expected attendance events successfully captured automatically and accepted without manual correction.
@@ -157,15 +157,23 @@ Percentage of expected attendance events successfully captured automatically and
 
 ---
 
+## Validation plan (post-evaluation improvement)
+
+| Week | Activity | Owner | Output |
+|---|---|---|---|
+| 3 | 5 instructor interviews (JTBD validation) | PO | Notes + updated assumptions §3 |
+| 4 | Shadowing 3 sessions (time/error measurement) | Tech Lead | Baseline metrics §6 |
+| 5 | Benchmark matrix completed (3 systems) | Team | Benchmark doc in `99-archive` |
+| 6 | Pilot cohort 1 (30 learners, FACIAL + MANUAL) | Team | Pilot report; adjust targets §6 |
+
 ## Correlations
 
 - Product vision → `./vision.md`
-- Product roadmap → `./roadmap.md`
-- Product backlog, when created → `./product-backlog.md`
-- Context overview → `../context/overview.md`
-- Scope, assumptions, and constraints → `../context/scope.md`
-- Shared vocabulary → `../context/glossary.md`
-- Domain entities and business rules → `../domain/entities-and-rules.md`
-- Domain events → `../domain/domain-events.md`
-- Requirements source → SRS FaceAttend EDU
+- Product backlog, when created → `04-requirements/HU` + `./product-backlog.md`
+- Context overview → `01-context/overview.md` / `01-context/glossary.md`
+- Scope, assumptions, and constraints → `01-context/scope.md`
+- Shared vocabulary → `01-context/glossary.md`
+- Domain entities and business rules → `02-domain/entities-and-rules.md`
+- Domain events → `02-domain/domain-events.md`
+- Requirements source → SRS FaceAttend EDU (RF 1-8, RNF 4)
 - Standards and references → IEEE Std 830-1998; Colombian Law 1581 of 2012

@@ -52,7 +52,6 @@ Verify these ports are free before starting:
 | 8085 | attendance-service | Attendance records, justifications |
 | 8086 | biometric-service | Facial/fingerprint embeddings |
 | 8087 | scheduling-service | Environments, schedule blocks |
-| 8088 | audit-service | Audit logs, error logs |
 | 8089 | configuration-service | Config values |
 | 8090 | notification-service | Alerts |
 | 5432 | PostgreSQL | Relational database |

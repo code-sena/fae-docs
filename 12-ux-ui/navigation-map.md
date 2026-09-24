@@ -382,7 +382,6 @@ Reports (/admin/reports)
 | `attendance-service` | Attendance registration (entry/exit), attendance history, justification management, reports. |
 | `biometric-service` | Facial recognition, fingerprint recognition, face parameter registration and update. |
 | `alerts-service` | Alert configuration, notification dispatch, alert enable/disable. |
-| `audit-service` | Audit logging, error tracking, system event recording. |
 | `config-integration-service` | Language configuration, theme settings, external service integration. |
 
 ---

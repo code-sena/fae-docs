@@ -1,0 +1,792 @@
+openapi: 3.0.3
+info:
+  title: Quality Service API
+  version: 1.0.0
+  description: |
+    Servicio 09-ms-quality (TS Fastify + Zod :8091).
+    Instrumentos ISO/IEC 25010 (24 ítems), ISO/IEC 29110 (20 objetivos) e ISTQB CTFL v4.0 (30 preguntas)
+    + CRUD de evaluaciones, proyectos y resúmenes por servicio.
+
+    ## Fuente real
+    - Routes: `routes.ts:52` (25010), `process.routes.ts:64` (29110), `istqb.routes.ts:51` (ISTQB), `main.ts:41-42,63-65`
+    - Listas con envelope `{data,total,limit,offset}`; `?limit&offset` cap 100 + `x-total-count`
+    - 25010 exige los 24 scores 1-5 y rechaza desconocidos; pesos Func 20%, Desempeño/Reliab/Seg 15% c/u, Compat/Usab/Mant 10% c/u, Port 5%
+    - 29110 `ratings N/P/L/F`, readiness `PM&SI>50%`, 11 work products; assessments exigen proyecto existente y cobertura total
+    - ISTQB 30×1-5; pesos fund/ciclo/estát/herr 15% c/u, técn/gest 20% c/u
+    - Gateway `jwt` + `rate-limiting 100/min` (`kong.yml:129-144`).
+
+servers:
+  - url: http://localhost:8091
+    description: Direct (dev)
+  - url: http://localhost:8080
+    description: Via Kong gateway (dev, preferred)
+  - url: https://api.dev.{domain}
+    description: Development
+    variables:
+      domain:
+        default: example.com
+  - url: https://api.{domain}
+    description: Production
+    variables:
+      domain:
+        default: example.com
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Quality25010
+  - name: Quality29110
+  - name: QualityISTQB
+  - name: Health
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /api/v1/health:
+    get:
+      summary: Health versionado
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+
+  /api/v1/quality/characteristics:
+    get:
+      summary: Instrumento ISO/IEC 25010
+      operationId: get25010Instrument
+      tags: [Quality25010]
+      responses:
+        '200':
+          description: Instrumento (24 preguntas, Likert 1-5)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  standard:
+                    type: string
+                    example: ISO/IEC 25010:2011
+                  totalQuestions:
+                    type: integer
+                    example: 24
+                  scale:
+                    type: string
+                    example: Likert 1-5
+                  characteristics:
+                    type: object
+
+  /api/v1/quality/evaluations:
+    get:
+      summary: Listar evaluaciones 25010
+      operationId: listQualityEvaluations
+      tags: [Quality25010]
+      parameters:
+        - name: service
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [Draft, Completed]
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista con envelope
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total, limit, offset]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QualityEvaluation'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+    post:
+      summary: Crear evaluación 25010 (exige 24 scores)
+      operationId: createQualityEvaluation
+      tags: [Quality25010]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QualityEvaluationInput'
+      responses:
+        '201':
+          description: Evaluación creada (con globalScore/percentage/level/byCharacteristic)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityEvaluation'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+
+  /api/v1/quality/evaluations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Obtener evaluación
+      operationId: getQualityEvaluation
+      tags: [Quality25010]
+      responses:
+        '200':
+          description: Evaluación encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityEvaluation'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar evaluación (recalcula)
+      operationId: updateQualityEvaluation
+      tags: [Quality25010]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QualityEvaluationInput'
+      responses:
+        '200':
+          description: Evaluación actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityEvaluation'
+    delete:
+      summary: Eliminar evaluación (soft)
+      operationId: deleteQualityEvaluation
+      tags: [Quality25010]
+      responses:
+        '204':
+          description: Eliminada
+
+  /api/v1/quality/services/{service}/summary:
+    parameters:
+      - name: service
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Agregado por servicio 25010
+      operationId: getQualityServiceSummary
+      tags: [Quality25010]
+      responses:
+        '200':
+          description: Promedios y nivel (Deficiente/En proceso/Aceptable/Bueno/Excelente)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                  evaluations:
+                    type: integer
+                  averageScore:
+                    type: number
+                  averagePercentage:
+                    type: number
+                  level:
+                    type: string
+                  byCharacteristic:
+                    type: object
+
+  /api/v1/quality/process/profile:
+    get:
+      summary: Instrumento ISO/IEC 29110 Basic
+      operationId: get29110Profile
+      tags: [Quality29110]
+      responses:
+        '200':
+          description: Instrumento (20 objetivos, N/P/L/F, readiness PM&SI>50%, 11 WPs)
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/quality/projects:
+    get:
+      summary: Listar proyectos 29110
+      operationId: listQualityProjects
+      tags: [Quality29110]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [Planned, Active, Closed]
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista de proyectos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QualityProject'
+                  total:
+                    type: integer
+    post:
+      summary: Crear proyecto
+      operationId: createQualityProject
+      tags: [Quality29110]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QualityProjectInput'
+      responses:
+        '201':
+          description: Proyecto creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityProject'
+
+  /api/v1/quality/projects/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Obtener proyecto
+      operationId: getQualityProject
+      tags: [Quality29110]
+      responses:
+        '200':
+          description: Proyecto encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityProject'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar proyecto
+      operationId: updateQualityProject
+      tags: [Quality29110]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QualityProjectInput'
+      responses:
+        '200':
+          description: Proyecto actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityProject'
+    delete:
+      summary: Eliminar proyecto
+      operationId: deleteQualityProject
+      tags: [Quality29110]
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/quality/assessments:
+    get:
+      summary: Listar evaluaciones de proceso
+      operationId: listProcessAssessments
+      tags: [Quality29110]
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: processId
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PM, SI]
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista de assessments
+          content:
+            application/json:
+              schema:
+                type: object
+    post:
+      summary: Crear evaluación de proceso (exige proyecto + cobertura total)
+      operationId: createProcessAssessment
+      tags: [Quality29110]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessAssessmentInput'
+      responses:
+        '201':
+          description: Assessment creado (score %, rating N/P/L/F)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessAssessment'
+
+  /api/v1/quality/assessments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Obtener assessment
+      operationId: getProcessAssessment
+      tags: [Quality29110]
+      responses:
+        '200':
+          description: Assessment encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessAssessment'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar assessment (recalcula)
+      operationId: updateProcessAssessment
+      tags: [Quality29110]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessAssessmentInput'
+      responses:
+        '200':
+          description: Assessment actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessAssessment'
+    delete:
+      summary: Eliminar assessment
+      operationId: deleteProcessAssessment
+      tags: [Quality29110]
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/quality/projects/{id}/summary:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Resumen de proyecto (byProcess, globalScore, readiness)
+      operationId: getQualityProjectSummary
+      tags: [Quality29110]
+      responses:
+        '200':
+          description: Resumen del proyecto
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/quality/istqb/categories:
+    get:
+      summary: Instrumento ISTQB (categorías)
+      operationId: getIstqbCategories
+      tags: [QualityISTQB]
+      responses:
+        '200':
+          description: Instrumento (ISTQB CTFL v4.0, 30 preguntas, 6 categorías)
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/quality/istqb/characteristics:
+    get:
+      summary: Alias instrumento ISTQB
+      operationId: getIstqbCharacteristicsAlias
+      tags: [QualityISTQB]
+      responses:
+        '200':
+          description: Instrumento ISTQB
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/quality/istqb/assessments:
+    get:
+      summary: Listar assessments ISTQB
+      operationId: listIstqbAssessments
+      tags: [QualityISTQB]
+      parameters:
+        - name: service
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista de assessments ISTQB
+          content:
+            application/json:
+              schema:
+                type: object
+    post:
+      summary: Crear assessment ISTQB (30×1-5)
+      operationId: createIstqbAssessment
+      tags: [QualityISTQB]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IstqbAssessmentInput'
+      responses:
+        '201':
+          description: Assessment creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IstqbAssessment'
+
+  /api/v1/quality/istqb/assessments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Obtener assessment ISTQB
+      operationId: getIstqbAssessment
+      tags: [QualityISTQB]
+      responses:
+        '200':
+          description: Assessment encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IstqbAssessment'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar assessment ISTQB
+      operationId: updateIstqbAssessment
+      tags: [QualityISTQB]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IstqbAssessmentInput'
+      responses:
+        '200':
+          description: Assessment actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IstqbAssessment'
+    delete:
+      summary: Eliminar assessment ISTQB
+      operationId: deleteIstqbAssessment
+      tags: [QualityISTQB]
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/quality/istqb/services/{service}/summary:
+    parameters:
+      - name: service
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Agregado ISTQB por servicio
+      operationId: getIstqbServiceSummary
+      tags: [QualityISTQB]
+      responses:
+        '200':
+          description: Promedios por categoría
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    QualityEvaluation:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [evaluationId, service, evaluator, scope, scores, status]
+          properties:
+            evaluationId:
+              type: string
+            service:
+              type: string
+            evaluator:
+              type: string
+            scope:
+              type: string
+            scores:
+              type: object
+              additionalProperties:
+                type: integer
+                minimum: 1
+                maximum: 5
+            comments:
+              type: string
+              nullable: true
+            status:
+              type: string
+              enum: [Draft, Completed]
+            projectId:
+              type: string
+              nullable: true
+            globalScore:
+              type: number
+            percentage:
+              type: number
+            level:
+              type: string
+            byCharacteristic:
+              type: object
+    QualityEvaluationInput:
+      type: object
+      required: [service, evaluator, scope, scores]
+      properties:
+        service:
+          type: string
+        evaluator:
+          type: string
+        scope:
+          type: string
+        scores:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 1
+            maximum: 5
+          description: 24 ítems 1-5, sin ids desconocidos
+        comments:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [Draft, Completed]
+          default: Draft
+        projectId:
+          type: string
+          nullable: true
+    QualityProject:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [projectId, name]
+          properties:
+            projectId:
+              type: string
+            name:
+              type: string
+            description:
+              type: string
+              nullable: true
+            customer:
+              type: string
+              nullable: true
+            plannedStart:
+              $ref: './_shared.yaml#/components/schemas/Date'
+            plannedEnd:
+              $ref: './_shared.yaml#/components/schemas/Date'
+            status:
+              type: string
+              enum: [Planned, Active, Closed]
+    QualityProjectInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        customer:
+          type: string
+          nullable: true
+        plannedStart:
+          $ref: './_shared.yaml#/components/schemas/Date'
+        plannedEnd:
+          $ref: './_shared.yaml#/components/schemas/Date'
+        status:
+          type: string
+          enum: [Planned, Active, Closed]
+    ProcessAssessment:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [assessmentId, projectId, processId, assessor, ratings]
+          properties:
+            assessmentId:
+              type: string
+            projectId:
+              type: string
+            processId:
+              type: string
+              enum: [PM, SI]
+            assessor:
+              type: string
+            ratings:
+              type: object
+              additionalProperties:
+                type: string
+                enum: [N, P, L, F]
+            comments:
+              type: string
+              nullable: true
+            status:
+              type: string
+            score:
+              type: number
+            rating:
+              type: string
+              enum: [N, P, L, F]
+    ProcessAssessmentInput:
+      type: object
+      required: [projectId, processId, assessor, ratings]
+      properties:
+        projectId:
+          type: string
+        processId:
+          type: string
+          enum: [PM, SI]
+        assessor:
+          type: string
+        ratings:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [N, P, L, F]
+        comments:
+          type: string
+          nullable: true
+        status:
+          type: string
+    IstqbAssessment:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [assessmentId, service, evaluator, scope, scores]
+          properties:
+            assessmentId:
+              type: string
+            service:
+              type: string
+            evaluator:
+              type: string
+            scope:
+              type: string
+            scores:
+              type: object
+              additionalProperties:
+                type: integer
+                minimum: 1
+                maximum: 5
+            comments:
+              type: string
+              nullable: true
+            status:
+              type: string
+            projectId:
+              type: string
+              nullable: true
+    IstqbAssessmentInput:
+      type: object
+      required: [service, evaluator, scope, scores]
+      properties:
+        service:
+          type: string
+        evaluator:
+          type: string
+        scope:
+          type: string
+        scores:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 1
+            maximum: 5
+          description: 30 ítems 1-5
+        comments:
+          type: string
+          nullable: true
+        status:
+          type: string
+        projectId:
+          type: string
+          nullable: true
+  securitySchemes:
+    bearerAuth:
+      $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

@@ -26,7 +26,6 @@ This means the microservices architecture is not a pure monolith split by table,
 | Attendance | real class sessions and attendance outcomes | Class_Session, Attendance, Justification_Type, Justification |
 | Biometric | embeddings and recognition templates | Facial_Embedding, Fingerprint_Embedding, Facial_Update_Case |
 | IoT | device lifecycle and classroom assignment | IoT_Device, Device_Assignment |
-| Audit | operational traceability | Audit_Event, Error_Log |
 | Configuration | technical and academic parameters | Academic_Configuration, Security_Configuration, Password_Policy |
 
 ---
@@ -111,7 +110,6 @@ The numbering reflects the domain dependency order rather than a strict package 
 - `04` = Attendance
 - `05` = Biometric
 - `06` = IoT
-- `07` = Audit
-- `08` = Configuration
+- `07` = Configuration
 
 Infrastructure pieces such as the API gateway remain support services and do not replace the domain-based bounded-context ownership model.

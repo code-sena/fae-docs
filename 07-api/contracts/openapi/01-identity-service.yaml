@@ -3,43 +3,62 @@ info:
   title: Identity Service API
   version: 1.1.0
   description: |
-    Servicio de identidad: ciudades, personas, usuarios, sesiones y políticas de
-    contraseña del sistema.
+    Servicio 01-ms-identity (Java 21 Spring Boot :8081, schema `identity`).
+    Personas, usuarios, ciudades, sesiones y políticas de contraseña.
 
-    Este contrato refleja la implementación real de `back-end/01-ms-identity`
-    (Spring Boot, puerto 8081) y las rutas que expone el gateway Kong. La gestión
-    de escuelas NO pertenece a este servicio: ver `03-academic-service.yaml`.
+    ## Fuente real
+    - Controllers: `AuthController`, `UserController`, `PersonController`,
+      `CityController`, `PasswordPolicyController`, `SessionController`, `HealthController`
+    - DTOs: `UserDto{userId,username,authenticationType,status}`,
+      `PersonDto{personId,name,lastName,email}`,
+      `CityDto{cityId,name(1-120),department}`,
+      `PasswordPolicyDto{policyId,minLength,maxLength,requiresUppercase,requiresNumbers,requiresSymbols,expirationDays}`,
+      `UserSessionDto{sessionId,userId,sessionStatus}`
+    - Seguridad local: `SecurityConfig permitAll /api/v1/**`. En Kong la ruta identity es **pública** (solo cors + rate-limit 60/min, sin jwt).
 
-    ## Autenticación
-    Kong aplica `jwt` a las rutas del servicio. En desarrollo local los endpoints
-    son accesibles directamente en el puerto 8081.
+    ## Gateway
+    Via Kong `http://localhost:8080/api/v1/persons|users|auth|sessions|cities|password-policies`
+    + nested `~/persons/.+/transfer`, `~/users/.+/activate` (`kong.yml:6-15`).
 
-    ## Manejo de errores
-    Todas las respuestas de error siguen el esquema `ErrorResponse`.
+    ## Alcance
+    La gestión de escuelas NO pertenece a este servicio: ver `03-academic-service.yaml`.
 
-    ## Paginación
-    Los endpoints de lista devuelven el sobre `{ data, meta }` y aceptan
-    `?page=1&limit=20` (`limit` máximo 100).
+    ## Cambios 1.1.0 (fusión docs/api-implementation, sin rompimientos)
+    Documentación aditiva sobre la base 1.0.0 de main: notas de `bcrypt cost 12`
+    (ADR-008), unicidades `uq_user_username` / `uq_person_document` y restricción
+    de activación con persona inactiva. Sin cambios de rutas, DTOs ni seguridad.
 
 servers:
   - url: http://localhost:8081
-    description: Local development (directo al servicio)
+    description: Direct (dev)
   - url: http://localhost:8080
-    description: Local a través del gateway Kong
+    description: Via Kong gateway (dev, preferred)
+  - url: https://api.dev.{domain}
+    description: Development
+    variables:
+      domain:
+        default: example.com
+  - url: https://api.{domain}
+    description: Production
+    variables:
+      domain:
+        default: example.com
+
+security: []
 
 tags:
+  - name: Auth
+    description: Login, logout, sesión actual
+  - name: User
+    description: Cuentas de acceso
+  - name: Person
+    description: Personas (vínculo con academic-actor)
   - name: City
     description: Catálogo de ciudades
-  - name: Person
-    description: Personas (estudiantes, profesores, administrativos)
-  - name: User
-    description: Credenciales de acceso de una persona
-  - name: Session
-    description: Sesiones de usuario
-  - name: Auth
-    description: Login, logout y usuario actual
   - name: PasswordPolicy
     description: Políticas de contraseña
+  - name: Session
+    description: Sesiones de usuario
   - name: Health
     description: Estado del servicio
 
@@ -47,441 +66,53 @@ paths:
   /health:
     get:
       summary: Health check
+      operationId: healthCheck
       tags: [Health]
-      security: []
       responses:
         '200':
           description: Servicio saludable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status: { type: string, example: UP }
-                  service: { type: string, example: identity-service }
-                  version: { type: string }
-                  uptimeSeconds: { type: integer }
-                  timestamp: { type: string, format: date-time }
-        '503':
-          description: Servicio no disponible
-
-  /api/v1/cities:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /api/v1/health:
     get:
-      summary: Listar ciudades
-      operationId: listCities
-      tags: [City]
-      parameters:
-        - $ref: './_shared.yaml#/components/parameters/PageParam'
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+      summary: Health check (alias versionado)
+      operationId: healthCheckV1
+      tags: [Health]
       responses:
         '200':
-          description: Página de ciudades
+          description: Servicio saludable
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/CityPage'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-    post:
-      summary: Crear ciudad
-      operationId: createCity
-      tags: [City]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CityRequest'
-      responses:
-        '201':
-          description: Ciudad creada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CityResponse'
-        '400':
-          $ref: './_shared.yaml#/components/responses/BadRequest'
-
-  /api/v1/cities/{id}:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer }
-    get:
-      summary: Obtener ciudad por ID
-      operationId: getCityById
-      tags: [City]
-      responses:
-        '200':
-          description: Ciudad encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CityResponse'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-    put:
-      summary: Actualizar ciudad
-      operationId: updateCity
-      tags: [City]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CityRequest'
-      responses:
-        '204': { description: Actualizada }
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-    delete:
-      summary: Eliminar ciudad
-      operationId: deleteCity
-      tags: [City]
-      responses:
-        '204': { description: Eliminada }
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-
-  /api/v1/persons:
-    get:
-      summary: Listar personas
-      operationId: listPersons
-      tags: [Person]
-      parameters:
-        - $ref: './_shared.yaml#/components/parameters/PageParam'
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
-      responses:
-        '200':
-          description: Página de personas
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonPage'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-    post:
-      summary: Crear persona
-      operationId: createPerson
-      tags: [Person]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PersonRequest'
-            example:
-              documentNumber: "SEED-001"
-              name: "Seed"
-              lastName: "Student"
-              email: "seed.student@example.com"
-              documentType: "CC"
-              status: true
-      responses:
-        '201':
-          description: Persona creada; el header Location apunta al recurso
-          headers:
-            Location:
-              schema: { type: string }
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonResponse'
-        '400':
-          $ref: './_shared.yaml#/components/responses/BadRequest'
-        '409':
-          description: Ya existe una persona con ese documentNumber
-          content:
-            application/json:
-              schema:
-                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
-
-  /api/v1/persons/{id}:
-    parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-    get:
-      summary: Obtener persona por ID
-      operationId: getPersonById
-      tags: [Person]
-      responses:
-        '200':
-          description: Persona encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonResponse'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-    put:
-      summary: Actualizar persona
-      operationId: updatePerson
-      tags: [Person]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PersonRequest'
-      responses:
-        '200':
-          description: Persona actualizada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonResponse'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-
-  /api/v1/persons/{id}/status:
-    parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-    patch:
-      summary: Activar o desactivar persona
-      operationId: changePersonStatus
-      tags: [Person]
-      parameters:
-        - name: status
-          in: query
-          required: true
-          schema: { type: boolean }
-      responses:
-        '204': { description: Estado actualizado }
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-
-  /api/v1/users:
-    get:
-      summary: Listar usuarios
-      operationId: listUsers
-      tags: [User]
-      parameters:
-        - $ref: './_shared.yaml#/components/parameters/PageParam'
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
-      responses:
-        '200':
-          description: Página de usuarios; nunca incluye el hash de contraseña
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserPage'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-    post:
-      summary: Crear usuario
-      operationId: createUser
-      description: |
-        La contraseña se hashea en el servidor con bcrypt cost 12 (ADR-008) antes de
-        persistirse en `identity.app_user.password_hash`. `personId` debe referenciar
-        una persona existente; cada persona admite un único usuario
-        (`uq_app_user_person`).
-      tags: [User]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateUserRequest'
-            example:
-              personId: "550e8400-e29b-41d4-a716-446655440000"
-              username: "seed.admin"
-              password: "SeedAdmin123!"
-              authenticationType: "Local"
-      responses:
-        '201':
-          description: Usuario creado; el header Location apunta al recurso
-          headers:
-            Location:
-              schema: { type: string }
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserResponse'
-        '400':
-          $ref: './_shared.yaml#/components/responses/BadRequest'
-        '404':
-          description: La persona referenciada no existe
-          content:
-            application/json:
-              schema:
-                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
-        '409':
-          description: El username ya está registrado
-          content:
-            application/json:
-              schema:
-                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
-
-  /api/v1/users/{id}:
-    parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-    get:
-      summary: Obtener usuario por ID
-      operationId: getUserById
-      tags: [User]
-      responses:
-        '200':
-          description: Usuario encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserResponse'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-    put:
-      summary: Actualizar usuario
-      operationId: updateUser
-      description: Actualización parcial; si se omite la contraseña se conserva el hash almacenado.
-      tags: [User]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateUserRequest'
-      responses:
-        '204': { description: Actualizado }
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-
-  /api/v1/users/{id}/activate:
-    parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-    post:
-      summary: Activar usuario
-      operationId: activateUser
-      description: Falla si la persona asociada está inactiva.
-      tags: [User]
-      responses:
-        '204': { description: Activado }
-        '400':
-          $ref: './_shared.yaml#/components/responses/BadRequest'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-
-  /api/v1/users/{id}/status:
-    parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-    patch:
-      summary: Activar o desactivar usuario
-      operationId: changeUserStatus
-      tags: [User]
-      parameters:
-        - name: status
-          in: query
-          required: true
-          schema: { type: boolean }
-      responses:
-        '204': { description: Estado actualizado }
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-
-  /api/v1/sessions:
-    get:
-      summary: Listar sesiones
-      operationId: listSessions
-      tags: [Session]
-      parameters:
-        - $ref: './_shared.yaml#/components/parameters/PageParam'
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
-      responses:
-        '200':
-          description: Página de sesiones
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SessionPage'
-    post:
-      summary: Crear sesión para un usuario
-      operationId: createSession
-      tags: [Session]
-      parameters:
-        - name: userId
-          in: query
-          required: true
-          schema:
-            $ref: './_shared.yaml#/components/schemas/UUID'
-        - name: sourceIp
-          in: query
-          required: false
-          schema: { type: string, maxLength: 45 }
-      responses:
-        '200':
-          description: Sesión creada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SessionResponse'
-        '400':
-          description: El usuario está inactivo
-          content:
-            application/json:
-              schema:
-                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-
-  /api/v1/sessions/user/{userId}:
-    parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          $ref: './_shared.yaml#/components/schemas/UUID'
-    get:
-      summary: Listar sesiones de un usuario
-      operationId: listSessionsByUser
-      tags: [Session]
-      responses:
-        '200':
-          description: Arreglo de sesiones (sin paginar)
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SessionResponse'
-
-  /api/v1/sessions/{id}:
-    parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-    delete:
-      summary: Cerrar sesión
-      operationId: closeSession
-      tags: [Session]
-      responses:
-        '204': { description: Sesión cerrada }
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
 
   /api/v1/auth/login:
     post:
-      summary: Autenticar usuario
+      summary: Iniciar sesión
       operationId: login
       tags: [Auth]
-      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AuthRequest'
+            example:
+              username: admin@example.com
+              password: Secret123!
       responses:
         '200':
-          description: Credenciales válidas; se crea una sesión `Active`
+          description: Sesión creada (el sessionId es el bearer token actual)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SessionResponse'
+                $ref: '#/components/schemas/UserSessionDto'
         '400':
           $ref: './_shared.yaml#/components/responses/BadRequest'
         '401':
-          description: Usuario inexistente, inactivo o contraseña incorrecta
-          content:
-            application/json:
-              schema:
-                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
 
   /api/v1/auth/logout:
     post:
@@ -495,28 +126,327 @@ paths:
           schema:
             $ref: './_shared.yaml#/components/schemas/UUID'
       responses:
-        '204': { description: Sesión cerrada }
+        '204':
+          description: Sesión cerrada
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
 
   /api/v1/auth/me:
     get:
-      summary: Obtener el usuario actual
+      summary: Usuario actual
       operationId: getCurrentUser
-      description: Resuelve el usuario contra `identity.app_user`; devuelve 404 si no existe.
       tags: [Auth]
       parameters:
         - name: username
           in: query
           required: true
-          schema: { type: string }
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Usuario actual
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  username:
+                    type: string
+
+  /api/v1/users:
+    post:
+      summary: Crear usuario
+      operationId: createUser
+      description: |
+        La contraseña se hashea en el servidor con bcrypt cost 12 (ADR-008) antes de
+        persistirse en `identity.app_user.password_hash`. `personId` debe referenciar
+        una persona existente; cada persona admite un único usuario
+        (`uq_app_user_person`) y `username` es único (`uq_user_username`).
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDto'
+      responses:
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '409':
+          $ref: './_shared.yaml#/components/responses/Conflict'
+
+  /api/v1/users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    get:
+      summary: Obtener usuario por ID
+      operationId: getUserById
+      tags: [User]
       responses:
         '200':
           description: Usuario encontrado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
+                $ref: '#/components/schemas/UserDto'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar usuario
+      operationId: updateUser
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDto'
+      responses:
+        '204':
+          description: Actualizado
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/users/{id}/activate:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    post:
+      summary: Activar usuario
+      operationId: activateUser
+      description: Falla si la persona asociada está inactiva.
+      tags: [User]
+      responses:
+        '204':
+          description: Activado
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/users/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    patch:
+      summary: Cambiar estado del usuario
+      operationId: setUserStatus
+      tags: [User]
+      parameters:
+        - name: status
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '204':
+          description: Estado actualizado
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/persons:
+    post:
+      summary: Crear persona
+      operationId: createPerson
+      tags: [Person]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonDto'
+      responses:
+        '201':
+          description: Persona creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDto'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '409':
+          $ref: './_shared.yaml#/components/responses/Conflict'
+
+  /api/v1/persons/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    get:
+      summary: Obtener persona por ID
+      operationId: getPersonById
+      tags: [Person]
+      responses:
+        '200':
+          description: Persona encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDto'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar persona
+      operationId: updatePerson
+      tags: [Person]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonDto'
+      responses:
+        '204':
+          description: Actualizada
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/persons/{id}/transfer:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    post:
+      summary: Transferir persona de escuela
+      operationId: transferPerson
+      tags: [Person]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newSchoolId]
+              properties:
+                newSchoolId:
+                  $ref: './_shared.yaml#/components/schemas/UUID'
+      responses:
+        '204':
+          description: Transferida
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/persons/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    patch:
+      summary: Cambiar estado de persona
+      operationId: setPersonStatus
+      tags: [Person]
+      parameters:
+        - name: status
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '204':
+          description: Estado actualizado
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/cities:
+    get:
+      summary: Listar ciudades (único listado Java con paginación real)
+      operationId: listCities
+      tags: [City]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista de ciudades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CityDto'
+    post:
+      summary: Crear ciudad
+      operationId: createCity
+      tags: [City]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CityDto'
+            example:
+              name: Medellín
+              department: Antioquia
+      responses:
+        '201':
+          description: Ciudad creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityDto'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+
+  /api/v1/cities/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IntIdParam'
+    get:
+      summary: Obtener ciudad por ID
+      operationId: getCityById
+      tags: [City]
+      responses:
+        '200':
+          description: Ciudad encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityDto'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar ciudad
+      operationId: updateCity
+      tags: [City]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CityDto'
+      responses:
+        '204':
+          description: Actualizada
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    delete:
+      summary: Eliminar ciudad
+      operationId: deleteCity
+      tags: [City]
+      responses:
+        '204':
+          description: Eliminada
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
 
@@ -525,16 +455,15 @@ paths:
       summary: Listar políticas de contraseña
       operationId: listPasswordPolicies
       tags: [PasswordPolicy]
-      parameters:
-        - $ref: './_shared.yaml#/components/parameters/PageParam'
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
       responses:
         '200':
-          description: Página de políticas
+          description: Lista de políticas
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PasswordPolicyPage'
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasswordPolicyDto'
     post:
       summary: Crear política de contraseña
       operationId: createPasswordPolicy
@@ -544,23 +473,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PasswordPolicyRequest'
+              $ref: '#/components/schemas/PasswordPolicyDto'
       responses:
-        '200':
+        '201':
           description: Política creada
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PasswordPolicyResponse'
+                $ref: '#/components/schemas/PasswordPolicyDto'
         '400':
           $ref: './_shared.yaml#/components/responses/BadRequest'
 
   /api/v1/password-policies/{id}:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer }
+      - $ref: './_shared.yaml#/components/parameters/IntIdParam'
     get:
       summary: Obtener política por ID
       operationId: getPasswordPolicyById
@@ -571,7 +497,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PasswordPolicyResponse'
+                $ref: '#/components/schemas/PasswordPolicyDto'
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
     put:
@@ -583,242 +509,172 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PasswordPolicyRequest'
+              $ref: '#/components/schemas/PasswordPolicyDto'
       responses:
-        '204': { description: Actualizada }
+        '204':
+          description: Actualizada
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
 
+  /api/v1/sessions:
+    post:
+      summary: Crear sesión
+      operationId: createSession
+      tags: [Session]
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            $ref: './_shared.yaml#/components/schemas/UUID'
+        - name: sourceIp
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 45
+      responses:
+        '201':
+          description: Sesión creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSessionDto'
+
+  /api/v1/sessions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    delete:
+      summary: Cerrar sesión por ID
+      operationId: closeSession
+      tags: [Session]
+      responses:
+        '204':
+          description: Sesión cerrada
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/sessions/user/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+    get:
+      summary: Sesiones por usuario
+      operationId: listSessionsByUser
+      tags: [Session]
+      responses:
+        '200':
+          description: Sesiones del usuario
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSessionDto'
+
 components:
   schemas:
-    ErrorResponse:
-      description: |
-        Sobre de error real del servicio. Extiende el `ErrorResponse` de `_shared.yaml`
-        con `status`, `path` y `timestamp` además de `error` (código SCREAMING_SNAKE_CASE),
-        `message` y `traceId`.
-      type: object
-      required: [error, message, status, path, timestamp, traceId]
-      properties:
-        error:
-          type: string
-          description: 'Códigos emitidos: NOT_FOUND, VALIDATION_ERROR, UNAUTHORIZED, CONFLICT, METHOD_NOT_ALLOWED, INTERNAL_ERROR'
-          example: NOT_FOUND
-        message: { type: string, example: User not found with identifier=... }
-        status: { type: integer, example: 404 }
-        path: { type: string, example: /api/v1/users/... }
-        timestamp: { type: string, format: date-time }
-        traceId:
-          $ref: './_shared.yaml#/components/schemas/UUID'
-
-    BloodType:
-      type: string
-      nullable: true
-      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
-
-    AuthenticationType:
-      type: string
-      description: Valores del enum nativo `identity.authentication_type`
-      enum: [Local, Windows, External]
-      default: Local
-
-    SessionStatus:
-      type: string
-      description: Valores del enum nativo `identity.user_session_status`
-      enum: [Active, Closed]
-
-    CityRequest:
-      type: object
-      required: [name]
-      properties:
-        name: { type: string, minLength: 1, maxLength: 120 }
-        department: { type: string, nullable: true, maxLength: 120 }
-
-    CityResponse:
-      type: object
-      properties:
-        cityId: { type: integer }
-        name: { type: string }
-        department: { type: string, nullable: true }
-
-    CityPage:
-      type: object
-      required: [data, meta]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/CityResponse'
-        meta:
-          $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
-
-    PersonRequest:
-      type: object
-      required: [documentNumber, name, lastName]
-      properties:
-        documentNumber: { type: string, maxLength: 50, description: Único (`uq_person_document`) }
-        name: { type: string, maxLength: 255 }
-        lastName: { type: string, maxLength: 255 }
-        email: { type: string, format: email, nullable: true }
-        phone: { type: string, nullable: true, maxLength: 50 }
-        documentType:
-          type: string
-          nullable: true
-          maxLength: 10
-          description: 'CC / TI / CE / PP'
-        bloodType:
-          $ref: '#/components/schemas/BloodType'
-        birthDate: { type: string, format: date, nullable: true }
-        address: { type: string, nullable: true }
-        status: { type: boolean, nullable: true }
-
-    PersonResponse:
-      allOf:
-        - $ref: './_shared.yaml#/components/schemas/AuditFields'
-        - type: object
-          properties:
-            personId:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            documentNumber: { type: string }
-            name: { type: string }
-            lastName: { type: string }
-            email: { type: string, nullable: true }
-            phone: { type: string, nullable: true }
-            documentType: { type: string, nullable: true }
-            bloodType:
-              $ref: '#/components/schemas/BloodType'
-            birthDate: { type: string, format: date, nullable: true }
-            address: { type: string, nullable: true }
-            status: { type: boolean }
-
-    PersonPage:
-      type: object
-      required: [data, meta]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/PersonResponse'
-        meta:
-          $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
-
-    CreateUserRequest:
-      type: object
-      required: [personId, username, password]
-      properties:
-        personId:
-          allOf:
-            - $ref: './_shared.yaml#/components/schemas/UUID'
-          description: Debe referenciar una persona existente
-        username:
-          type: string
-          maxLength: 255
-          description: Único (`uq_user_username`); es el identificador de login
-        password:
-          type: string
-          minLength: 8
-          maxLength: 100
-          description: Se hashea con bcrypt cost 12; nunca se devuelve
-        authenticationType:
-          $ref: '#/components/schemas/AuthenticationType'
-
-    UpdateUserRequest:
-      type: object
-      properties:
-        personId:
-          $ref: './_shared.yaml#/components/schemas/UUID'
-        username: { type: string, maxLength: 255 }
-        authenticationType:
-          $ref: '#/components/schemas/AuthenticationType'
-        status: { type: boolean }
-
-    UserResponse:
-      allOf:
-        - $ref: './_shared.yaml#/components/schemas/AuditFields'
-        - type: object
-          properties:
-            userId:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            personId:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            username: { type: string }
-            authenticationType:
-              $ref: '#/components/schemas/AuthenticationType'
-            status: { type: boolean }
-            lastAccess: { type: string, format: date-time, nullable: true }
-
-    UserPage:
-      type: object
-      required: [data, meta]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/UserResponse'
-        meta:
-          $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
-
     AuthRequest:
       type: object
       required: [username, password]
       properties:
-        username: { type: string }
-        password: { type: string }
-
-    SessionResponse:
+        username:
+          type: string
+          example: admin@example.com
+        password:
+          type: string
+          format: password
+          example: Secret123!
+    UserDto:
       type: object
+      required: [username]
+      properties:
+        userId:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+        username:
+          type: string
+          example: admin@example.com
+        authenticationType:
+          type: string
+          example: PASSWORD
+        status:
+          type: boolean
+          example: true
+    PersonDto:
+      type: object
+      required: [name, lastName]
+      properties:
+        personId:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+        name:
+          type: string
+          example: María
+        lastName:
+          type: string
+          example: García
+        email:
+          type: string
+          format: email
+          nullable: true
+          example: maria.garcia@email.com
+    CityDto:
+      type: object
+      required: [name]
+      properties:
+        cityId:
+          type: integer
+          example: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Medellín
+        department:
+          type: string
+          maxLength: 120
+          nullable: true
+          example: Antioquia
+    PasswordPolicyDto:
+      type: object
+      properties:
+        policyId:
+          type: integer
+        minLength:
+          type: integer
+          example: 8
+        maxLength:
+          type: integer
+          example: 100
+        requiresUppercase:
+          type: boolean
+          example: true
+        requiresNumbers:
+          type: boolean
+          example: true
+        requiresSymbols:
+          type: boolean
+          example: false
+        expirationDays:
+          type: integer
+          example: 90
+    UserSessionDto:
+      type: object
+      required: [sessionId, userId]
       properties:
         sessionId:
           $ref: './_shared.yaml#/components/schemas/UUID'
         userId:
           $ref: './_shared.yaml#/components/schemas/UUID'
         sessionStatus:
-          $ref: '#/components/schemas/SessionStatus'
-        startDate: { type: string, format: date-time, nullable: true }
-        endDate: { type: string, format: date-time, nullable: true }
-        sourceIp: { type: string, nullable: true }
-
-    SessionPage:
-      type: object
-      required: [data, meta]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/SessionResponse'
-        meta:
-          $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
-
-    PasswordPolicyRequest:
-      type: object
-      properties:
-        minLength: { type: integer, minimum: 4 }
-        maxLength: { type: integer }
-        requiresUppercase: { type: boolean }
-        requiresNumbers: { type: boolean }
-        requiresSymbols: { type: boolean }
-        expirationDays: { type: integer, minimum: 1 }
-
-    PasswordPolicyResponse:
-      allOf:
-        - $ref: '#/components/schemas/PasswordPolicyRequest'
-        - type: object
-          properties:
-            policyId: { type: integer }
-
-    PasswordPolicyPage:
-      type: object
-      required: [data, meta]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/PasswordPolicyResponse'
-        meta:
-          $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
-
+          type: string
+          example: Active
   securitySchemes:
     bearerAuth:
       $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'
-
-security:
-  - bearerAuth: []

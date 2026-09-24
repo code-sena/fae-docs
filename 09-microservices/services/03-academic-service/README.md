@@ -32,7 +32,7 @@
 | Local port | 8084 |
 | Repository | [Service repo URL] |
 | DB engine | PostgreSQL |
-| Communicates with | attendance-service, configuration-service, audit-service |
+| Communicates with | attendance-service, configuration-service |
 | Consumed by | API Gateway, admin and teacher clients |
 
 ---

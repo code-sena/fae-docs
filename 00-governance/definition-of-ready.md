@@ -13,7 +13,7 @@ Before moving a User Story to "Ready for Sprint", verify:
 ### Clarity
 
 - [ ] The story is written in the format: **As [role], I want [action], so that [benefit]**
-- [ ] The role is specific (not "as a user" — "as an authenticated buyer")
+- [ ] The role is specific (not "as a user" — e.g., "as an Instructor" / "as an Administrator" / "as a Student" per `02-domain` Authorization)
 - [ ] The expected benefit is clear and verifiable
 
 ### Acceptance Criteria
@@ -44,9 +44,9 @@ Before moving a User Story to "Ready for Sprint", verify:
 
 ### Non-functional requirements
 
-- [ ] Performance requirements are specified (if applicable)
-- [ ] Security requirements are considered (authentication, authorization, validations)
-- [ ] Observability requirements are included (logs, metrics, traces)
+- [ ] Performance requirements are specified (e.g., ≤10s FACIAL per `03-product/problem-framing.md` §6)
+- [ ] Security requirements are considered (Law 1581 consent, bcrypt cost 12 per ADR-008, RBAC per `security-policy.md`)
+- [ ] Observability requirements are included (logs, metrics, traces + security events per `security-policy.md` §Audit)
 
 ---
 

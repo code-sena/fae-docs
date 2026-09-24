@@ -21,10 +21,9 @@
                      │ 04 Scheduling        │
                      │ 05 Attendance        │
                      │ 06 Biometric         │
-                     │ 07 Notification      │
-                     │ 08 Audit             │
-                     │ 09 Configuration     │
-                     └──────────┬───────────┘
+                      │ 07 Notification      │
+                      │ 08 Configuration     │
+                      └──────────┬───────────┘
                                 │
                      ┌──────────▼───────────┐
                      │ Event transport      │
@@ -32,7 +31,7 @@
                      └──────────────────────┘
 ```
 
-> The API gateway is infrastructure. The business model itself is formed by the nine bounded contexts above.
+> The API gateway is infrastructure. The business model itself is formed by the eight bounded contexts above.
 
 ---
 
@@ -47,8 +46,7 @@
 | 05 | `attendance-service` | Class sessions, attendance, and justification processing | 8085 | PostgreSQL | Relational | 🟢 Active |
 | 06 | `biometric-service` | Facial and fingerprint embeddings and update review cases | 8086 | MongoDB | NoSQL / Document | 🟢 Active |
 | 07 | `notification-service` | Alert types and alert lifecycle management | 8090 | PostgreSQL | Relational | 🟢 Active |
-| 08 | `audit-service` | Traceability, operational audit, and error records | 8088 | PostgreSQL | Relational | 🟢 Active |
-| 09 | `configuration-service` | Academic and security configuration values and password policy | 8089 | PostgreSQL | Relational | 🟢 Active |
+| 08 | `configuration-service` | Academic and security configuration values and password policy | 8089 | PostgreSQL | Relational | 🟢 Active |
 | 99 | `api-gateway` | Edge routing and security enforcement for external clients | 8080 | Redis | Cache | 🟢 Active |
 
 **Status legend:** 🟢 Active | 🟡 In development | 🔴 Planned | ⏸ Deprecated
@@ -71,16 +69,16 @@
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
-- `School`
 - `Person`
 - `App_User`
+- `City`
 - `User_Session`
-- JWT access and refresh tokens
-- Redis session management
+- `Password_Policy` (singleton global)
+- JWT access and refresh tokens / Redis session management
 
 **Cross-context rule:**
-- `Person.school_id` and `User.person_id` remain internal to Identity.
-- Authorization and other services use public IDs only.
+- `Person` has no `school_id` — multi-tenancy via `Academic.academic_actor`.
+- `App_User.person_id` is internal; other services use public `user_id`/`person_id` UUIDs.
 - Authentication is merged from the former `auth-service` — no separate auth microservice.
 
 ---
@@ -123,16 +121,19 @@
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
-- `Student`
-- `Teacher`
+- `School`
+- `Program`
+- `Academic_Period`
+- `Cohort`
 - `Course`
-- `Classroom`
-- `Period`
+- `Academic_Actor_Type`
+- `Academic_Actor`
 - `Enrollment`
-- `Schedule`
 
 **Cross-context rule:**
-- `Student.person_id` and `Teacher.person_id` are public IDs, not local FKs.
+- `Academic_Actor.person_id` is a public ID (→ Identity.person), not a local FK.
+- `School.city_id` is a public ID (→ Identity.city).
+- `Academic_Actor` unifies Student/Instructor via `actor_type_id` — no separate tables.
 
 ---
 
@@ -175,14 +176,16 @@
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
-- `Class_Session`
 - `Attendance_Record`
 - `Justification_Type`
 - `Justification`
 - `Supporting_Document`
 
 **Cross-context rule:**
-- `student_id`, `schedule_id`, and `opened_by` are public references without FKs to other contexts.
+- `Attendance_Record.class_session_id` → Scheduling.class_session (BIGSERIAL external)
+- `Attendance_Record.academic_actor_id` → Academic.academic_actor (BIGSERIAL external)
+- `Justification.reviewed_by` → Identity.app_user (UUID external)
+- No physical FK across services (Database per Service).
 
 ---
 
@@ -200,12 +203,12 @@
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
-- `Facial_Embedding`
-- `Fingerprint_Embedding`
-- `Facial_Update_Case`
+- `Facial_Embedding` (MongoDB `facial_embeddings`)
+- `Fingerprint_Embedding` (MongoDB `fingerprint_embeddings`)
 
 **Cross-context rule:**
-- `subject_id` is a public identity reference, not a foreign key to the Identity database.
+- `person_id` is a public identity reference (→ Identity.person), not a foreign key.
+- `biometric_update_case` is **not** owned here — lives in Configuration service (SQL) and references these collections by logical `_id`.
 
 **Database note:** Per ADR-003, Biometric uses MongoDB instead of PostgreSQL. This is a
 documented exception to the single-database strategy in ADR-002, justified by the specialized
@@ -235,33 +238,11 @@ vector search requirements of biometric embedding data.
 
 ---
 
-### 08 — `audit-service`
+### 08 — `configuration-service`
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/08-audit-service/` |
-| **Responsibility** | Records business and technical actions for traceability, governance, and incident review |
-| **Type** | Support domain service |
-| **Port** | 8088 |
-| **DB** | PostgreSQL |
-| **Bounded context** | Audit |
-| **Technology** | TypeScript + Fastify + pg |
-| **Externally exposed** | Yes, but primarily for internal and operational read access |
-
-**Owned entities:**
-- `Audit_Log`
-- `Error_Log`
-
-**Cross-context rule:**
-- `actor_id` and `user_id` are external identifiers stored as plain IDs rather than FK constraints.
-
----
-
-### 09 — `configuration-service`
-
-| Field | Value |
-|-------|-------|
-| **Folder** | `09-microservices/services/09-configuration-service/` |
+| **Folder** | `09-microservices/services/07-configuration-service/` |
 | **Responsibility** | Holds academic, security, and password-related configuration values used by the platform |
 | **Type** | Support domain service |
 | **Port** | 8089 |
@@ -271,12 +252,15 @@ vector search requirements of biometric embedding data.
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
-- `Academic_Configuration`
-- `Security_Configuration`
-- `Password_Policy`
+- `Academic_Configuration` (per-school)
+- `Security_Configuration` (global)
+- `Biometric_Update_Case` (unified FACIAL/FINGERPRINT workflow, Pending→In_Review→Approved/Rejected)
 
 **Cross-context rule:**
-- Configuration values are operational metadata and do not own the core business records of other services.
+- `Academic_Configuration.school_id` → Academic.school (external)
+- `Biometric_Update_Case.person_id` / `requested_by` / `reviewed_by` → Identity (external)
+- `Biometric_Update_Case.current_embedding_ref` → Biometric Mongo `_id` (cross-paradigm, VARCHAR logical)
+- `Password_Policy` is owned by Identity service (not here) — singleton global.
 
 ---
 
@@ -310,7 +294,6 @@ vector search requirements of biometric embedding data.
 | API Gateway | Attendance Service | HTTP/REST | Synchronous |
 | API Gateway | Biometric Service | HTTP/REST | Synchronous |
 | API Gateway | Notification Service | HTTP/REST | Synchronous |
-| API Gateway | Audit Service | HTTP/REST | Synchronous |
 | API Gateway | Configuration Service | HTTP/REST | Synchronous |
 | Identity Service | Authorization Service | Event | Asynchronous |
 | Identity Service | Academic Service | Event | Asynchronous |
@@ -318,7 +301,6 @@ vector search requirements of biometric embedding data.
 | Academic Service | Scheduling Service | Event | Asynchronous |
 | Academic Service | Attendance Service | Event | Asynchronous |
 | Scheduling Service | Attendance Service | Event | Asynchronous |
-| Attendance Service | Audit Service | Event | Asynchronous |
 | Biometric Service | Attendance Service | Event | Asynchronous |
 | Configuration Service | Academic Service | Event | Asynchronous |
 | Configuration Service | Identity Service | Event | Asynchronous |
@@ -337,7 +319,6 @@ vector search requirements of biometric embedding data.
 | Attendance_Record, Justification_Type, Justification, Supporting_Document | Attendance Service | API + events |
 | Facial_Embedding, Fingerprint_Embedding, Facial_Update_Case | Biometric Service | API + events |
 | Alert_Type, Alert | Notification Service | API + events |
-| Audit_Log, Error_Log | Audit Service | API + events |
 | Academic_Configuration, Security_Configuration, Password_Policy | Configuration Service | API + events |
 
 No other bounded context should own or directly modify the canonical table rows of another context.

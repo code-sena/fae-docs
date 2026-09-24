@@ -1,0 +1,16 @@
+apis:
+  - url: contracts/openapi/01-identity-service.yaml
+  - url: contracts/openapi/02-authorization-service.yaml
+  - url: contracts/openapi/03-academic-service.yaml
+  - url: contracts/openapi/04-scheduling-service.yaml
+  - url: contracts/openapi/05-attendance-service.yaml
+  - url: contracts/openapi/06-biometric-service.yaml
+  - url: contracts/openapi/07-configuration-service.yaml
+  - url: contracts/openapi/08-notification-service.yaml
+  - url: contracts/openapi/09-quality-service.yaml
+  - url: contracts/openapi/api-gateway.yaml
+rules:
+  operation-operationId: warn
+  operation-summary: error
+  operation-tags: error
+  no-unused-components: warn

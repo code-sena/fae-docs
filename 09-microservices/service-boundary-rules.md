@@ -114,7 +114,6 @@ A new bounded context (and therefore a new service) should be created when:
 | Attendance | Class_Session, Attendance, Justification | Biometric data, student records |
 | Biometric | Facial_Embedding, Fingerprint_Embedding, Facial_Update_Case | Identity data, attendance records |
 | IoT | IoT_Device, Device_Assignment | Classroom data, attendance |
-| Audit | Audit_Event, Error_Log | Business entity data from other contexts |
 | Configuration | Academic_Configuration, Security_Configuration, Password_Policy | Any core business entity data |
 
 ---

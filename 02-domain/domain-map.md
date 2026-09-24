@@ -4,9 +4,9 @@
 > It defines the system's boundaries and how they relate to each other.
 > Build it first with the team and domain experts in an Event Storming session.
 
-## Before filling in this document: Event Storming
+## Event Storming Outcome
 
-The FaceAttend EDU domain map describes the main business areas and system contexts. Its purpose is to organize the business model so the development team shares a common language and understands how system functions relate to one another.
+This map was refined from the SRS and a lightweight Event Storming (team + instructor as domain expert). Orange = domain events, blue = commands, yellow = aggregates, pink = hotspots. Outcome: 8 bounded contexts plus IoT as **external supporting context** (device provisioning) — kept out of the core attendance domain and modeled only in `09-microservices` for future hardware integration.
 
 This document does not describe tables, columns, or database details. It describes the business in terms of entities, responsibilities, rules, events, and contexts.
 
@@ -21,7 +21,6 @@ This document does not describe tables, columns, or database details. It describ
 | Attendance | System core | Record attendance through facial recognition or alternative methods. Manage justifications and supporting documents. | RF 3, RF 6 |
 | Biometric | Supporting subdomain | Store and manage facial and fingerprint embeddings (NoSQL). | RF 3.1.1, RNF 4 |
 | Notification | Supporting subdomain | Manage alert types and alerts for system events. | RF 4.1 |
-| Audit | Supporting subdomain | Record all system actions and errors for traceability. | RF 5.2, RNF 4 |
 | Configuration | Cross-cutting supporting subdomain | Manage academic, security, and biometric-update configuration parameters. | RF 4 |
 
 ---
@@ -86,7 +85,6 @@ This domain is necessary because FaceAttend EDU handles sensitive academic infor
 - **Academic:** needs to identify persons and link them to academic actors.
 - **Attendance:** needs to know who the user is and whether they are active.
 - **Justifications:** needs to validate who requests and who approves.
-- **Audit:** records all identity-related actions.
 
 ---
 
@@ -336,40 +334,7 @@ Supporting subdomain.
 
 ---
 
-## 8. Audit
-
-### Purpose
-Record every relevant system action and error for traceability, compliance, and debugging.
-
-### Context Type
-Supporting subdomain.
-
-### Main Concepts
-- Audit_Log.
-- Error_Log.
-
-### Responsibilities
-- Record all CRUD actions on critical entities.
-- Record authentication attempts.
-- Record system errors and exceptions.
-- Support queries by actor, aggregate, date, and school.
-
-### Related Requirements
-- RF 5.2: User change history.
-- RNF 4: Security.
-
-### Business Rules
-- Audit logs are append-only — records must never be modified or deleted.
-- Every authentication attempt must be recorded.
-- Error logs include validation, auth, and system errors.
-
-### Possible Events
-- `ActionAudited`
-- `ErrorLogged`
-
----
-
-## 9. Configuration
+## 8. Configuration
 
 ### Purpose
 Manage system-wide and per-school configuration parameters, including biometric update workflows.
@@ -408,20 +373,38 @@ Cross-cutting supporting subdomain.
 
 ## Context Relationships
 
+Upstream → Downstream (arrow = depends on). `Identity` is upstream of all; `Configuration` is cross-cutting downstream consumer.
+
 ```mermaid
 graph LR
     Identity --> Authorization
     Identity --> Academic
     Identity --> Attendance
     Identity --> Biometric
-    Identity --> Audit
     Authorization --> Attendance
     Academic --> Scheduling
     Academic --> Attendance
     Scheduling --> Attendance
     Biometric --> Attendance
     Attendance --> Notification
-    Attendance --> Audit
     Configuration --> Academic
     Configuration --> Biometric
+    Configuration -.-> Attendance
 ```
+
+> **IoT note:** `IoT_Device` / `Device_Assignment` (see `09-microservices/services/06-iot-service`) is an **external supporting context** for classroom hardware. It is intentionally excluded from the 02-domain core map — attendance can operate without it, and it integrates via `attendance-service` only when hardware is present.
+
+## Ubiquitous Language — Consolidated
+
+| Term | Definition (business) | Not to confuse with |
+|---|---|---|
+| Person | Natural person in institution | App_User (credentials) |
+| App_User | Login account bound 1:1 to Person | Person |
+| Academic_Actor | Person acting as Student/Instructor in a School | Person |
+| Cohort | Group of learners in a Program+Period+School | Course, Program |
+| Course | Subject/module within a Program | Cohort |
+| Class_Session | Concrete occurrence of a Schedule_Block on a date | Schedule_Block (recurring template) |
+| Attendance_Record | Proof of presence for one actor in one session | Justification |
+| Justification | Pedido para eximir una ausencia, 1:1 con Attendance_Record | Supporting_Document |
+| Facial_Embedding | Vector matemático de rostro (MongoDB) | Foto |
+| Alert | Notificación por umbral o conflicto horario | Notification channel |

@@ -8,19 +8,22 @@
 
 | Domain entity | Source of truth | Bounded context | Access pattern | DB |
 |---------------|-----------------|-----------------|----------------|-----|
-| School | Identity Service | Identity | API + events | PostgreSQL |
+| City | Identity Service | Identity | API + events | PostgreSQL |
 | Person | Identity Service | Identity | API + events | PostgreSQL |
-| User | Identity Service | Identity | API + events | PostgreSQL |
+| App_User | Identity Service | Identity | API + events | PostgreSQL |
 | User_Session | Identity Service | Identity | API + events | PostgreSQL |
+| Password_Policy | Identity Service | Identity | API + events | PostgreSQL |
 | Role | Authorization Service | Authorization | API + events | PostgreSQL |
 | Permission | Authorization Service | Authorization | API + events | PostgreSQL |
 | Role_Permission | Authorization Service | Authorization | API + events | PostgreSQL |
 | User_Role | Authorization Service | Authorization | API + events | PostgreSQL |
-| Student | Academic Service | Academic | API + events | PostgreSQL |
-| Teacher | Academic Service | Academic | API + events | PostgreSQL |
+| School | Academic Service | Academic | API + events | PostgreSQL |
+| Program | Academic Service | Academic | API + events | PostgreSQL |
+| Academic_Period | Academic Service | Academic | API + events | PostgreSQL |
+| Cohort | Academic Service | Academic | API + events | PostgreSQL |
 | Course | Academic Service | Academic | API + events | PostgreSQL |
-| Classroom | Academic Service | Academic | API + events | PostgreSQL |
-| Period | Academic Service | Academic | API + events | PostgreSQL |
+| Academic_Actor_Type | Academic Service | Academic | API + events | PostgreSQL |
+| Academic_Actor | Academic Service | Academic | API + events | PostgreSQL |
 | Enrollment | Academic Service | Academic | API + events | PostgreSQL |
 | Environment | Scheduling Service | Scheduling | API + events | PostgreSQL |
 | Schedule_Block | Scheduling Service | Scheduling | API + events | PostgreSQL |
@@ -31,14 +34,13 @@
 | Supporting_Document | Attendance Service | Attendance | API + events | PostgreSQL |
 | Facial_Embedding | Biometric Service | Biometric | API + events | MongoDB |
 | Fingerprint_Embedding | Biometric Service | Biometric | API + events | MongoDB |
-| Facial_Update_Case | Biometric Service | Biometric | API + events | MongoDB |
 | Alert_Type | Notification Service | Notification | API + events | PostgreSQL |
 | Alert | Notification Service | Notification | API + events | PostgreSQL |
 | Audit_Log | Audit Service | Audit | API + events | PostgreSQL |
 | Error_Log | Audit Service | Audit | API + events | PostgreSQL |
 | Academic_Configuration | Configuration Service | Configuration | API + events | PostgreSQL |
 | Security_Configuration | Configuration Service | Configuration | API + events | PostgreSQL |
-| Password_Policy | Configuration Service | Configuration | API + events | PostgreSQL |
+| Biometric_Update_Case | Configuration Service | Configuration | API + events | PostgreSQL |
 
 ---
 
@@ -57,16 +59,17 @@
 | Consumer service | Reads from (via API or events) | Entities consumed |
 |------------------|-------------------------------|-------------------|
 | API Gateway | All services | Routes requests to owning services |
-| Authorization Service | Identity Service | User and school data for role assignment |
-| Academic Service | Identity Service | Person data for student/teacher profiles |
-| Scheduling Service | Academic Service | Cohort, course, instructor data for schedule blocks |
-| Attendance Service | Academic Service | Schedule, enrollment, and classroom data |
-| Attendance Service | Scheduling Service | Class session context for attendance recording |
-| Attendance Service | Biometric Service | Biometric verification status |
-| Biometric Service | Identity Service | User metadata for correlation |
-| Notification Service | Academic Service | Academic actor data for alert generation |
-| Audit Service | Identity, Attendance, Scheduling | Business events for traceability |
-| Configuration Service | Identity Service | School data for config initialization |
+| Authorization Service | Identity Service | App_User and Person data for role assignment |
+| Academic Service | Identity Service | Person/City data for Academic_Actor/School |
+| Scheduling Service | Academic Service | Cohort, Course, Academic_Actor, School data for Schedule_Block/Environment |
+| Attendance Service | Scheduling Service | Class_Session context for Attendance_Record |
+| Attendance Service | Academic Service | Academic_Actor data for attendance validation |
+| Attendance Service | Biometric Service | Embedding verification status (events) |
+| Biometric Service | Identity Service | Person metadata for correlation |
+| Notification Service | Academic Service | Academic_Actor data for alert generation |
+| Audit Service | All domain services | Domain events for traceability (append-only) |
+| Configuration Service | Identity Service | Person/App_User for Biometric_Update_Case workflow |
+| Configuration Service | Academic Service | School data for Academic_Configuration |
 
 ---
 

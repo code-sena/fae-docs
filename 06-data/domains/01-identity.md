@@ -313,7 +313,6 @@ erDiagram
 | Academic.Academic_Actor.person_id | Person.person_id | External ID (no FK) | Cross-context reference by UUID |
 | Attendance.Justification.reviewed_by | App_User.user_id | External ID (no FK) | Cross-context reference by UUID |
 | Configuration.Biometric_Update_Case.requested_by | App_User.user_id | External ID (no FK) | Cross-context reference by UUID |
-| Audit.Audit_Log.actor_id | App_User.user_id | External ID (no FK) | Cross-context reference by UUID |
 
 ---
 

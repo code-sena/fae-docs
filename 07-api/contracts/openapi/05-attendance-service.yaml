@@ -688,7 +688,7 @@ components:
       allOf:
         - $ref: './_shared.yaml#/components/schemas/AuditFields'
         - type: object
-          required: [supportingDocumentId, justificationId, fileName, storageUri]
+          required: [supportingDocumentId, justificationId, fileName, storageUri, mimeType, sizeBytes]
           properties:
             supportingDocumentId:
               type: integer
@@ -702,10 +702,9 @@ components:
               type: string
             mimeType:
               type: string
-              nullable: true
             sizeBytes:
               type: integer
-              nullable: true
+              format: int64
   securitySchemes:
     bearerAuth:
       $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

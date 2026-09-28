@@ -221,8 +221,8 @@ paths:
             example:
               code: ABSENCE_THRESHOLD
               name: Umbral de ausencias
-              severity: HIGH
-              channel: IN_APP
+              severity: WARNING
+              channel: DASHBOARD
       responses:
         '201':
           description: Tipo creado
@@ -310,7 +310,7 @@ components:
       allOf:
         - $ref: './_shared.yaml#/components/schemas/AuditFields'
         - type: object
-          required: [alert_type_id, code, name, severity]
+          required: [alert_type_id, code, name, severity, channel]
           properties:
             alert_type_id:
               type: integer
@@ -321,11 +321,12 @@ components:
               type: string
             severity:
               type: string
-              example: HIGH
+              enum: [INFO, WARNING, CRITICAL]
+              example: WARNING
             channel:
               type: string
-              nullable: true
-              example: IN_APP
+              enum: [DASHBOARD, EMAIL, PUSH]
+              example: DASHBOARD
     CreateAlertTypeCommand:
       type: object
       required: [code, name, severity]
@@ -336,9 +337,11 @@ components:
           type: string
         severity:
           type: string
+          enum: [INFO, WARNING, CRITICAL]
         channel:
           type: string
-          nullable: true
+          enum: [DASHBOARD, EMAIL, PUSH]
+          default: DASHBOARD
     UpdateAlertTypeCommand:
       type: object
       properties:
@@ -350,9 +353,11 @@ components:
           nullable: true
         severity:
           type: string
+          enum: [INFO, WARNING, CRITICAL]
           nullable: true
         channel:
           type: string
+          enum: [DASHBOARD, EMAIL, PUSH]
           nullable: true
   securitySchemes:
     bearerAuth:

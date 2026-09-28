@@ -539,15 +539,24 @@ components:
           type: number
     UpdateRequestIn:
       type: object
-      required: [person_id, biometric_type, reason]
+      required: [person_id, biometric_type, reason, requested_by]
       properties:
         person_id:
           type: string
         biometric_type:
           type: string
           enum: [FACIAL, FINGERPRINT]
+        finger_number:
+          type: integer
+          minimum: 1
+          maximum: 10
+          nullable: true
+          description: Required 1..10 if FINGERPRINT, NULL if FACIAL
         reason:
           type: string
+        requested_by:
+          type: string
+          description: Mandatory cross-context app_user id
     UpdateRequestOut:
       allOf:
         - $ref: '#/components/schemas/UpdateRequestIn'

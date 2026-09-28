@@ -24,16 +24,16 @@
 
 | Context | Main entities | Value objects |
 |---|---|---|
-| Identity | Person, App_User, City | Credentials, Session |
+| Identity | Person, App_User | Credentials, Session |
 | Authorization | Role, Permission, Role_Permission, User_Role | — |
 | Academic | School, Program, Academic_Period, Cohort, Course, Academic_Actor_Type, Academic_Actor, Enrollment | — |
 | Scheduling | Environment, Schedule_Block, Class_Session | Time Block |
-| Attendance | Attendance_Record, Justification_Type, Justification, Supporting_Document | Recording Method |
-| Biometric | Facial_Embedding*, Fingerprint_Embedding* | — |
+| Attendance | Attendance_Record, Justification_Type, Justification, Supporting_Document, Attendance_Report | Recording Method |
+| Biometric | Facial_Embedding*, Fingerprint_Embedding*, Biometric_Update_Case | — |
 | Notification | Alert_Type, Alert | — |
-| Configuration | Academic_Configuration, Security_Configuration, Biometric_Update_Case | — |
+| Configuration | Academic_Configuration, Security_Configuration | — |
 
-> **Traceability 02→06:** `*` Biometric embeddings persist in **MongoDB** (`06-data/domains/06-biometric.md`), not in a SQL table — 29 entities map to 31 SQL tables + 2 collections. See `06-data/models.md` §3 and `normalization-assessment.md` §8.
+> **Traceability 02→06:** `*` Biometric embeddings persist in **MongoDB** (`06-data/domains/06-biometric.md`), not in a SQL table — 28 entities map to 29 SQL tables + 2 collections. `City` is deprecated (external `countriesnow.space` API). `Biometric_Update_Case` is logically owned by Biometric, physically hosted in `configuration` (transient). `Attendance_Report` is a derived projection outside the 3NF core. See `06-data/models.md` §3 and `normalization-assessment.md` §8.
 
 ---
 
@@ -43,16 +43,18 @@
 
 **Description:** Represents a real individual in the system: student, teacher, or administrator. It is the central entity referenced by all other contexts.
 
-**Identity:** `person_id` (SERIAL).
+**Identity:** `person_id` (UUID).
 
 **Conceptual attributes:**
 - First and last names.
-- Document number and type.
+- Document number + document type (CHECK CC/TI/CE/PP; uniqueness is the pair).
 - Email address.
 - Telephone number.
+- Blood type (CHECK A+/A-/B+/B-/AB+/AB-/O+/O-).
 - Birth date.
+- Address.
 - Status (active/inactive).
-- City of origin.
+- No `school_id` — identity is school-agnostic.
 
 **Lifecycle:** Registered → Active → Inactive.
 
@@ -75,17 +77,9 @@
 
 **Associated rules:** RN-04, RN-05, RN-06.
 
-### City
+### City — DEPRECATED
 
-**Description:** Catalog of cities. Referenced by School in the Academic context.
-
-**Identity:** `city_id` (SERIAL).
-
-**Conceptual attributes:**
-- Name.
-- Department/state.
-
-**Associated rules:** RN-11.
+**Description:** Removed from the relational model (DBML v6/v7). Cities come from the external `countriesnow.space` API. `School.city_id` is `VARCHAR NULL` with no FK plus display fields `city_name/district/country`.
 
 ---
 
@@ -93,20 +87,17 @@
 
 ### Role
 
-**Description:** Defines an access level within the system. Roles are global (not per-school). The roles planned in the SRS are:
-- Administrator.
-- Instructor / Teacher.
-- Student / Learner.
+**Description:** Defines an access level within the system. Roles are global (not per-school, no `school_id`). Seeds: `SUPER_ADMIN`, `SCHOOL_ADMIN`, `INSTRUCTOR`, `STUDENT`.
 
-**Identity:** `role_id` (SERIAL).
+**Identity:** `role_id` (INT).
 
 **Associated rules:** RN-07, RN-08.
 
 ### Permission
 
-**Description:** Specific action that a role may perform in the system, such as registering users, approving justifications, exporting reports, or consulting histories.
+**Description:** Specific action that a role may perform in the system, such as registering users, approving justifications, exporting reports, or consulting histories. Format `context.resource:action` (12 seeds).
 
-**Identity:** `permission_id` (SERIAL).
+**Identity:** `permission_id` (INT).
 
 **Associated rules:** RN-09, RN-10.
 
@@ -118,9 +109,9 @@
 
 ### User_Role
 
-**Description:** Assigns a role to a specific app_user. A user may have multiple roles across different schools.
+**Description:** Assigns a role to a specific app_user. A user may have multiple roles. Roles are global (no `school_id`).
 
-**Identity:** Composite (`user_id`, `role_id`, `school_id`).
+**Identity:** Composite (`user_id`, `role_id`).
 
 ---
 
@@ -130,12 +121,12 @@
 
 **Description:** Educational institution that uses FaceAttend EDU. It groups programs, cohorts, environments, people, and records. Multi-tenant root entity.
 
-**Identity:** `school_id` (SERIAL).
+**Identity:** `school_id` (INT).
 
 **Conceptual attributes:**
 - Code (unique per school).
 - Name.
-- City (reference to Identity.City).
+- City: `city_id` VARCHAR NULL (external `countriesnow.space` API, no FK) + `city_name/district/country` display fields.
 - Address, phone, email.
 - Status (active/inactive).
 
@@ -143,9 +134,9 @@
 
 ### Program
 
-**Description:** Academic program offered by a school (e.g., "Software Development", "Office Automation"). Groups cohorts and courses.
+**Description:** Academic program offered by a school (curricular container, e.g., "Software Development"). Groups cohorts and courses.
 
-**Identity:** `program_id` (SERIAL).
+**Identity:** `program_id` (INT).
 
 **Conceptual attributes:**
 - Name.
@@ -157,9 +148,9 @@
 
 ### Academic_Period
 
-**Description:** Time division within a school (e.g., "2024-Q1", "2024-Semester 1"). Cohorts and enrollments are scoped to a period.
+**Description:** Time division within a school (e.g., "2024-Q1", "2024-Semester 1"). Cohorts and enrollments are scoped to a period. Constraint `starts_on < ends_on` (`chk_period_dates`).
 
-**Identity:** `period_id` (SERIAL).
+**Identity:** `academic_period_id` (INT).
 
 **Conceptual attributes:**
 - Name.
@@ -169,16 +160,14 @@
 
 ### Cohort
 
-**Description:** Group of students associated with a program, an academic period, and optionally an instructor. It is the main unit for attendance control.
+**Description:** Group of students associated with a program and an academic period (concrete group advancing together). It is the main unit for attendance control.
 
-**Identity:** `cohort_id` (SERIAL).
+**Identity:** `cohort_id` (BIGINT).
 
 **Conceptual attributes:**
-- Name.
+- Code (globally unique).
 - Associated program.
 - Associated academic period.
-- Associated school.
-- Start and end dates.
 - Status.
 
 **Lifecycle:** Registered → Active → Finished.
@@ -189,7 +178,7 @@
 
 **Description:** Subject or module within a program (e.g., "Mathematics I", "Programming Fundamentals").
 
-**Identity:** `course_id` (SERIAL).
+**Identity:** `course_id` (INT).
 
 **Conceptual attributes:**
 - Name.
@@ -203,9 +192,9 @@
 
 ### Academic_Actor_Type
 
-**Description:** Catalog of actor types: Student, Instructor.
+**Description:** Catalog of actor types: STUDENT, INSTRUCTOR.
 
-**Identity:** `actor_type_id` (SERIAL).
+**Identity:** `actor_type_id` (SMALLINT).
 
 **Conceptual attributes:**
 - Name (e.g., "Student", "Instructor").
@@ -215,7 +204,7 @@
 
 **Description:** Unified representation of a person within an academic context. Replaces separate Student/Teacher tables. An academic_actor references a Person via external ID and has an actor_type.
 
-**Identity:** `academic_actor_id` (BIGSERIAL).
+**Identity:** `academic_actor_id` (BIGINT).
 
 **Conceptual attributes:**
 - Person reference (external ID → Identity.Person).
@@ -227,9 +216,9 @@
 
 ### Enrollment
 
-**Description:** Links an academic_actor (student) to a cohort. Tracks the student's participation in a specific cohort.
+**Description:** Links an academic_actor (student) to a cohort. Tracks the student's participation in a specific cohort. `enrollment_status` is a native ENUM (Active/Withdrawn/Completed).
 
-**Identity:** `enrollment_id` (SERIAL).
+**Identity:** `enrollment_id` (BIGINT).
 
 **Conceptual attributes:**
 - Academic actor reference.
@@ -247,7 +236,7 @@
 
 **Description:** Physical space where classes are held (classroom, lab, auditorium). Assigned to a school.
 
-**Identity:** `environment_id` (SERIAL).
+**Identity:** `environment_id` (INT).
 
 **Conceptual attributes:**
 - Code.
@@ -260,9 +249,9 @@
 
 ### Schedule_Block
 
-**Description:** Recurring time slot defining when a cohort meets with an instructor in an environment. Prevents double-booking through unique constraints.
+**Description:** Recurring time slot defining when a cohort meets with an instructor in an environment. Prevents double-booking through unique constraints. `day_of_week` 1..7 ISO (`chk_block_day_of_week`); `starts_at < ends_at` (`chk_block_time`).
 
-**Identity:** `schedule_block_id` (SERIAL).
+**Identity:** `schedule_block_id` (BIGINT).
 
 **Conceptual attributes:**
 - Cohort reference (external ID → Academic.Cohort).
@@ -276,9 +265,9 @@
 
 ### Class_Session
 
-**Description:** Concrete instance of a schedule_block on a specific date. This is the unit to which attendance records are attached.
+**Description:** Concrete instance of a schedule_block on a specific date. This is the unit to which attendance records are attached. `session_status` is a native ENUM (Open/Closed/Cancelled).
 
-**Identity:** `class_session_id` (BIGSERIAL).
+**Identity:** `class_session_id` (BIGINT).
 
 **Conceptual attributes:**
 - Schedule block reference.
@@ -295,14 +284,14 @@
 
 **Description:** Individual attendance record of an academic_actor in a class_session. The central business entity of FaceAttend EDU.
 
-**Identity:** `attendance_record_id` (BIGSERIAL).
+**Identity:** `attendance_record_id` (BIGINT).
 
 **Conceptual attributes:**
 - Class session reference (external ID → Scheduling.Class_Session).
 - Academic actor reference (external ID → Academic.Academic_Actor).
 - Captured at (timestamp).
-- Attendance status: Present, Absent, Late, Justified.
-- Capture method: FACIAL, MANUAL, IMPORT.
+- Attendance status (native ENUM): Present, Absent, Late, Justified.
+- Capture method (native ENUM): FACIAL, MANUAL, IOT, IMPORT.
 - Match score (biometric confidence).
 
 **Lifecycle:** Recorded → Validated → Justified if applicable.
@@ -311,12 +300,13 @@
 
 ### Justification_Type
 
-**Description:** Catalog of justification types for absences (e.g., "Medical leave", "Personal emergency").
+**Description:** Catalog of justification types for absences, per-school (`school_id` NULL = global). Unique per `(school_id, name)` plus partial unique `(name)` WHERE `school_id IS NULL`.
 
-**Identity:** `justification_type_id` (SERIAL).
+**Identity:** `justification_type_id` (INT).
 
 **Conceptual attributes:**
-- Name (unique).
+- School scope (NULL = global).
+- Name.
 - Description.
 - Requires attachment (boolean).
 - Status.
@@ -325,16 +315,17 @@
 
 **Description:** Request submitted by a student to explain an absence. Linked 1:1 to an attendance_record.
 
-**Identity:** `justification_id` (BIGSERIAL).
+**Identity:** `justification_id` (BIGINT).
 
 **Conceptual attributes:**
 - Attendance record reference (unique).
 - Justification type reference.
 - Reason (text).
 - Submitted at.
-- Review status: Pending, Approved, Rejected.
+- Review status (native ENUM): Pending, Approved, Rejected.
 - Reviewed by (external ID → Identity.App_User).
 - Reviewed at.
+- Resolution notes (text).
 
 **Lifecycle:** Pending → Approved / Rejected.
 
@@ -344,7 +335,7 @@
 
 **Description:** File attached to a justification (medical certificates, evidence).
 
-**Identity:** `supporting_document_id` (BIGSERIAL).
+**Identity:** `supporting_document_id` (BIGINT).
 
 **Conceptual attributes:**
 - Justification reference.
@@ -398,6 +389,16 @@
 
 ## 7. Notification Context
 
+### Attendance_Report
+
+**Description:** Derived reporting projection (filters + result JSONB, no FKs). Outside the 3NF core.
+
+**Identity:** `report_id` (UUID).
+
+**Conceptual attributes:**
+- School / cohort / generator (logical cross-context ids, no FK).
+- Report type, filters (JSONB), result (JSONB), generated_at.
+
 ### Alert_Type
 
 **Description:** Catalog of alert types (e.g., "Absence threshold reached", "Schedule conflict").
@@ -407,12 +408,14 @@
 **Conceptual attributes:**
 - Code (unique).
 - Name.
+- Severity (INFO/WARNING/CRITICAL).
+- Channel (DASHBOARD/EMAIL/PUSH, default DASHBOARD).
 
 ### Alert
 
 **Description:** Notification generated by the system for relevant events, linked to an academic_actor.
 
-**Identity:** `alert_id` (BIGSERIAL).
+**Identity:** `alert_id` (BIGINT).
 
 **Conceptual attributes:**
 - Academic actor reference (external ID → Academic.Academic_Actor).
@@ -430,7 +433,7 @@
 
 **Description:** Configurable parameters per school that affect academic behavior (e.g., `tardy_tolerance_minutes`).
 
-**Identity:** `configuration_id` (SERIAL).
+**Identity:** `configuration_id` (INT).
 
 **Conceptual attributes:**
 - School reference (external ID → Academic.School).
@@ -440,9 +443,9 @@
 
 ### Security_Configuration
 
-**Description:** System-wide security parameters (not per-school). E.g., `max_login_attempts`, `session_timeout_minutes`.
+**Description:** System-wide security parameters (not per-school). E.g., `max_login_attempts`, `session_timeout_minutes`. Password policy lives in `identity.password_policy`, not here.
 
-**Identity:** `configuration_id` (SERIAL).
+**Identity:** `configuration_id` (INT).
 
 **Conceptual attributes:**
 - Configuration name (unique).
@@ -451,20 +454,20 @@
 
 ### Biometric_Update_Case
 
-**Description:** Unified case for requesting facial or fingerprint embedding updates. Tracks the full workflow from request to review.
+**Description:** Unified case for requesting facial or fingerprint embedding updates. Logically owned by Biometric (physically hosted in `configuration` transiently). Tracks the full workflow from request to review.
 
 **Identity:** `case_id` (UUID).
 
 **Conceptual attributes:**
 - Person reference (external ID → Identity.Person).
-- Biometric type: FACIAL or FINGERPRINT.
-- Finger number (only if FINGERPRINT).
-- Current embedding reference (logical _id in MongoDB).
+- Biometric type (native ENUM): FACIAL or FINGERPRINT.
+- Finger number: 1..10 if FINGERPRINT else NULL (`chk_finger_number`).
+- Current embedding reference (logical _id in MongoDB, cross-paradigm, no FK).
 - Reason.
-- Update status: Pending, In_Review, Approved, Rejected.
-- Requested by, requested at.
+- Update status (native ENUM, default Pending): Pending, In_Review, Approved, Rejected.
+- Requested by (mandatory), requested at (mandatory).
 - Reviewed by, reviewed at.
-- Resolution notes.
+- Resolution notes (text).
 
 **Lifecycle:** Pending → In_Review → Approved / Rejected.
 
@@ -474,12 +477,12 @@
 
 | Aggregate | Root | Members | Invariant example |
 |---|---|---|---|
-| PersonAccount | Person | Person, App_User, City | RN-01: App_User must reference valid Person |
+| PersonAccount | Person | Person, App_User | RN-01: App_User must reference valid Person |
 | AcademicStructure | School | School, Program, Academic_Period, Cohort, Course | RN-11: all academic data belongs to a School |
 | CohortRoster | Cohort | Cohort, Academic_Actor, Enrollment | RN-14: Cohort needs instructor before attendance |
 | Timetable | Schedule_Block | Schedule_Block, Class_Session, Environment | RN-18: no overlap for same instructor+environment |
-| AttendanceSession | Class_Session | Class_Session, Attendance_Record, Justification, Supporting_Document | RN-22: one attendance per actor per session |
-| BiometricIdentity | Person (external) | Facial_Embedding, Fingerprint_Embedding | RN-28: one active facial embedding |
+| AttendanceSession | Class_Session | Class_Session, Attendance_Record, Justification, Supporting_Document, Attendance_Report | RN-22: one attendance per actor per session |
+| BiometricIdentity | Person (external) | Facial_Embedding, Fingerprint_Embedding, Biometric_Update_Case | RN-28: one active facial embedding |
 | AlertLifecycle | Alert_Type | Alert_Type, Alert | RN-42: alerts are system-generated |
 
 > **Audit trail:** Cross-cutting concern (Kafka + centralized logging), no longer an aggregate after Audit bounded context removal (see `05-architecture/overview.md`).
@@ -516,7 +519,7 @@
 
 **Context:** Attendance.
 
-**Description:** Indicates how attendance was captured. Values: FACIAL, MANUAL, IMPORT.
+**Description:** Indicates how attendance was captured. Values: FACIAL, MANUAL, IOT, IMPORT (native ENUM).
 
 **Associated rules:** RN-25, RN-26.
 
@@ -572,7 +575,7 @@
 | RN-22 | An academic_actor can have only one attendance_record per class_session (uniqueness constraint). | RF 3.1 |
 | RN-23 | The attendance record must correspond to an Open class_session. | RF 3.1 |
 | RN-24 | Facial recognition is valid only if the biometric embedding corresponds to a registered person. | RF 3.1.1 |
-| RN-25 | The capture_method must be one of: FACIAL, MANUAL, IMPORT. | RF 3.1, RF 3.1.2 |
+| RN-25 | The capture_method must be one of: FACIAL, MANUAL, IOT, IMPORT. | RF 3.1, RF 3.1.2 |
 | RN-26 | If facial scanning fails, a MANUAL or IMPORT record may be used. | RF 3.1.2 |
 
 ### Biometric

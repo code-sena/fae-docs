@@ -5,7 +5,9 @@ info:
   description: |
     Servicio 06-ms-biometric (Python 3.12 FastAPI + Motor :8086, MongoDB).
     Embeddings faciales y dactilares + solicitudes espejo de actualización.
-    Caso canónico en `07-configuration/biometric-update-cases`.
+    Dueño lógico de `biometric_update_case` (DBML v7); el caso canónico vive
+    hoy en `07-configuration/biometric-update-cases` como hospedaje físico
+    transitorio pendiente de migración.
 
     ## Fuente real
     - Routers: `facial_router.py`, `fingerprint_router.py`, `update_router.py`, `main.py:82-84,106-110`

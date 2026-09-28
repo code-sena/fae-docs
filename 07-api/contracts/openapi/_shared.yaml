@@ -221,7 +221,7 @@ components:
       name: id
       in: path
       required: true
-      description: ID numérico local (cityId, roleId, environmentId, …)
+      description: ID numérico local (roleId, environmentId, schoolId, …)
       schema:
         type: integer
 

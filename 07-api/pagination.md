@@ -6,7 +6,7 @@
 
 | Param | Type | Default | Max | Used by |
 |-------|------|---------|-----|---------|
-| `limit` | int 1..100 | 20 | 100 | Java `cities`, TS `03/07/09`, Go `08` |
+| `limit` | int 1..100 | 20 | 100 | TS `03/07/09`, Go `08`, new Java lists |
 | `offset` | int ≥0 | 0 | — | same as above |
 | `page` | int ≥1 | 1 | — | docs-only alias; backend implements `offset`, gateway does not translate |
 
@@ -15,8 +15,8 @@ Reusable in `_shared.yaml`: `LimitParam`, `OffsetParam`, `PageParam` (docs alias
 ## 2. Per-stack reality
 
 ### Java (`01,02,04,05`)
-- Only `GET /api/v1/cities?limit=20&offset=0` enforces pagination (clamp 1..100, `CityController.java:38-40`).
-- All other lists filter in memory, no envelope:
+- `GET /api/v1/cities` removed (city table dropped; use external `countriesnow.space` API).
+- Lists filter in memory, no envelope:
   - `GET /api/v1/environments?schoolId=`
   - `GET /api/v1/schedule-blocks?cohortId&environmentId&instructorActorId&courseId`
   - `GET /api/v1/class-sessions?scheduleBlockId`

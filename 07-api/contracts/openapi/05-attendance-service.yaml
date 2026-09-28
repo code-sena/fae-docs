@@ -6,6 +6,9 @@ info:
     Servicio 05-ms-attendance (Java 21 Spring Boot :8085, schema `attendance`).
     Registros de asistencia, tipos de justificación, justificaciones y documentos de soporte.
     Critical path ACID con `@Transactional`.
+    `justification_type.school_id` INT NULL (NULL = global); unique `(school_id,name)`
+    + partial unique `(name)` WHERE `school_id IS NULL`.
+    `attendance_report` (DBML v7, derived JSONB projection, no FKs) has NO endpoints yet — gap.
 
     ## Fuente real
     - Controllers: `AttendanceRecordController`, `JustificationController`,
@@ -616,8 +619,9 @@ components:
       required: [name]
       properties:
         schoolId:
-          type: string
+          type: integer
           nullable: true
+          description: NULL = global type, NOT NULL = per-school custom type
         name:
           type: string
           maxLength: 255
@@ -653,8 +657,9 @@ components:
             justificationTypeId:
               type: integer
             schoolId:
-              type: string
+              type: integer
               nullable: true
+              description: NULL = global type, NOT NULL = per-school custom type
             name:
               type: string
             description:

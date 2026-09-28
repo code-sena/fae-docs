@@ -49,7 +49,7 @@ RBAC (`/auth/evaluate`), Mobile real multistep login vs Web mock, refresh/logout
 URL-only `/api/v1`, breaking vs non-breaking, deprecation policy, current `1.0.0`.
 
 ### `pagination.md`
-`?limit=20&offset=0` canonical; Java only `cities` paginates; TS `x-total-count` (+`{data,total,limit,offset}` in 09);
+`?limit=20&offset=0` canonical; Java lists filter in memory; TS `x-total-count` (+`{data,total,limit,offset}` in 09);
 Go `?actorId&typeId&status&limit&offset` with `{alerts}/{alert_types}`; Python none; Mobile `?_limit` legacy to migrate.
 
 ### `error-catalog.md`

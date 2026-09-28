@@ -27,7 +27,7 @@
 
 ### Java 01-identity — `GlobalExceptionHandler.java:21-28`
 ```json
-{ "error": "NotFound", "status": 404, "message": "…", "path": "/api/v1/cities/99", "timestamp": "2024-01-15T10:30:00Z" }
+{ "error": "NotFound", "status": 404, "message": "…", "path": "/api/v1/persons/99", "timestamp": "2024-01-15T10:30:00Z" }
 ```
 
 ### Java 05-attendance — ISO-9001 `GlobalExceptionHandler.java:93-112`

@@ -50,7 +50,7 @@ Example of the difference:
 | Approach | Question answered | Example |
 |---|---|---|
 | Domain | What does a cohort mean in the business? | A cohort represents a group of learners associated with a program, an academic period, and an instructor. |
-| Data | How is that cohort stored in persistence? | It is stored in the `cohort` table with `cohort_id`, `program_id`, `period_id`, `school_id`, and specific fields. |
+| Data | How is that cohort stored in persistence? | It is stored in the `cohort` table with `cohort_id`, `program_id`, `academic_period_id`, `code`, and audit fields (no direct `school_id`). |
 
 ## Bounded Contexts
 
@@ -58,14 +58,14 @@ Based on the SRS and Event Storming, the FaceAttend EDU domain is organized into
 
 | Context | Type | Main entities | Related requirements |
 |---|---|---|---|
-| Identity | Cross-cutting supporting | Person, App_User, City | RF 1, RNF 4 |
+| Identity | Cross-cutting supporting | Person, App_User (`City` deprecated — external API) | RF 1, RNF 4 |
 | Authorization | Cross-cutting supporting | Role, Permission, Role_Permission, User_Role | RF 1.1.1, RF 1.1.2, RF 4.6 |
 | Academic | Core | School, Program, Academic_Period, Cohort, Course, Academic_Actor, Enrollment | RF 2, RF 8 |
 | Scheduling | Core | Environment, Schedule_Block, Class_Session | RF 2.1, RF 2.3.2 |
-| Attendance | System core | Attendance_Record, Justification_Type, Justification, Supporting_Document | RF 3, RF 6 |
-| Biometric | Supporting (NoSQL) | Facial_Embedding, Fingerprint_Embedding | RF 3.1.1, RNF 4 |
+| Attendance | System core | Attendance_Record, Justification_Type, Justification, Supporting_Document, Attendance_Report (derived) | RF 3, RF 6 |
+| Biometric | Supporting (NoSQL + 1 SQL) | Facial_Embedding, Fingerprint_Embedding, Biometric_Update_Case (logical owner) | RF 3.1.1, RNF 4 |
 | Notification | Supporting | Alert_Type, Alert | RF 4.1 |
-| Configuration | Cross-cutting supporting | Academic_Configuration, Security_Configuration, Biometric_Update_Case | RF 4 |
+| Configuration | Cross-cutting supporting | Academic_Configuration, Security_Configuration | RF 4 |
 
 > **History:** Audit (Audit_Log, Error_Log) was removed as DDD bounded context in `refactor/remove-audit-domain`. Traceability is now a cross-cutting infrastructure concern (Kafka event log + centralized logging), not a business aggregate. RN-30/31/37-41/44/45 retired.
 
@@ -99,13 +99,13 @@ The information in this section is mainly based on the FaceAttend EDU Software R
 
 The following terms must remain consistent (see `01-context/glossary.md` as source of truth and `domain-map.md#ubiquitous-language` for business definitions):
 
-- Person / App_User / City / Credentials / Session.
-- Role / Permission / Role_Permission / User_Role.
+- Person / App_User / Credentials / Session (`City` deprecated — external API).
+- Role / Permission / Role_Permission / User_Role (global roles, PK `(user_id, role_id)`).
 - School / Program / Academic_Period / Cohort / Course / Academic_Actor / Academic_Actor_Type / Enrollment.
 - Environment / Schedule_Block / Class_Session / Time_Block.
-- Attendance_Record / Justification_Type / Justification / Supporting_Document / Recording_Method.
-- Facial_Embedding / Fingerprint_Embedding / Biometric_Update_Case.
-- Alert_Type / Alert.
+- Attendance_Record / Justification_Type / Justification / Supporting_Document / Attendance_Report / Recording_Method (FACIAL/MANUAL/IOT/IMPORT).
+- Facial_Embedding / Fingerprint_Embedding / Biometric_Update_Case (logical owner Biometric).
+- Alert_Type (severity/channel) / Alert.
 - Academic_Configuration / Security_Configuration.
 
 ## Modeling Conventions

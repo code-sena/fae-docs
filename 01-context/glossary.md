@@ -18,9 +18,9 @@
 
 | Term | Definition | Notes / Synonyms |
 |------|-----------|-----------------|
-| Person | Natural person registered in the institution; root for identity | Not to confuse with App_User |
+| Person | Natural person registered in the institution; root for identity; uniqueness is `(document_type, document_number)` | Not to confuse with App_User |
 | App_User | Login account (username + password hash) bound 1:1 to Person; owns credentials and sessions | Syn: User (avoid generic) |
-| City | Catalog of cities/departments referenced by School | — |
+| City | DEPRECATED — cities come from external `countriesnow.space` API; `School.city_id` is VARCHAR NULL with no FK | Do not recreate as table |
 | School | Educational institution (multi-tenant root) that groups programs, cohorts, environments | Formerly `Institution` — avoid |
 | Program | Academic program (e.g., Software Development) within a School | Not Cohort |
 | Academic_Period | Time division (e.g., 2024-Q1) that scopes cohorts and enrollments | Syn: Term, Semester |
@@ -32,18 +32,19 @@
 | Environment | Physical space (classroom, lab) where classes are held, belonging to a School | — |
 | Schedule_Block | Recurring time slot (day + start/end) for Cohort+Course+Instructor+Environment | Prevents double-booking |
 | Class_Session | Concrete occurrence of a Schedule_Block on a specific date; attendance attaches here | Status: Open/Closed/Cancelled |
-| Attendance_Record | Proof of presence for one Academic_Actor in one Class_Session (Present/Absent/Late/Justified, FACIAL/MANUAL/IMPORT) | Central business entity |
-| Justification_Type | Catalog of absence reasons (e.g., Medical) with requires_attachment flag | — |
-| Justification | Request 1:1 with Attendance_Record to explain absence; lifecycle Pending→Approved/Rejected | Not Supporting_Document |
+| Attendance_Record | Proof of presence for one Academic_Actor in one Class_Session (Present/Absent/Late/Justified, FACIAL/MANUAL/IOT/IMPORT) | Central business entity |
+| Justification_Type | Per-school catalog of absence reasons (`school_id` NULL = global) with requires_attachment flag | Partial unique for globals |
+| Justification | Request 1:1 with Attendance_Record to explain absence; lifecycle Pending→Approved/Rejected + resolution_notes | Not Supporting_Document |
 | Supporting_Document | File evidence attached to Justification (MIME, URI) | — |
+| Attendance_Report | Derived reporting projection (filters + result JSONB, no FKs), outside 3NF core | Not a business aggregate |
 | Facial_Embedding | Face vector stored in MongoDB for recognition; one active per Person | Not photo |
 | Fingerprint_Embedding | Fingerprint template (1..10 per Person) | — |
-| Alert_Type / Alert | System-generated notification for thresholds/conflicts; Alert lifecycle Raised→Resolved | Not Notification channel |
+| Alert_Type / Alert | Catalog + system-generated notification; Alert_Type has severity (INFO/WARNING/CRITICAL) and channel (DASHBOARD/EMAIL/PUSH) | Not Notification channel |
 | Academic_Configuration | Per-school academic parameters (e.g., tardy_tolerance_minutes) | — |
-| Security_Configuration | Global security parameters (e.g., max_login_attempts) | — |
-| Biometric_Update_Case | Workflow for facial/fingerprint re-enrollment (Pending→In_Review→Approved/Rejected) | Unified FACIAL/FINGERPRINT |
+| Security_Configuration | Global security parameters (e.g., max_login_attempts) | Password policy lives in Identity |
+| Biometric_Update_Case | Workflow for facial/fingerprint re-enrollment (Pending→In_Review→Approved/Rejected); logical owner Biometric | Unified FACIAL/FINGERPRINT; `chk_finger_number` |
 | Credentials / Session | Value objects: login data and authenticated temporary state | No identity outside App_User |
-| Time_Block / Recording_Method | Value objects: day+time interval and FACIAL/MANUAL/IMPORT | — |
+| Time_Block / Recording_Method | Value objects: day+time interval and FACIAL/MANUAL/IOT/IMPORT | `day_of_week` 1..7 ISO |
 
 ---
 

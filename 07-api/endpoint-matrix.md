@@ -20,11 +20,11 @@
 | PUT /api/v1/persons/{id} | ✅ | public | Update → 204 |
 | POST /api/v1/persons/{id}/transfer | ✅ nested | public | Transfer `{newSchoolId}` → 204 |
 | PATCH /api/v1/persons/{id}/status | ✅ | public | Status → 204 |
-| POST /api/v1/cities | ✅ | public | Create city → 201 |
-| GET /api/v1/cities?limit&offset | ✅ | public | List (real pagination) |
-| GET /api/v1/cities/{id} | ✅ | public | Get city |
-| PUT /api/v1/cities/{id} | ✅ | public | Update → 204 |
-| DELETE /api/v1/cities/{id} | ✅ | public | Delete → 204 |
+| POST /api/v1/cities | ❌ deprecated | public | Removed — cities come from external `countriesnow.space` API |
+| GET /api/v1/cities?limit&offset | ❌ deprecated | public | Removed — see external API |
+| GET /api/v1/cities/{id} | ❌ deprecated | public | Removed — see external API |
+| PUT /api/v1/cities/{id} | ❌ deprecated | public | Removed — see external API |
+| DELETE /api/v1/cities/{id} | ❌ deprecated | public | Removed — see external API |
 | POST /api/v1/password-policies | ✅ | public | Create policy → 201 |
 | GET /api/v1/password-policies | ✅ | public | List |
 | GET /api/v1/password-policies/{id} | ✅ | public | Get |

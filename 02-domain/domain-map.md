@@ -39,10 +39,10 @@ This domain is necessary because FaceAttend EDU handles sensitive academic infor
 ### Main Concepts
 - Person.
 - App_User.
-- City.
 - Credentials.
 - Session.
 - Password policy.
+- ~~City~~ deprecated — external `countriesnow.space` API.
 
 ### Responsibilities
 - Register persons individually or in bulk through CSV files.
@@ -103,10 +103,10 @@ Cross-cutting supporting subdomain.
 - User_Role.
 
 ### Responsibilities
-- Define roles (Administrator, Instructor/Teacher, Student/Learner).
-- Define permissions per action.
+- Define global roles (`SUPER_ADMIN`, `SCHOOL_ADMIN`, `INSTRUCTOR`, `STUDENT`).
+- Define permissions per action (`context.resource:action`).
 - Associate roles with permissions.
-- Assign roles to users per school.
+- Assign roles to users (PK `(user_id, role_id)`, no `school_id`).
 
 ### Related Requirements
 - RF 1.1.1: Role assignment.
@@ -226,13 +226,14 @@ System core.
 - Justification_Type.
 - Justification.
 - Supporting_Document.
+- Attendance_Report (derived projection, no FKs).
 - Capture method.
 - Attendance status.
 
 ### Responsibilities
 - Record attendance (Present, Absent, Late, Justified).
-- Support multiple capture methods (FACIAL, MANUAL, IMPORT).
-- Manage justification requests and reviews.
+- Support multiple capture methods (FACIAL, MANUAL, IOT, IMPORT).
+- Manage justification requests and reviews (per-school types, resolution notes).
 - Track supporting documents.
 
 ### Related Requirements
@@ -271,11 +272,12 @@ Store and manage biometric embeddings (facial and fingerprint) used for identity
 Supporting subdomain.
 
 ### Persistence
-This context persists entirely in **MongoDB** (NoSQL) — no SQL tables.
+Embeddings persist in **MongoDB** (NoSQL); `biometric_update_case` is the SQL workflow table logically owned by this context (physically hosted in `configuration` transiently).
 
 ### Main Concepts
 - Facial_Embedding.
 - Fingerprint_Embedding.
+- Biometric_Update_Case.
 - Model version.
 - Template version.
 
@@ -345,12 +347,11 @@ Cross-cutting supporting subdomain.
 ### Main Concepts
 - Academic_Configuration.
 - Security_Configuration.
-- Biometric_Update_Case.
 
 ### Responsibilities
 - Store academic parameters per school (e.g., tardy tolerance).
 - Store global security parameters (e.g., max login attempts).
-- Manage biometric update request workflow (Pending → In_Review → Approved/Rejected).
+- ~~Biometric update workflow~~ moved to Biometric (transient physical host only).
 
 ### Related Requirements
 - RF 4: System configuration.

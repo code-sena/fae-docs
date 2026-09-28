@@ -13,6 +13,7 @@
 
 - Configuration is cross-cutting — it does not directly relate to User/Person.
 - `biometric_update_case` is the unified table for both facial and fingerprint update requests.
+- **Logical owner is Biometric (DBML v7):** this schema hosts it only transiently for Liquibase/service compatibility. See `06-biometric.md`.
 
 ---
 
@@ -103,22 +104,25 @@ CREATE TABLE security_configuration (
 
 ---
 
-## 3. Table: biometric_update_case
+## 3. Table: biometric_update_case — logical owner Biometric, physical host Configuration (transient)
 
 **Purpose:** Unified cases for requesting facial or fingerprint embedding updates.
 
 ```sql
+-- Native ENUMs (logical owner Biometric):
+-- CREATE TYPE biometric.biometric_type AS ENUM ('FACIAL','FINGERPRINT');
+-- CREATE TYPE biometric.update_status AS ENUM ('Pending','In_Review','Approved','Rejected');
 CREATE TABLE biometric_update_case (
   -- Business fields
   case_id                 UUID        PRIMARY KEY,
   person_id               UUID        NOT NULL,
-  biometric_type          VARCHAR     NOT NULL,
-  finger_number           SMALLINT,
+  biometric_type          biometric.biometric_type NOT NULL,
+  finger_number           SMALLINT    NULL CHECK (finger_number BETWEEN 1 AND 10),
   current_embedding_ref   VARCHAR,
   reason                  TEXT        NOT NULL,
 
   -- Status fields
-  update_status           VARCHAR     NOT NULL DEFAULT 'Pending',
+  update_status           biometric.update_status NOT NULL DEFAULT 'Pending',
 
   -- Audit (in all tables)
   created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -130,11 +134,16 @@ CREATE TABLE biometric_update_case (
   row_version             BIGINT      NOT NULL DEFAULT 1,
 
   -- Workflow
-  requested_by            UUID,
-  requested_at            TIMESTAMPTZ,
+  requested_by            UUID        NOT NULL,
+  requested_at            TIMESTAMPTZ NOT NULL,
   reviewed_by             UUID,
   reviewed_at             TIMESTAMPTZ,
-  resolution_notes        VARCHAR
+  resolution_notes        TEXT,
+
+  CONSTRAINT chk_finger_number CHECK (
+    (biometric_type = 'FINGERPRINT' AND finger_number BETWEEN 1 AND 10)
+    OR (biometric_type = 'FACIAL' AND finger_number IS NULL)
+  )
 );
 
 CREATE INDEX idx_biometric_case_person ON biometric_update_case (person_id);
@@ -148,11 +157,11 @@ CREATE INDEX idx_biometric_case_status ON biometric_update_case (update_status);
 |--------|------|-------------|---------|
 | case_id | UUID | Auto-generated unique case identifier | `550e8400-...` |
 | person_id | UUID | Person (external ID → Identity.person) | `550e8400-...` |
-| biometric_type | VARCHAR | FACIAL or FINGERPRINT | `FACIAL` |
-| finger_number | SMALLINT | Finger ID (1..10), only if FINGERPRINT | `1` |
+| biometric_type | ENUM | FACIAL or FINGERPRINT | `FACIAL` |
+| finger_number | SMALLINT | Finger ID (1..10), only if FINGERPRINT, else NULL | `1` |
 | current_embedding_ref | VARCHAR | Logical _id in MongoDB (cross-paradigm, no FK) | `507f1f77bcf86cd799439011` |
 | reason | TEXT | Reason for the update request | `Significant weight change` |
-| update_status | VARCHAR | Status: Pending, In_Review, Approved, Rejected | `Pending` |
+| update_status | ENUM | Status: Pending, In_Review, Approved, Rejected | `Pending` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T10:00:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T10:00:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
@@ -160,17 +169,17 @@ CREATE INDEX idx_biometric_case_status ON biometric_update_case (update_status);
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
 | row_version | BIGINT | Optimistic lock version counter | `1` |
-| requested_by | UUID | Requesting user (external ID → Identity.app_user) | `550e8400-...` |
-| requested_at | TIMESTAMPTZ | When the request was submitted | `2024-06-01T10:00:00Z` |
+| requested_by | UUID | Requesting user, mandatory (external ID → Identity.app_user) | `550e8400-...` |
+| requested_at | TIMESTAMPTZ | When the request was submitted, mandatory | `2024-06-01T10:00:00Z` |
 | reviewed_by | UUID | Reviewing user (external ID → Identity.app_user) | `550e8400-...` |
 | reviewed_at | TIMESTAMPTZ | When the request was reviewed | `2024-06-02T14:00:00Z` |
-| resolution_notes | VARCHAR | Notes from the review | `Approved — new photo captured` |
+| resolution_notes | TEXT | Notes from the review | `Approved — new photo captured` |
 
 **Modeling decisions:**
 1. Unified table: `biometric_type` distinguishes FACIAL vs FINGERPRINT cases.
-2. `finger_number` is only populated when `biometric_type = FINGERPRINT`.
+2. `finger_number` is only populated when `biometric_type = FINGERPRINT` (`chk_finger_number`).
 3. `current_embedding_ref` is a logical reference to the MongoDB document (cross-paradigm).
-4. State flow: Pending → In_Review → Approved/Rejected.
+4. State flow: Pending → In_Review → Approved/Rejected. `requested_by/requested_at` are mandatory.
 
 ---
 

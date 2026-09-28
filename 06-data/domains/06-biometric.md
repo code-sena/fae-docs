@@ -13,9 +13,9 @@
 ## Design Principles
 
 - Biometric does **NOT** know Person — `person_id` represents an external identity.
-- This context persists entirely in **NoSQL** (MongoDB) — no SQL tables.
+- Embeddings persist in **NoSQL** (MongoDB); the re-enrollment workflow persists in SQL.
 - ID references are resolved at the application level.
-- `biometric_update_case` lives in the Configuration context (SQL) and references these collections by logical ID.
+- `biometric_update_case` is logically owned by Biometric (DBML v7) and references these collections by logical ID (`current_embedding_ref`, cross-paradigm, no FK). It is still physically hosted in the `configuration` schema transiently for Liquibase/service compatibility — moving it requires a compatibility migration.
 
 ---
 

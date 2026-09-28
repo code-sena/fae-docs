@@ -78,9 +78,9 @@ CREATE TABLE schedule_block (
   course_id           INT         NOT NULL,
   environment_id      INT         NOT NULL,
   instructor_actor_id BIGINT      NOT NULL,
-  day_of_week         SMALLINT    NOT NULL,
+  day_of_week         SMALLINT    NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
   starts_at           TIME        NOT NULL,
-  ends_at             TIME        NOT NULL,
+  ends_at             TIME        NOT NULL CHECK (ends_at > starts_at),
 
   -- Audit (in all tables)
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -89,7 +89,10 @@ CREATE TABLE schedule_block (
   created_by          UUID,
   updated_by          UUID,
   deleted_by          UUID,
-  row_version         BIGINT      NOT NULL DEFAULT 1
+  row_version         BIGINT      NOT NULL DEFAULT 1,
+
+  CONSTRAINT chk_block_day_of_week CHECK (day_of_week BETWEEN 1 AND 7),
+  CONSTRAINT chk_block_time CHECK (starts_at < ends_at)
 );
 
 CREATE UNIQUE INDEX uq_block_environment_slot
@@ -122,7 +125,7 @@ CREATE INDEX idx_block_course ON schedule_block (course_id);
 
 **Modeling decisions:**
 1. Two unique constraints prevent double-booking: same room at same time, or same instructor at same time.
-2. `day_of_week` is SMALLINT (1..7) for indexed efficiency.
+2. `day_of_week` is SMALLINT 1..7 ISO with `chk_block_day_of_week`; `starts_at < ends_at` with `chk_block_time`.
 3. `cohort_id`, `course_id`, `instructor_actor_id` are external references — no cross-context FKs.
 
 ---
@@ -132,6 +135,7 @@ CREATE INDEX idx_block_course ON schedule_block (course_id);
 **Purpose:** A real occurrence of a schedule_block on a specific date. Opened/closed by the instructor.
 
 ```sql
+-- Native ENUM: CREATE TYPE scheduling.class_session_status AS ENUM ('Open','Closed','Cancelled');
 CREATE TABLE class_session (
   -- Business fields
   class_session_id  BIGSERIAL   PRIMARY KEY,
@@ -143,7 +147,7 @@ CREATE TABLE class_session (
   closed_at         TIMESTAMPTZ,
 
   -- Status fields
-  session_status    VARCHAR     NOT NULL,
+  session_status    scheduling.class_session_status NOT NULL,
 
   -- Audit (in all tables)
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),

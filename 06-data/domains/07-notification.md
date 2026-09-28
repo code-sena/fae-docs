@@ -26,6 +26,8 @@ CREATE TABLE alert_type (
   alert_type_id SMALLINT    PRIMARY KEY,
   code          VARCHAR     NOT NULL UNIQUE,
   name          VARCHAR     NOT NULL,
+  severity      VARCHAR     NOT NULL CHECK (severity IN ('INFO','WARNING','CRITICAL')),
+  channel       VARCHAR     NOT NULL DEFAULT 'DASHBOARD' CHECK (channel IN ('DASHBOARD','EMAIL','PUSH')),
 
   -- Audit (in all tables)
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -45,6 +47,8 @@ CREATE TABLE alert_type (
 | alert_type_id | SMALLINT | Auto-incremental type identifier | `1` |
 | code | VARCHAR | Unique type code | `ABSENCE_THRESHOLD` |
 | name | VARCHAR | Type name | `Absence threshold reached` |
+| severity | VARCHAR | INFO / WARNING / CRITICAL | `WARNING` |
+| channel | VARCHAR | DASHBOARD / EMAIL / PUSH | `DASHBOARD` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
@@ -109,6 +113,8 @@ erDiagram
         smallint alert_type_id PK
         varchar code UK
         varchar name
+        varchar severity
+        varchar channel
     }
     ALERT {
         bigserial alert_id PK

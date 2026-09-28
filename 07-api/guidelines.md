@@ -92,8 +92,8 @@ Canonical envelope is `ErrorResponse` in `contracts/openapi/_shared.yaml`:
 ```json
 {
   "error": "VALIDATION_ERROR",
-  "message": "Datos de entrada inválidos",
-  "details": [{ "field": "email", "message": "Formato de email inválido" }],
+  "message": "Invalid input data",
+  "details": [{ "field": "email", "message": "Invalid email format" }],
   "traceId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```

@@ -1,195 +1,195 @@
 # Normalization Assessment — FaceAttend EDU
 
-> **Corte:** 2026-09-22 · **Ficha:** ADSO-3145556 · **Repo:** `code-sena/fae-docs`
-> **Alcance:** 29 entidades de `02-domain/entities-and-rules.md` frente a 31 tablas SQL (PostgreSQL 17) + 2 colecciones MongoDB documentadas en `06-data/domains/`
-> **Veredicto global:** **3NF sin excepciones — sin denormalizaciones intencionales.** Cada tabla está en 3NF; no hay atributos transitivos ni grupos repetidos. Lo que parece denormalización (FK externas sin constraint físico, `current_embedding_ref` SQL→NoSQL) es aislamiento de bounded context, no duplicación.
+> **Cut-off:** 2026-09-22 · **Record:** ADSO-3145556 · **Repo:** `code-sena/fae-docs`
+> **Scope:** 29 entities from `02-domain/entities-and-rules.md` against 31 SQL tables (PostgreSQL 17) + 2 MongoDB collections documented in `06-data/domains/`
+> **Global verdict:** **3NF with no exceptions — no intentional denormalizations.** Each table is in 3NF; no transitive attributes or repeating groups. What looks like denormalization (external FKs without physical constraint, `current_embedding_ref` SQL→NoSQL) is bounded-context isolation, not duplication.
 
 ---
 
-## 1. Método
+## 1. Method
 
-- Fuente primaria: `06-data/domains/0*.md` (DDL SQL + diccionarios) y `02-domain/entities-and-rules.md` / `domain-map.md`.
-- Se verificó 1NF → 2NF → 3NF tabla por tabla con el criterio clásico:
-  - **1NF:** dominio atómico por columna, sin listas ni valores compuestos, PK definida.
-  - **2NF:** si PK compuesta → ningún atributo no-clave depende de una parte de la PK.
-  - **3NF:** ningún atributo no-clave depende transitivamente de otro no-clave.
-- BCNF se revisa solo donde hay dependencias funcionales no triviales sobre superclave (ver §5).
-- Actividad y trazabilidad contrastadas contra `04-requirements` (39 HU) y `09-microservices/service-catalog.md`.
+- Primary source: `06-data/domains/0*.md` (SQL DDL + dictionaries) and `02-domain/entities-and-rules.md` / `domain-map.md`.
+- 1NF → 2NF → 3NF verified table by table with the classic criterion:
+  - **1NF:** atomic domain per column, no lists or composite values, defined PK.
+  - **2NF:** if composite PK → no non-key attribute depends on part of the PK.
+  - **3NF:** no non-key attribute transitively depends on another non-key.
+- BCNF reviewed only where non-trivial functional dependencies over a superkey exist (see §5).
+- Activity and traceability cross-checked against `04-requirements` (39 HUs) and `09-microservices/service-catalog.md`.
 
 ---
 
-## 2. Resumen ejecutivo
+## 2. Executive summary
 
-| Bounded Context | Entidades (02-domain) | Tablas SQL / Colecciones | Veredicto |
+| Bounded Context | Entities (02-domain) | SQL Tables / Collections | Verdict |
 |---|---:|---|---|
-| Identity | 3 (Person, App_User, City) + VOs | 5 tablas (`city`, `person`, `app_user`, `user_session`, `password_policy`) | 3NF |
-| Authorization | 4 (Role, Permission, Role_Permission, User_Role) | 4 tablas | 3NF |
-| Academic | 8 (School, Program, Academic_Period, Cohort, Course, Academic_Actor_Type, Academic_Actor, Enrollment) | 8 tablas | 3NF |
-| Scheduling | 3 (Environment, Schedule_Block, Class_Session) | 3 tablas | 3NF |
-| Attendance | 4 (Attendance_Record, Justification_Type, Justification, Supporting_Document) | 4 tablas | 3NF |
-| Biometric | 2 (Facial_Embedding, Fingerprint_Embedding) | 2 colecciones MongoDB | N/A relacional — documento normalizado por diseño* |
-| Notification | 2 (Alert_Type, Alert) | 2 tablas | 3NF |
-| Audit | 2 (Audit_Log, Error_Log) | 2 tablas | 3NF (append-only) |
-| Configuration | 3 (Academic_Configuration, Security_Configuration, Biometric_Update_Case) | 3 tablas | 3NF |
-| **Total** | **29 entidades + 4 VOs** | **31 SQL + 2 Mongo** | **3NF, 0 denormalizaciones** |
+| Identity | 3 (Person, App_User, City) + VOs | 5 tables (`city`, `person`, `app_user`, `user_session`, `password_policy`) | 3NF |
+| Authorization | 4 (Role, Permission, Role_Permission, User_Role) | 4 tables | 3NF |
+| Academic | 8 (School, Program, Academic_Period, Cohort, Course, Academic_Actor_Type, Academic_Actor, Enrollment) | 8 tables | 3NF |
+| Scheduling | 3 (Environment, Schedule_Block, Class_Session) | 3 tables | 3NF |
+| Attendance | 4 (Attendance_Record, Justification_Type, Justification, Supporting_Document) | 4 tables | 3NF |
+| Biometric | 2 (Facial_Embedding, Fingerprint_Embedding) | 2 MongoDB collections | N/A relational — normalized document by design* |
+| Notification | 2 (Alert_Type, Alert) | 2 tables | 3NF |
+| Audit | 2 (Audit_Log, Error_Log) | 2 tables | 3NF (append-only) |
+| Configuration | 3 (Academic_Configuration, Security_Configuration, Biometric_Update_Case) | 3 tables | 3NF |
+| **Total** | **29 entities + 4 VOs** | **31 SQL + 2 Mongo** | **3NF, 0 denormalizations** |
 
-* Biométrico no se evalúa con formas normales relacionales; se evalúa como documento con referencias externas por UUID/ObjectId (ver §7).
+* Biometric is not assessed with relational normal forms; it is assessed as a document with external references by UUID/ObjectId (see §7).
 
-**Conteo histórico (informe 2026-09-22):** el informe reportó "30 tablas". La diferencia es `password_policy` (singleton global en Identity). Contando solo tablas de negocio multi-fila son 30; incluyendo el singleton son 31. Ambas cifras son correctas según criterio — aquí se documentan las 31.
+**Historical count (2026-09-22 report):** the report stated "30 tables". The difference is `password_policy` (global singleton in Identity). Counting only multi-row business tables there are 30; including the singleton there are 31. Both figures are correct under their criterion — here the 31 are documented.
 
-> Entidad↔tabla: calce 29→29 perfecto salvo `Facial_Embedding`/`Fingerprint_Embedding` que deliberadamente **no** tienen tabla SQL — viven en MongoDB (`06-data/domains/06-biometric.md`). No es hueco: es decisión de motor documentada en ADR-003.
-
----
-
-## 3. 1NF — Atomicidad
-
-**Veredicto: cumple en todas las tablas.**
-
-- Ninguna columna almacena listas, CSV, JSON sin justificar, ni valores compuestos.
-- Tiempo modelado correctamente: `schedule_block.starts_at`/`ends_at` son `TIME` atómicos; `academic_period.starts_on/ends_on` son `DATE`; `attendance_record.captured_at` es `TIMESTAMPTZ`.
-- Ejemplo positivo citado: `enrollment` no guarda `student_names[]`; `schedule_block` no guarda `days VARCHAR "Mon,Wed,Fri"` — usa una fila por bloque con `day_of_week SMALLINT` + constraints de unicidad.
-- Contrapunto 1NF clásico evitado: se separó `person.document_number` de `person.name/last_name` (no "full_name"), y `academic_actor.actor_code` separado de `school_id`.
+> Entity↔table: 29→29 perfect match except `Facial_Embedding`/`Fingerprint_Embedding` which deliberately have **no** SQL table — they live in MongoDB (`06-data/domains/06-biometric.md`). Not a gap: it is an engine decision documented in ADR-003.
 
 ---
 
-## 4. 2NF — Sin dependencias parciales
+## 3. 1NF — Atomicity
 
-**Veredicto: cumple.**
+**Verdict: met in all tables.**
 
-Solo 2 tablas tienen PK compuesta y ambas están correctamente en 2NF:
+- No column stores lists, CSV, unjustified JSON, or composite values.
+- Time correctly modeled: `schedule_block.starts_at`/`ends_at` are atomic `TIME`; `academic_period.starts_on/ends_on` are `DATE`; `attendance_record.captured_at` is `TIMESTAMPTZ`.
+- Positive example: `enrollment` does not store `student_names[]`; `schedule_block` does not store `days VARCHAR "Mon,Wed,Fri"` — it uses one row per block with `day_of_week SMALLINT` + uniqueness constraints.
+- Classic 1NF pitfall avoided: `person.document_number` split from `person.name/last_name` (no "full_name"), and `academic_actor.actor_code` separate from `school_id`.
 
-| Tabla | PK | Atributos no-clave | ¿Depende de PK completa? |
+---
+
+## 4. 2NF — No partial dependencies
+
+**Verdict: met.**
+
+Only 2 tables have a composite PK and both are correctly in 2NF:
+
+| Table | PK | Non-key attributes | Depends on full PK? |
 |---|---|---|---|
-| `role_permission` | `(role_id, permission_id)` | `assignment_date` + audit | Sí — la fecha pertenece a la asignación, no al rol ni al permiso aislados |
-| `user_role` | `(user_id, role_id)` | `assignment_date` + audit | Sí — misma lógica; no hay atributo que describa solo a `user_id` o solo a `role_id` |
+| `role_permission` | `(role_id, permission_id)` | `assignment_date` + audit | Yes — the date belongs to the assignment, not to the role or permission alone |
+| `user_role` | `(user_id, role_id)` | `assignment_date` + audit | Yes — same logic; no attribute describes only `user_id` or only `role_id` |
 
-Todas las demás tablas tienen PK simple (SERIAL/BIGSERIAL/UUID) → 2NF es automática si 1NF se cumple.
+All other tables have a simple PK (SERIAL/BIGSERIAL/UUID) → 2NF is automatic once 1NF holds.
 
 ---
 
-## 5. 3NF y BCNF — Sin dependencias transitivas
+## 5. 3NF and BCNF — No transitive dependencies
 
-**Veredicto: 3NF en las 31 tablas. BCNF también se cumple donde aplica.**
+**Verdict: 3NF in all 31 tables. BCNF also holds where applicable.**
 
-Revisión por patrón:
+Review by pattern:
 
-### 5.1 Tablas sin riesgo transitivo (atributos dependen solo de la PK)
+### 5.1 Tables with no transitive risk (attributes depend only on the PK)
 
-`city`, `role`, `permission`, `school`, `program`, `academic_period`, `cohort`, `course`, `academic_actor_type`, `environment`, `class_session`, `justification_type`, `supporting_document`, `alert_type`, `alert`, `audit_log`, `error_log`, `academic_configuration`, `security_configuration` — todos sus atributos son hechos de la PK, no de otro no-clave. No hay `school_name` duplicado en `program`, ni `city_name` en `school`; se referencia por `school_id`/`city_id`.
+`city`, `role`, `permission`, `school`, `program`, `academic_period`, `cohort`, `course`, `academic_actor_type`, `environment`, `class_session`, `justification_type`, `supporting_document`, `alert_type`, `alert`, `audit_log`, `error_log`, `academic_configuration`, `security_configuration` — all their attributes are facts about the PK, not about another non-key. No duplicated `school_name` in `program`, nor `city_name` in `school`; reference is by `school_id`/`city_id`.
 
-### 5.2 Tablas con FKs que podrían confundirse con transitividad
+### 5.2 Tables with FKs that could be mistaken for transitivity
 
-| Tabla | FKs | ¿Transitiva? | Justificación |
+| Table | FKs | Transitive? | Rationale |
 |---|---|---|---|
-| `academic_actor` | `actor_type_id → academic_actor_type`, `school_id → school` | No | `actor_type_id` y `school_id` son FKs a entidades distintas; ningún atributo de `academic_actor` depende de `actor_type.name` ni de `school.name` |
-| `enrollment` | `academic_actor_id`, `cohort_id` | No | `enrollment_status` depende de la matrícula `(actor,cohort)`, no del actor ni del cohort aislados |
-| `schedule_block` | `cohort_id`, `course_id`, `environment_id`, `instructor_actor_id` | No | Cada FK es identificador externo; horarios dependen del bloque, no del nombre del curso |
-| `attendance_record` | `class_session_id` (ext), `academic_actor_id` (ext) | No | `attendance_status`, `capture_method`, `match_score` dependen del registro, no de la sesión |
-| `justification` | `attendance_record_id` (UK), `justification_type_id` | No | `reason`, `review_status` dependen de la justificación, no del tipo |
-| `biometric_update_case` | `person_id` (ext), `current_embedding_ref` (Mongo logical) | No | `biometric_type`, `update_status` dependen del caso |
+| `academic_actor` | `actor_type_id → academic_actor_type`, `school_id → school` | No | `actor_type_id` and `school_id` are FKs to distinct entities; no `academic_actor` attribute depends on `actor_type.name` or `school.name` |
+| `enrollment` | `academic_actor_id`, `cohort_id` | No | `enrollment_status` depends on the enrollment `(actor,cohort)`, not on the actor or cohort alone |
+| `schedule_block` | `cohort_id`, `course_id`, `environment_id`, `instructor_actor_id` | No | Each FK is an external identifier; schedules depend on the block, not on the course name |
+| `attendance_record` | `class_session_id` (ext), `academic_actor_id` (ext) | No | `attendance_status`, `capture_method`, `match_score` depend on the record, not on the session |
+| `justification` | `attendance_record_id` (UK), `justification_type_id` | No | `reason`, `review_status` depend on the justification, not on the type |
+| `biometric_update_case` | `person_id` (ext), `current_embedding_ref` (Mongo logical) | No | `biometric_type`, `update_status` depend on the case |
 
-### 5.3 Casos que *parecen* denormalización y no lo son
+### 5.3 Cases that *look like* denormalization but are not
 
-- **`alert.home_id`-análogo:** aquí `academic_configuration.school_id` y `scheduling.environment.school_id` son **FK cross-context sin constraint físico** (externas por UUID/SERIAL). No reforzar la FK a nivel de motor es una decisión de aislamiento de microservicios (Database per Service), no una denormalización — no duplica datos.
-- **`city_id` en `school`:** almacenar solo el ID y no el nombre de la ciudad es precisamente la forma normalizada; duplicar `city_name` en `school` sí sería denormalización (y no se hace).
-- **FK nulable ≠ denormalización:** `class_session.opened_by/closed_by` y `biometric_update_case.reviewed_by` pueden ser NULL antes de la acción. Eso es relación opcional, no dato duplicado.
+- **`academic_configuration.school_id` and `scheduling.environment.school_id`:** they are **cross-context FKs without physical constraint** (external by UUID/SERIAL). Not enforcing the FK at engine level is a microservice isolation decision (Database per Service), not a denormalization — it duplicates no data.
+- **`city_id` in `school`:** storing only the ID and not the city name is precisely the normalized form; duplicating `city_name` in `school` would be denormalization (and is not done).
+- **Nullable FK ≠ denormalization:** `class_session.opened_by/closed_by` and `biometric_update_case.reviewed_by` may be NULL before the action. That is an optional relationship, not duplicated data.
 
 ### 5.4 BCNF
 
-Se evaluó BCNF en tablas con dependencias funcionales no triviales: `enrollment (academic_actor_id, cohort_id) → enrollment_id` no aplica porque la PK es surrogate; la DF real es `enrollment_id → (actor, cohort)` y `enrollment_id` es superclave → BCNF. `academic_actor (school_id, actor_type_id, actor_code)` tiene UNIQUE sobre esa terna, pero la PK sigue siendo `academic_actor_id` (superclave) → BCNF.
+BCNF assessed on tables with non-trivial functional dependencies: `enrollment (academic_actor_id, cohort_id) → enrollment_id` does not apply because the PK is surrogate; the real FD is `enrollment_id → (actor, cohort)` and `enrollment_id` is a superkey → BCNF. `academic_actor (school_id, actor_type_id, actor_code)` has a UNIQUE over that triple, but the PK remains `academic_actor_id` (superkey) → BCNF.
 
 ---
 
-## 6. Matriz tabla por tabla (veredicto 3NF)
+## 6. Table-by-table matrix (3NF verdict)
 
-| # | Tabla / Colección | PK | 1NF | 2NF | 3NF | Notas |
+| # | Table / Collection | PK | 1NF | 2NF | 3NF | Notes |
 |---|---|---|---|---|---|---|
-| 1 | `city` | `city_id` | ✓ | ✓ | ✓ | Catálogo simple |
-| 2 | `person` | `person_id` UUID | ✓ | ✓ | ✓ | `document_number` UK, sin `school_id` (multi-tenant vía actor) |
-| 3 | `app_user` | `user_id` UUID | ✓ | ✓ | ✓ | 1:1 con person, `username` UK |
-| 4 | `user_session` | `session_id` UUID | ✓ | ✓ | ✓ | Sesión por usuario |
-| 5 | `password_policy` | `policy_id` SERIAL | ✓ | ✓ | ✓ | Singleton global — 1 fila efectiva |
-| 6 | `role` | `role_id` SERIAL | ✓ | ✓ | ✓ | Global, no `school_id` (decisión v4) |
+| 1 | `city` | `city_id` | ✓ | ✓ | ✓ | Simple catalog |
+| 2 | `person` | `person_id` UUID | ✓ | ✓ | ✓ | `document_number` UK, no `school_id` (multi-tenant via actor) |
+| 3 | `app_user` | `user_id` UUID | ✓ | ✓ | ✓ | 1:1 with person, `username` UK |
+| 4 | `user_session` | `session_id` UUID | ✓ | ✓ | ✓ | Session per user |
+| 5 | `password_policy` | `policy_id` SERIAL | ✓ | ✓ | ✓ | Global singleton — 1 effective row |
+| 6 | `role` | `role_id` SERIAL | ✓ | ✓ | ✓ | Global, no `school_id` (v4 decision) |
 | 7 | `permission` | `permission_id` SERIAL | ✓ | ✓ | ✓ |  |
-| 8 | `role_permission` | `(role_id, permission_id)` | ✓ | ✓ | ✓ | M:N con `assignment_date` |
-| 9 | `user_role` | `(user_id, role_id)` | ✓ | ✓ | ✓ | `user_id` externo, sin FK física |
-| 10 | `school` | `school_id` SERIAL | ✓ | ✓ | ✓ | `code` UK, `city_id` externo |
+| 8 | `role_permission` | `(role_id, permission_id)` | ✓ | ✓ | ✓ | M:N with `assignment_date` |
+| 9 | `user_role` | `(user_id, role_id)` | ✓ | ✓ | ✓ | External `user_id`, no physical FK |
+| 10 | `school` | `school_id` SERIAL | ✓ | ✓ | ✓ | `code` UK, external `city_id` |
 | 11 | `program` | `program_id` SERIAL | ✓ | ✓ | ✓ | `uq_program_code_school` |
 | 12 | `academic_period` | `academic_period_id` SERIAL | ✓ | ✓ | ✓ | `uq_period_name_school` |
 | 13 | `cohort` | `cohort_id` BIGSERIAL | ✓ | ✓ | ✓ | `code` UK |
 | 14 | `course` | `course_id` SERIAL | ✓ | ✓ | ✓ | `uq_course_code_program` |
 | 15 | `academic_actor_type` | `actor_type_id` SMALLINT | ✓ | ✓ | ✓ | `STUDENT`/`INSTRUCTOR` |
-| 16 | `academic_actor` | `academic_actor_id` BIGSERIAL | ✓ | ✓ | ✓ | 2 UK: `(school,type,code)` y `(person,type,school)` |
+| 16 | `academic_actor` | `academic_actor_id` BIGSERIAL | ✓ | ✓ | ✓ | 2 UKs: `(school,type,code)` and `(person,type,school)` |
 | 17 | `enrollment` | `enrollment_id` BIGSERIAL | ✓ | ✓ | ✓ | UNIQUE `(actor,cohort)` |
 | 18 | `environment` | `environment_id` SERIAL | ✓ | ✓ | ✓ | `uq_environment_code_school` |
-| 19 | `schedule_block` | `schedule_block_id` BIGSERIAL | ✓ | ✓ | ✓ | 2 UNIQUE anti-doble-reserva (room, instructor) |
+| 19 | `schedule_block` | `schedule_block_id` BIGSERIAL | ✓ | ✓ | ✓ | 2 UNIQUE anti-double-booking (room, instructor) |
 | 20 | `class_session` | `class_session_id` BIGSERIAL | ✓ | ✓ | ✓ | UNIQUE `(block, date)` |
 | 21 | `attendance_record` | `attendance_record_id` BIGSERIAL | ✓ | ✓ | ✓ | UNIQUE `(session, actor)` |
 | 22 | `justification_type` | `justification_type_id` SERIAL | ✓ | ✓ | ✓ | `requires_attachment` |
 | 23 | `justification` | `justification_id` BIGSERIAL | ✓ | ✓ | ✓ | UNIQUE `attendance_record_id` (1:1) |
 | 24 | `supporting_document` | `supporting_document_id` BIGSERIAL | ✓ | ✓ | ✓ | FK → justification |
 | 25 | `alert_type` | `alert_type_id` SMALLINT | ✓ | ✓ | ✓ | `code` UK |
-| 26 | `alert` | `alert_id` BIGSERIAL | ✓ | ✓ | ✓ | `resolved_at` NULL = abierto |
+| 26 | `alert` | `alert_id` BIGSERIAL | ✓ | ✓ | ✓ | `resolved_at` NULL = open |
 | 27 | `audit_log` | `audit_log_id` BIGSERIAL | ✓ | ✓ | ✓ | Append-only |
 | 28 | `error_log` | `error_id` BIGSERIAL | ✓ | ✓ | ✓ | Append-only |
 | 29 | `academic_configuration` | `configuration_id` SERIAL | ✓ | ✓ | ✓ | UNIQUE `(school, name)` |
-| 30 | `security_configuration` | `configuration_id` SERIAL | ✓ | ✓ | ✓ | `configuration_name` UK global |
-| 31 | `biometric_update_case` | `case_id` UUID | ✓ | ✓ | ✓ | `biometric_type` + `finger_number` condicional |
-| 32 | `facial_embeddings` (Mongo) | `_id` ObjectId | — | — | — | Vector `encoding`, `is_active`, `person_id` ext |
+| 30 | `security_configuration` | `configuration_id` SERIAL | ✓ | ✓ | ✓ | Global UK `configuration_name` |
+| 31 | `biometric_update_case` | `case_id` UUID | ✓ | ✓ | ✓ | Conditional `biometric_type` + `finger_number` |
+| 32 | `facial_embeddings` (Mongo) | `_id` ObjectId | — | — | — | Vector `encoding`, `is_active`, external `person_id` |
 | 33 | `fingerprint_embeddings` (Mongo) | `_id` ObjectId | — | — | — | `finger_number` 1..10, `is_active` |
 
 ---
 
-## 7. Denormalizaciones intencionales
+## 7. Intentional denormalizations
 
-**Ninguna.**
+**None.**
 
-> "As of this writing, the schema has no intentional denormalization — every table is in 3NF. This is stated plainly rather than manufactured content to fill the section." — mismo criterio que `energy-monitor` (reportado como el más limpio del corte).
+> "As of this writing, the schema has no intentional denormalization — every table is in 3NF. This is stated plainly rather than manufactured content to fill the section." — same criterion as `energy-monitor` (reported as the cleanest of the cut).
 
-Si en el futuro se introduce una denormalización (ej. cachear `school_code` en `enrollment` para evitar JOIN, o `actor_code` en `alert`), deberá documentarse aquí con: (a) tabla/columna duplicada, (b) motivo (performance vs JOIN), (c) mecanismo de honestidad (trigger, job de reconciliación, o `updated_at` de fuente), y (d) costo de escritura.
-
----
-
-## 8. Colecciones NoSQL (Biometric)
-
-`facial_embeddings` y `fingerprint_embeddings` no se normalizan con 1NF-3NF relacional. Su diseño equivalente a "normalizado" es:
-
-- Un documento por embedding, sin arrays anidados que violen atomicidad.
-- Índices ` (person_id, is_active)` y `(person_id, finger_number, is_active)` garantizan "máximo un activo por persona/dedo" a nivel de aplicación (RN-28), no por constraint único Mongo — documentado como invariante de dominio.
-- `person_id` es referencia externa a `Identity.person` — sin DBRef ni FK, resuelta por eventos/API.
-- `biometric_update_case.current_embedding_ref` (SQL) referencia `_id` (Mongo) como `VARCHAR` lógico — cross-paradigm, sin FK.
+If a denormalization is introduced in the future (e.g. caching `school_code` in `enrollment` to avoid JOIN, or `actor_code` in `alert`), it must be documented here with: (a) duplicated table/column, (b) reason (performance vs JOIN), (c) honesty mechanism (trigger, reconciliation job, or source `updated_at`), and (d) write cost.
 
 ---
 
-## 9. Trazabilidad y auditoría
+## 8. NoSQL collections (Biometric)
 
-- Campos de auditoría estándar en **todas** las tablas SQL: `created_at`, `updated_at`, `deleted_at` (soft delete), `created_by`, `updated_by`, `deleted_by`, `row_version` (optimistic locking) — definidos en `06-data/models.md` y replicados en cada DDL.
-- `audit_log`/`error_log` son append-only (RN-44): nunca UPDATE/DELETE.
-- Índices de borrado lógico: `WHERE deleted_at IS NULL` en tablas de alto volumen (`person`, `academic_actor`, `enrollment`, `attendance_record`).
+`facial_embeddings` and `fingerprint_embeddings` are not normalized with relational 1NF-3NF. Their "normalized" equivalent design is:
+
+- One document per embedding, no nested arrays breaking atomicity.
+- Indexes `(person_id, is_active)` and `(person_id, finger_number, is_active)` enforce "at most one active per person/finger" at application level (RN-28), not via a Mongo unique constraint — documented as a domain invariant.
+- `person_id` is an external reference to `Identity.person` — no DBRef or FK, resolved via events/API.
+- `biometric_update_case.current_embedding_ref` (SQL) references `_id` (Mongo) as a logical `VARCHAR` — cross-paradigm, no FK.
+
+---
+
+## 9. Traceability and audit
+
+- Standard audit fields on **all** SQL tables: `created_at`, `updated_at`, `deleted_at` (soft delete), `created_by`, `updated_by`, `deleted_by`, `row_version` (optimistic locking) — defined in `06-data/models.md` and replicated in each DDL.
+- `audit_log`/`error_log` are append-only (RN-44): never UPDATE/DELETE.
+- Logical-delete indexes: `WHERE deleted_at IS NULL` on high-volume tables (`person`, `academic_actor`, `enrollment`, `attendance_record`).
 
 ---
 
 ## 10. Open items
 
-| ID | Descripción | Estado |
+| ID | Description | Status |
 |---|---|---|
-| DATA-01 | Verificar con carga real que `uq_actor_person_type_school` no bloquea el caso "misma persona como STUDENT e INSTRUCTOR en dos schools distintas" | Pendiente de test de integración |
-| DATA-02 | Decidir si `password_policy` migra a `configuration-service` en v5 (hoy vive en Identity por simplicidad) | Discusión abierta — no afecta normalización |
+| DATA-01 | Verify with real load that `uq_actor_person_type_school` does not block the "same person as STUDENT and INSTRUCTOR in two different schools" case | Pending integration test |
+| DATA-02 | Decide whether `password_policy` moves to `configuration-service` in v5 (today lives in Identity for simplicity) | Open discussion — no normalization impact |
 
 ---
 
-## 11. Conclusión
+## 11. Conclusion
 
-El modelo FaceAttend EDU está en **3NF sin excepciones** con 31 tablas SQL + 2 colecciones Mongo, trazable 1:1 a 29 entidades + 4 VOs de `02-domain/entities-and-rules.md`. No hay deuda de normalización pendiente. La única "divergencia" señalada por el detector automático (`Facial_Embedding` sin tabla SQL) es intencional y correcta por diseño (MongoDB).
+The FaceAttend EDU model is in **3NF with no exceptions** with 31 SQL tables + 2 Mongo collections, 1:1 traceable to 29 entities + 4 VOs in `02-domain/entities-and-rules.md`. No normalization debt remains. The only "divergence" flagged by the automatic detector (`Facial_Embedding` with no SQL table) is intentional and correct by design (MongoDB).
 
 ---
 
-## Correlaciones
+## Correlations
 
-- Entidades y reglas → `02-domain/entities-and-rules.md`
-- Mapa de contextos → `02-domain/domain-map.md`
-- Modelo por dominio (DDL) → `06-data/domains/0*.md`
-- Resumen transversal → `06-data/models.md`
-- Patrones Saga/Outbox → `05-architecture/pattern-guide.md`
-- Contratos API → `07-api/contracts/openapi/`
-- Catálogo de servicios y ownership → `09-microservices/service-catalog.md`, `09-microservices/data-ownership-matrix.md`
+- Entities and rules → `02-domain/entities-and-rules.md`
+- Context map → `02-domain/domain-map.md`
+- Per-domain model (DDL) → `06-data/domains/0*.md`
+- Cross-cutting summary → `06-data/models.md`
+- Saga/Outbox patterns → `05-architecture/pattern-guide.md`
+- API contracts → `07-api/contracts/openapi/`
+- Service catalog and ownership → `09-microservices/service-catalog.md`, `09-microservices/data-ownership-matrix.md`

@@ -78,6 +78,8 @@ src/
 
 ### Translation key convention
 
+> Note: values below are Spanish locale data (`es/attendance.json` example), not documentation prose. Per ADR-001, docs stay in English; runtime UI strings are localized.
+
 ```json
 {
   "attendance": {

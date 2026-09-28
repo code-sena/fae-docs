@@ -13,8 +13,9 @@ The system's relational data model already defines eight explicit bounded contex
 Authorization, Academic, Attendance, Biometric, IoT, Audit, and Configuration — each grouped
 with `TableGroup` and governed by an explicit rule stated in the model's documentation header:
 
-> "FK solamente dentro del mismo bounded context. Entre contextos: IDs públicos sin FK.
-> La consistencia cross-context se resuelve mediante API/eventos."
+> "FK only inside the same bounded context. Between contexts: public IDs with no FK.
+> Cross-context consistency is resolved via API/events."
+> (Translated from the original Spanish data-model header.)
 
 Two project-level decisions must be reconciled against this model:
 

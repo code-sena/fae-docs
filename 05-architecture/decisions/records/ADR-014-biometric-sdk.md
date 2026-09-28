@@ -9,7 +9,7 @@
 
 ## Context
 
-The biometric-service module (Python/FastAPI per ADR-005) must capture facial images, extract embeddings, and perform similarity search against stored embeddings to identify students during attendance registration. The SRS defines Use Case 2 ("Escaneo facial") and RF 3.1.1 ("Facial recording") as core requirements.
+The biometric-service module (Python/FastAPI per ADR-005) must capture facial images, extract embeddings, and perform similarity search against stored embeddings to identify students during attendance registration. The SRS defines Use Case 2 ("Escaneo facial" [Facial Scan]) and RF 3.1.1 ("Facial recording") as core requirements.
 
 The biometric pipeline must:
 1. Detect faces in a captured image.

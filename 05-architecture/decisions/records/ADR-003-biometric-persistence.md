@@ -15,17 +15,18 @@ that this ADR must resolve before implementation begins.
 
 The comment block above the `Biometric` group in the system's relational data model states:
 
-> "NOTA: este contexto se persiste en NoSQL (ej. MongoDB), no en una base relacional. Las
-> tablas de abajo son una representación lógica/documental de las colecciones... DBML no
-> modela nativamente esquemas de documentos, así que aquí NO se asumen FKs reales entre
-> colecciones."
+> "NOTE: this context persists in NoSQL (e.g. MongoDB), not in a relational DB. The
+> tables below are a logical/documentary representation of the collections... DBML does not
+> natively model document schemas, so here NO real FKs are assumed between
+> collections."
+> (Translated from the original Spanish data-model note.)
 
 Yet the same tables (`Facial_Embedding`, `Fingerprint_Embedding`) declare their core column
 with the type `vector`:
 
 ```
 embedding vector [not null]
-template  vector [not null, note: 'Plantilla/template biometrico de la huella']
+template  vector [not null, note: 'Biometric fingerprint template']
 ```
 
 `vector` is not a generic or document-database type — it is specifically the column type
@@ -68,8 +69,8 @@ capabilities provide native similarity search (cosine similarity, euclidean dist
 dedicated vector indexing (HNSW) that is purpose-built for high-dimensional vector workloads.
 This approach:
 
-- Aligns with the original data model documentation that explicitly states "este contexto se
-  persiste en NoSQL (ej. MongoDB)"
+- Aligns with the original data model documentation that explicitly states "this context
+  persists in NoSQL (e.g. MongoDB)"
 - Provides better performance characteristics for vector similarity search at scale compared to
   pgvector, which requires manual tuning of index parameters (ivfflat/hnsw)
 - Follows the established precedent in this project: Redis is already an accepted exception for
@@ -87,7 +88,7 @@ monitor. However, the operational cost is justified by:
    data dependencies
 
 The data model's comment block for `Biometric` remains consistent with this decision — it
-already states "este contexto se persiste en NoSQL (ej. MongoDB)". The `vector` column types
+already states "this context persists in NoSQL (e.g. MongoDB)". The `vector` column types
 in the DBML model are conceptual representations; the actual MongoDB implementation will use
 `array` fields for embedding vectors with a vector search index.
 

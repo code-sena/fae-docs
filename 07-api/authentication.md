@@ -70,7 +70,7 @@ Gateway SHOULD call `/auth/evaluate` for fine-grained checks; today only coarse 
 
 ### Roles vs frontend
 
-- Web `ROLES_HIERARCHY=[Administrador,Docente,Estudiante]` (`rolesHierarchy.ts`), `getHighestRole()` picks max privilege.
+- Web `ROLES_HIERARCHY=[Administrator,Teacher,Student]` (`rolesHierarchy.ts`), `getHighestRole()` picks max privilege. Note: legacy code spells these values in Spanish (`Administrador,Docente,Estudiante`).
 - Mobile resolves `GET user_role?user_id → loop GET role?role_id → roleNames[]` then `getHighestRole()`.
 
 ## 5. Frontend auth (real)

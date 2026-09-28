@@ -39,7 +39,7 @@ Source of truth: `back-end/SERVICES.md`, `back-end/docker-compose.yml`, `99-api-
   - `PATCH /api/v1/academic-actors/{id}/status`, `PATCH /api/v1/enrollments/{id}/status` (academic, real)
   - `PATCH /api/v1/alerts/{id}/resolve` (notification, real)
   - `PATCH /api/v1/biometric-update-cases/{id}/review` (canonical route in configuration; logical owner Biometric)
-  - `POST /api/v1/users/{id}/activate`, `PATCH /api/v1/users/{id}/status`, `POST /api/v1/persons/{id}/transfer` (identity, real)
+  - `POST /api/v1/users/{id}/activate`, `PATCH /api/v1/users/{id}/status` (identity, real); `POST /api/v1/persons/{id}/transfer` deprecated (person has no `school_id`)
 - **Nested reads** for ownership (mirrors `kong.yml` nested routes):
   - `GET /api/v1/schools/{schoolId}/programs|periods|actors|configurations`
   - `GET /api/v1/programs/{programId}/cohorts|courses`

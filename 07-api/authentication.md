@@ -50,7 +50,8 @@ GET /api/v1/sessions/user/{userId} → [{sessionId,userId,sessionStatus}]
 
 ```
 POST /api/v1/users / GET /{id} / PUT /{id} (204) / POST /{id}/activate (204) / PATCH /{id}/status?status (204)
-POST /api/v1/persons / GET /{id} / PUT /{id} (204) / POST /{id}/transfer {newSchoolId} (204) / PATCH /{id}/status (204)
+POST /api/v1/persons / GET /{id} / PUT /{id} (204) / PATCH /{id}/status (204)
+POST /api/v1/persons/{id}/transfer {newSchoolId} (204) — DEPRECATED (person has no school_id; use academic_actor)
 ```
 
 ## 4. RBAC model (`02-ms-authorization`)

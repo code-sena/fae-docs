@@ -329,9 +329,15 @@ paths:
         schema:
           $ref: './_shared.yaml#/components/schemas/UUID'
     post:
-      summary: Transferir persona de escuela
+      summary: Transferir persona de escuela [DEPRECATED — person has no school_id]
       operationId: transferPerson
       tags: [Person]
+      deprecated: true
+      description: |
+        DEPRECATED. `person` is school-agnostic (DBML v7, no `school_id`);
+        school linkage lives in `academic_actor`. Transfer is an
+        `academic_actor`-level operation, not a person-level one.
+        Kept for history; do not implement new callers.
       requestBody:
         required: true
         content:

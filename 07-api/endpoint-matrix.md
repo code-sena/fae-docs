@@ -18,7 +18,7 @@
 | POST /api/v1/persons | ✅ | public | Create person |
 | GET /api/v1/persons/{id} | ✅ | public | Get person |
 | PUT /api/v1/persons/{id} | ✅ | public | Update → 204 |
-| POST /api/v1/persons/{id}/transfer | ✅ nested | public | Transfer `{newSchoolId}` → 204 |
+| POST /api/v1/persons/{id}/transfer | ❌ deprecated | public | Transfer → 204 (deprecated: person has no `school_id`; use academic_actor) |
 | PATCH /api/v1/persons/{id}/status | ✅ | public | Status → 204 |
 | POST /api/v1/cities | ❌ deprecated | public | Removed — cities come from external `countriesnow.space` API |
 | GET /api/v1/cities?limit&offset | ❌ deprecated | public | Removed — see external API |

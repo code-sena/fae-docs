@@ -1,8 +1,8 @@
 # Normalization Assessment — FaceAttend EDU
 
-> **Cut-off:** 2026-09-22 · **Record:** ADSO-3145556 · **Repo:** `code-sena/fae-docs`
-> **Scope:** 29 entities from `02-domain/entities-and-rules.md` against 31 SQL tables (PostgreSQL 17) + 2 MongoDB collections documented in `06-data/domains/`
-> **Global verdict:** **3NF with no exceptions — no intentional denormalizations.** Each table is in 3NF; no transitive attributes or repeating groups. What looks like denormalization (external FKs without physical constraint, `current_embedding_ref` SQL→NoSQL) is bounded-context isolation, not duplication.
+> **Cut-off:** 2026-09-22 · **Record:** ADSO-3145556 · **Repo:** `code-sena/fae-docs` · Aligned to DBML v7
+> **Scope:** 28 entities from `02-domain/entities-and-rules.md` against 29 SQL tables (PostgreSQL 17, `faceattend_db`, 8 schemas) + 2 MongoDB collections documented in `06-data/domains/`
+> **Global verdict:** **3NF core with no intentional denormalizations; `attendance_report` is a derived JSONB projection outside the 3NF core.** Each business table is in 3NF; no transitive attributes or repeating groups. What looks like denormalization (logical cross-context ids without physical FK, `current_embedding_ref` SQL→NoSQL) is bounded-context isolation, not duplication.
 
 ---
 
@@ -22,22 +22,21 @@
 
 | Bounded Context | Entities (02-domain) | SQL Tables / Collections | Verdict |
 |---|---:|---|---|
-| Identity | 3 (Person, App_User, City) + VOs | 5 tables (`city`, `person`, `app_user`, `user_session`, `password_policy`) | 3NF |
+| Identity | 2 (Person, App_User) + VOs | 4 tables (`person`, `app_user`, `user_session`, `password_policy`; `city` deprecated) | 3NF |
 | Authorization | 4 (Role, Permission, Role_Permission, User_Role) | 4 tables | 3NF |
 | Academic | 8 (School, Program, Academic_Period, Cohort, Course, Academic_Actor_Type, Academic_Actor, Enrollment) | 8 tables | 3NF |
 | Scheduling | 3 (Environment, Schedule_Block, Class_Session) | 3 tables | 3NF |
-| Attendance | 4 (Attendance_Record, Justification_Type, Justification, Supporting_Document) | 4 tables | 3NF |
-| Biometric | 2 (Facial_Embedding, Fingerprint_Embedding) | 2 MongoDB collections | N/A relational — normalized document by design* |
+| Attendance | 5 (Attendance_Record, Justification_Type, Justification, Supporting_Document, Attendance_Report) | 5 tables (report = derived projection) | 3NF core + derived |
+| Biometric | 3 (Facial_Embedding, Fingerprint_Embedding, Biometric_Update_Case) | 1 SQL table + 2 MongoDB collections | 3NF + document* |
 | Notification | 2 (Alert_Type, Alert) | 2 tables | 3NF |
-| Audit | 2 (Audit_Log, Error_Log) | 2 tables | 3NF (append-only) |
-| Configuration | 3 (Academic_Configuration, Security_Configuration, Biometric_Update_Case) | 3 tables | 3NF |
-| **Total** | **29 entities + 4 VOs** | **31 SQL + 2 Mongo** | **3NF, 0 denormalizations** |
+| Configuration | 2 (Academic_Configuration, Security_Configuration) | 2 tables (+ transient host of `biometric_update_case`) | 3NF |
+| **Total** | **28 entities + 4 VOs** | **29 SQL + 2 Mongo** | **3NF core, 0 denormalizations** |
 
-* Biometric is not assessed with relational normal forms; it is assessed as a document with external references by UUID/ObjectId (see §7).
+* Biometric embeddings are not assessed with relational normal forms; they are assessed as documents with external references by UUID/ObjectId (see §7).
 
-**Historical count (2026-09-22 report):** the report stated "30 tables". The difference is `password_policy` (global singleton in Identity). Counting only multi-row business tables there are 30; including the singleton there are 31. Both figures are correct under their criterion — here the 31 are documented.
+**Historical count (2026-09-22 report):** the report stated "30/31 tables". DBML v7 recount is 29 SQL: `identity.city` removed (external API), Audit removed (platform observability), `attendance.attendance_report` added as derived projection.
 
-> Entity↔table: 29→29 perfect match except `Facial_Embedding`/`Fingerprint_Embedding` which deliberately have **no** SQL table — they live in MongoDB (`06-data/domains/06-biometric.md`). Not a gap: it is an engine decision documented in ADR-003.
+> Entity↔table: `Facial_Embedding`/`Fingerprint_Embedding` deliberately have **no** SQL table — they live in MongoDB (`06-data/domains/06-biometric.md`). Not a gap: it is an engine decision documented in ADR-003. `Biometric_Update_Case` is logically owned by Biometric.
 
 ---
 
@@ -69,13 +68,13 @@ All other tables have a simple PK (SERIAL/BIGSERIAL/UUID) → 2NF is automatic o
 
 ## 5. 3NF and BCNF — No transitive dependencies
 
-**Verdict: 3NF in all 31 tables. BCNF also holds where applicable.**
+**Verdict: 3NF in the 28-table core (+ `attendance_report` derived). BCNF also holds where applicable.**
 
 Review by pattern:
 
 ### 5.1 Tables with no transitive risk (attributes depend only on the PK)
 
-`city`, `role`, `permission`, `school`, `program`, `academic_period`, `cohort`, `course`, `academic_actor_type`, `environment`, `class_session`, `justification_type`, `supporting_document`, `alert_type`, `alert`, `audit_log`, `error_log`, `academic_configuration`, `security_configuration` — all their attributes are facts about the PK, not about another non-key. No duplicated `school_name` in `program`, nor `city_name` in `school`; reference is by `school_id`/`city_id`.
+`role`, `permission`, `school`, `program`, `academic_period`, `cohort`, `course`, `academic_actor_type`, `environment`, `class_session`, `justification_type`, `supporting_document`, `alert_type`, `alert`, `academic_configuration`, `security_configuration` — all their attributes are facts about the PK, not about another non-key. No duplicated `school_name` in `program`. `school.city_name/district/country` are display fields from the external city API (`city` table removed), not duplicated relational data.
 
 ### 5.2 Tables with FKs that could be mistaken for transitivity
 
@@ -90,8 +89,9 @@ Review by pattern:
 
 ### 5.3 Cases that *look like* denormalization but are not
 
-- **`academic_configuration.school_id` and `scheduling.environment.school_id`:** they are **cross-context FKs without physical constraint** (external by UUID/SERIAL). Not enforcing the FK at engine level is a microservice isolation decision (Database per Service), not a denormalization — it duplicates no data.
-- **`city_id` in `school`:** storing only the ID and not the city name is precisely the normalized form; duplicating `city_name` in `school` would be denormalization (and is not done).
+- **`academic_configuration.school_id` and `scheduling.environment.school_id`:** they are **logical cross-context ids without physical FK** (single DB `faceattend_db`, one schema per context). Not enforcing the FK is a boundary decision, not a denormalization — it duplicates no data.
+- **`city_id`/`city_name`/`district`/`country` in `school`:** `identity.city` was removed; these are an external catalog id plus display fields from `countriesnow.space`, not duplicated relational data.
+- **`attendance_report.filters/result` (JSONB):** derived projection without FKs, outside the 3NF core by design.
 - **Nullable FK ≠ denormalization:** `class_session.opened_by/closed_by` and `biometric_update_case.reviewed_by` may be NULL before the action. That is an optional relationship, not duplicated data.
 
 ### 5.4 BCNF
@@ -104,39 +104,37 @@ BCNF assessed on tables with non-trivial functional dependencies: `enrollment (a
 
 | # | Table / Collection | PK | 1NF | 2NF | 3NF | Notes |
 |---|---|---|---|---|---|---|
-| 1 | `city` | `city_id` | ✓ | ✓ | ✓ | Simple catalog |
-| 2 | `person` | `person_id` UUID | ✓ | ✓ | ✓ | `document_number` UK, no `school_id` (multi-tenant via actor) |
-| 3 | `app_user` | `user_id` UUID | ✓ | ✓ | ✓ | 1:1 with person, `username` UK |
-| 4 | `user_session` | `session_id` UUID | ✓ | ✓ | ✓ | Session per user |
-| 5 | `password_policy` | `policy_id` SERIAL | ✓ | ✓ | ✓ | Global singleton — 1 effective row |
-| 6 | `role` | `role_id` SERIAL | ✓ | ✓ | ✓ | Global, no `school_id` (v4 decision) |
-| 7 | `permission` | `permission_id` SERIAL | ✓ | ✓ | ✓ |  |
-| 8 | `role_permission` | `(role_id, permission_id)` | ✓ | ✓ | ✓ | M:N with `assignment_date` |
-| 9 | `user_role` | `(user_id, role_id)` | ✓ | ✓ | ✓ | External `user_id`, no physical FK |
-| 10 | `school` | `school_id` SERIAL | ✓ | ✓ | ✓ | `code` UK, external `city_id` |
-| 11 | `program` | `program_id` SERIAL | ✓ | ✓ | ✓ | `uq_program_code_school` |
-| 12 | `academic_period` | `academic_period_id` SERIAL | ✓ | ✓ | ✓ | `uq_period_name_school` |
-| 13 | `cohort` | `cohort_id` BIGSERIAL | ✓ | ✓ | ✓ | `code` UK |
-| 14 | `course` | `course_id` SERIAL | ✓ | ✓ | ✓ | `uq_course_code_program` |
-| 15 | `academic_actor_type` | `actor_type_id` SMALLINT | ✓ | ✓ | ✓ | `STUDENT`/`INSTRUCTOR` |
-| 16 | `academic_actor` | `academic_actor_id` BIGSERIAL | ✓ | ✓ | ✓ | 2 UKs: `(school,type,code)` and `(person,type,school)` |
-| 17 | `enrollment` | `enrollment_id` BIGSERIAL | ✓ | ✓ | ✓ | UNIQUE `(actor,cohort)` |
-| 18 | `environment` | `environment_id` SERIAL | ✓ | ✓ | ✓ | `uq_environment_code_school` |
-| 19 | `schedule_block` | `schedule_block_id` BIGSERIAL | ✓ | ✓ | ✓ | 2 UNIQUE anti-double-booking (room, instructor) |
-| 20 | `class_session` | `class_session_id` BIGSERIAL | ✓ | ✓ | ✓ | UNIQUE `(block, date)` |
-| 21 | `attendance_record` | `attendance_record_id` BIGSERIAL | ✓ | ✓ | ✓ | UNIQUE `(session, actor)` |
-| 22 | `justification_type` | `justification_type_id` SERIAL | ✓ | ✓ | ✓ | `requires_attachment` |
-| 23 | `justification` | `justification_id` BIGSERIAL | ✓ | ✓ | ✓ | UNIQUE `attendance_record_id` (1:1) |
-| 24 | `supporting_document` | `supporting_document_id` BIGSERIAL | ✓ | ✓ | ✓ | FK → justification |
-| 25 | `alert_type` | `alert_type_id` SMALLINT | ✓ | ✓ | ✓ | `code` UK |
-| 26 | `alert` | `alert_id` BIGSERIAL | ✓ | ✓ | ✓ | `resolved_at` NULL = open |
-| 27 | `audit_log` | `audit_log_id` BIGSERIAL | ✓ | ✓ | ✓ | Append-only |
-| 28 | `error_log` | `error_id` BIGSERIAL | ✓ | ✓ | ✓ | Append-only |
-| 29 | `academic_configuration` | `configuration_id` SERIAL | ✓ | ✓ | ✓ | UNIQUE `(school, name)` |
-| 30 | `security_configuration` | `configuration_id` SERIAL | ✓ | ✓ | ✓ | Global UK `configuration_name` |
-| 31 | `biometric_update_case` | `case_id` UUID | ✓ | ✓ | ✓ | Conditional `biometric_type` + `finger_number` |
-| 32 | `facial_embeddings` (Mongo) | `_id` ObjectId | — | — | — | Vector `encoding`, `is_active`, external `person_id` |
-| 33 | `fingerprint_embeddings` (Mongo) | `_id` ObjectId | — | — | — | `finger_number` 1..10, `is_active` |
+| 1 | `person` | `person_id` UUID | ✓ | ✓ | ✓ | `uq_person_document (document_type, document_number)`, no `school_id` |
+| 2 | `app_user` | `user_id` UUID | ✓ | ✓ | ✓ | 1:1 with person, `username` UK |
+| 3 | `user_session` | `session_id` UUID | ✓ | ✓ | ✓ | Session per user |
+| 4 | `password_policy` | `policy_id` INT | ✓ | ✓ | ✓ | Global singleton — 1 effective row |
+| 5 | `role` | `role_id` INT | ✓ | ✓ | ✓ | Global, no `school_id` |
+| 6 | `permission` | `permission_id` INT | ✓ | ✓ | ✓ | `context.resource:action` |
+| 7 | `role_permission` | `(role_id, permission_id)` | ✓ | ✓ | ✓ | M:N with `assignment_date` |
+| 8 | `user_role` | `(user_id, role_id)` | ✓ | ✓ | ✓ | External `user_id`, no physical FK |
+| 9 | `school` | `school_id` INT | ✓ | ✓ | ✓ | `code` UK, external `city_id` VARCHAR NULL |
+| 10 | `program` | `program_id` INT | ✓ | ✓ | ✓ | `uq_program_code_school` |
+| 11 | `academic_period` | `academic_period_id` INT | ✓ | ✓ | ✓ | `uq_period_name_school`, `chk_period_dates` |
+| 12 | `cohort` | `cohort_id` BIGINT | ✓ | ✓ | ✓ | `code` UK |
+| 13 | `course` | `course_id` INT | ✓ | ✓ | ✓ | `uq_course_code_program` |
+| 14 | `academic_actor_type` | `actor_type_id` SMALLINT | ✓ | ✓ | ✓ | `STUDENT`/`INSTRUCTOR` |
+| 15 | `academic_actor` | `academic_actor_id` BIGINT | ✓ | ✓ | ✓ | 2 UKs: `(school,type,code)` and `(person,type,school)` |
+| 16 | `enrollment` | `enrollment_id` BIGINT | ✓ | ✓ | ✓ | UNIQUE `(actor,cohort)` |
+| 17 | `environment` | `environment_id` INT | ✓ | ✓ | ✓ | `uq_environment_code_school` |
+| 18 | `schedule_block` | `schedule_block_id` BIGINT | ✓ | ✓ | ✓ | 2 UNIQUE anti-double-booking + `chk_block_*` |
+| 19 | `class_session` | `class_session_id` BIGINT | ✓ | ✓ | ✓ | UNIQUE `(block, date)` |
+| 20 | `attendance_record` | `attendance_record_id` BIGINT | ✓ | ✓ | ✓ | UNIQUE `(session, actor)` |
+| 21 | `justification_type` | `justification_type_id` INT | ✓ | ✓ | ✓ | Per-school + partial unique for globals |
+| 22 | `justification` | `justification_id` BIGINT | ✓ | ✓ | ✓ | UNIQUE `attendance_record_id` (1:1) |
+| 23 | `supporting_document` | `supporting_document_id` BIGINT | ✓ | ✓ | ✓ | FK → justification |
+| 24 | `attendance_report` | `report_id` UUID | ✓ | ✓ | — | Derived JSONB projection, no FKs (outside 3NF core) |
+| 25 | `biometric_update_case` | `case_id` UUID | ✓ | ✓ | ✓ | Logical owner Biometric; `chk_finger_number` |
+| 26 | `alert_type` | `alert_type_id` SMALLINT | ✓ | ✓ | ✓ | `code` UK + severity/channel |
+| 27 | `alert` | `alert_id` BIGINT | ✓ | ✓ | ✓ | `resolved_at` NULL = open |
+| 28 | `academic_configuration` | `configuration_id` INT | ✓ | ✓ | ✓ | UNIQUE `(school, name)` |
+| 29 | `security_configuration` | `configuration_id` INT | ✓ | ✓ | ✓ | Global UK `configuration_name` |
+| 30 | `facial_embeddings` (Mongo) | `_id` ObjectId | — | — | — | Vector `encoding`, `is_active`, external `person_id` |
+| 31 | `fingerprint_embeddings` (Mongo) | `_id` ObjectId | — | — | — | `finger_number` 1..10, `is_active` |
 
 ---
 
@@ -164,7 +162,7 @@ If a denormalization is introduced in the future (e.g. caching `school_code` in 
 ## 9. Traceability and audit
 
 - Standard audit fields on **all** SQL tables: `created_at`, `updated_at`, `deleted_at` (soft delete), `created_by`, `updated_by`, `deleted_by`, `row_version` (optimistic locking) — defined in `06-data/models.md` and replicated in each DDL.
-- `audit_log`/`error_log` are append-only (RN-44): never UPDATE/DELETE.
+- Audit context removed: observability is platform-provided, not relational tables.
 - Logical-delete indexes: `WHERE deleted_at IS NULL` on high-volume tables (`person`, `academic_actor`, `enrollment`, `attendance_record`).
 
 ---
@@ -180,7 +178,7 @@ If a denormalization is introduced in the future (e.g. caching `school_code` in 
 
 ## 11. Conclusion
 
-The FaceAttend EDU model is in **3NF with no exceptions** with 31 SQL tables + 2 Mongo collections, 1:1 traceable to 29 entities + 4 VOs in `02-domain/entities-and-rules.md`. No normalization debt remains. The only "divergence" flagged by the automatic detector (`Facial_Embedding` with no SQL table) is intentional and correct by design (MongoDB).
+The FaceAttend EDU model is in **3NF core** with 29 SQL tables + 2 Mongo collections, traceable to 28 entities + 4 VOs in `02-domain/entities-and-rules.md`. No normalization debt remains. `attendance_report` is a derived projection outside the 3NF core by design. The only "divergence" flagged by the automatic detector (`Facial_Embedding` with no SQL table) is intentional and correct by design (MongoDB).
 
 ---
 

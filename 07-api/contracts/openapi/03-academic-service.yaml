@@ -1055,8 +1055,20 @@ components:
               type: string
               example: Colegio San José
             cityId:
-              type: integer
-              example: 1
+              type: string
+              nullable: true
+              description: External countriesnow.space id, no FK (city table removed)
+              example: CO-BOG
+            cityName:
+              type: string
+              nullable: true
+              example: Bogotá
+            district:
+              type: string
+              nullable: true
+            country:
+              type: string
+              nullable: true
             address:
               type: string
               nullable: true
@@ -1079,8 +1091,18 @@ components:
         name:
           type: string
         cityId:
-          type: integer
-          default: 1
+          type: string
+          nullable: true
+          description: External countriesnow.space id, no FK
+        cityName:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
         address:
           type: string
           nullable: true

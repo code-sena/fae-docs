@@ -290,6 +290,7 @@ components:
             academic_actor_id:
               type: integer
               format: int64
+              description: Cross-context academic_actor id, no FK
             alert_type_id:
               type: integer
             raised_at:

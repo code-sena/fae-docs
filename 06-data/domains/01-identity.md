@@ -11,42 +11,9 @@
 
 ---
 
-## 1. Table: city
+## 1. Table: city — DEPRECATED (removed in DBML v6/v7)
 
-**Purpose:** Catalog of cities. Referenced by school in the Academic context.
-
-```sql
-CREATE TABLE city (
-  -- Business fields
-  city_id       SERIAL      PRIMARY KEY,
-  name          VARCHAR     NOT NULL,
-  department    VARCHAR,
-
-  -- Audit (in all tables)
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at    TIMESTAMPTZ,
-  created_by    UUID,
-  updated_by    UUID,
-  deleted_by    UUID,
-  row_version   BIGINT      NOT NULL DEFAULT 1
-);
-```
-
-**Data dictionary:**
-
-| Column | Type | Description | Example |
-|--------|------|-------------|---------|
-| city_id | SERIAL | Auto-incremental city identifier | `1` |
-| name | VARCHAR | City name | `Bogota` |
-| department | VARCHAR | Department/state the city belongs to | `Cundinamarca` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
-| created_by | UUID | User who created this record | `550e8400-...` |
-| updated_by | UUID | User who last updated this record | `550e8400-...` |
-| deleted_by | UUID | User who soft-deleted this record | `NULL` |
-| row_version | BIGINT | Optimistic lock version counter | `1` |
+> **Deprecated:** `identity.city` was removed from the relational model. Cities come from the external API `countriesnow.space`, not from a local catalog. Any `001-create-city-table` DDL is transitory pending removal. `academic.school.city_id` is `VARCHAR NULL` with no FK (see `03-academic.md`).
 
 ---
 
@@ -63,6 +30,10 @@ CREATE TABLE person (
   last_name         VARCHAR     NOT NULL,
   email             VARCHAR,
   phone             VARCHAR,
+  document_type     VARCHAR     NULL CHECK (document_type IN ('CC','TI','CE','PP')),
+  blood_type        VARCHAR     NULL CHECK (blood_type IN ('A+','A-','B+','B-','AB+','AB-','O+','O-')),
+  birth_date        DATE        NULL,
+  address           VARCHAR     NULL,
 
   -- Status fields
   status            BOOLEAN     NOT NULL DEFAULT true,
@@ -77,7 +48,9 @@ CREATE TABLE person (
   row_version       BIGINT      NOT NULL DEFAULT 1
 );
 
-CREATE UNIQUE INDEX uq_person_document ON person (document_number);
+-- Real uniqueness is the pair (document_type, document_number):
+-- CC and TI may share numbering across different persons.
+CREATE UNIQUE INDEX uq_person_document ON person (document_type, document_number);
 CREATE INDEX idx_person_email ON person (email);
 CREATE INDEX idx_person_deleted ON person (deleted_at) WHERE deleted_at IS NULL;
 ```
@@ -87,11 +60,15 @@ CREATE INDEX idx_person_deleted ON person (deleted_at) WHERE deleted_at IS NULL;
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
 | person_id | UUID | Auto-generated unique identifier | `550e8400-e29b-41d4-a716-446655440001` |
-| document_number | VARCHAR | National ID / document number, globally unique | `1234567890` |
+| document_number | VARCHAR | National ID / document number (unique with document_type) | `1234567890` |
 | name | VARCHAR | First name(s) | `Juan` |
 | last_name | VARCHAR | Last name(s) | `Perez` |
 | email | VARCHAR | Email address | `juan@example.com` |
 | phone | VARCHAR | Phone number | `+57 300 987 6543` |
+| document_type | VARCHAR | Document type CHECK: CC/TI/CE/PP | `CC` |
+| blood_type | VARCHAR | Blood type CHECK: A+/A-/B+/B-/AB+/AB-/O+/O- | `O+` |
+| birth_date | DATE | Birth date | `2000-05-10` |
+| address | VARCHAR | Home address | `Calle 123 #45-67` |
 | status | BOOLEAN | Active/inactive flag | `true` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
@@ -102,9 +79,10 @@ CREATE INDEX idx_person_deleted ON person (deleted_at) WHERE deleted_at IS NULL;
 | row_version | BIGINT | Optimistic lock version counter | `1` |
 
 **Modeling decisions:**
-1. `document_number` is globally unique — each person is identified by their national ID.
-2. No `school_id` — a person can exist in multiple schools via `academic_actor`.
+1. Real uniqueness is `(document_type, document_number)` — CC and TI may share numbering across different persons.
+2. No `school_id` — identity is school-agnostic; a person can exist in multiple schools via `academic_actor`.
 3. Soft delete via `deleted_at` preserves history; `deleted_by` tracks who removed it.
+4. `document_type` / `blood_type` are VARCHAR + CHECK (not native ENUM). `authentication_type` and `session_status` are native PostgreSQL ENUMs (DBML documents them as `varchar + note`).
 
 ---
 
@@ -113,13 +91,14 @@ CREATE INDEX idx_person_deleted ON person (deleted_at) WHERE deleted_at IS NULL;
 **Purpose:** Login credentials and authentication record. Linked 1:1 with Person.
 
 ```sql
+-- Native ENUM: CREATE TYPE identity.authentication_type AS ENUM ('Local','Windows','External');
 CREATE TABLE app_user (
   -- Business fields
   user_id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   person_id           UUID        NOT NULL UNIQUE,
   username            VARCHAR     NOT NULL,
   password_hash       VARCHAR     NOT NULL,
-  authentication_type VARCHAR     NOT NULL,
+  authentication_type identity.authentication_type NOT NULL,
   status              BOOLEAN     NOT NULL DEFAULT true,
   last_access         TIMESTAMPTZ,
 
@@ -167,6 +146,7 @@ CREATE UNIQUE INDEX uq_user_username ON app_user (username);
 **Purpose:** Record of each user login session.
 
 ```sql
+-- Native ENUM: CREATE TYPE identity.user_session_status AS ENUM ('Active','Closed');
 CREATE TABLE user_session (
   -- Business fields
   session_id      UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -176,7 +156,7 @@ CREATE TABLE user_session (
   source_ip       VARCHAR,
 
   -- Status fields
-  session_status  VARCHAR     NOT NULL,
+  session_status  identity.user_session_status NOT NULL,
 
   -- Audit (in all tables)
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -267,18 +247,17 @@ CREATE TABLE password_policy (
 
 ```mermaid
 erDiagram
-    CITY {
-        serial city_id PK
-        varchar name
-        varchar department
-    }
     PERSON {
         uuid person_id PK
-        varchar document_number UK
+        varchar document_type
+        varchar document_number
         varchar name
         varchar last_name
         varchar email
         varchar phone
+        varchar blood_type
+        date birth_date
+        varchar address
         boolean status
     }
     APP_USER {
@@ -302,6 +281,8 @@ erDiagram
     PERSON ||--|| APP_USER : "has"
     APP_USER ||--o{ USER_SESSION : "generates"
 ```
+
+> `CITY` removed — cities come from the external `countriesnow.space` API. Uniqueness on person is `uq_person_document (document_type, document_number)`.
 
 ---
 

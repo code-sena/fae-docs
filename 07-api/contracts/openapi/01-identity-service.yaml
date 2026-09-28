@@ -690,7 +690,7 @@ components:
           example: 8
         maxLength:
           type: integer
-          example: 100
+          example: 20
         requiresUppercase:
           type: boolean
           example: true

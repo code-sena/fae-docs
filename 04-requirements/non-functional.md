@@ -380,7 +380,7 @@ The system should follow accessibility best practices. Proposed target:
 | Metrics | RED metrics: Rate, Errors, Duration per endpoint | Prometheus + Grafana, or equivalent |
 | Traces | End-to-end request tracing for critical flows | OpenTelemetry + Jaeger, or equivalent |
 | Alerts | Alert in less than 5 minutes when a critical SLI violates its SLO | Alertmanager, email, or notification service |
-| Audit | Business-level audit events for sensitive actions | Database audit table or audit service |
+| Audit | Business-level audit events for sensitive actions | Platform observability (centralized logging, no audit table) |
 
 ### Correlation ID
 

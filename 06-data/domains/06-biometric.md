@@ -1,7 +1,7 @@
 # Domain: Biometric
 
 > **Owner:** Biometric bounded context
-> **DB Engine:** MongoDB 7 (NoSQL) — document collections for flexible embedding storage
+> **DB Engine:** MongoDB 7 for embeddings + one SQL workflow table (`biometric_update_case` hosted in `configuration`)
 >
 > **Engine justification:**
 > - Facial and fingerprint embeddings are variable-length vectors — document storage is natural.
@@ -141,7 +141,7 @@
 | Fingerprint_Embedding.person_id | Identity.Person.person_id | External ID (no FK) | Cross-context reference by UUID |
 | Configuration.Biometric_Update_Case.current_embedding_ref | Facial/Fingerprint_Embedding._id | External ID (no FK) | Cross-paradigm reference (SQL → NoSQL) |
 
-> **Note:** Since this context persists entirely in MongoDB, no physical FKs exist. All references are resolved at the application level.
+> **Note:** Embeddings persist in MongoDB with no physical FKs. The `biometric_update_case` SQL workflow table is logically owned by Biometric and physically hosted in `configuration`; all references are resolved at the application level.
 
 ---
 

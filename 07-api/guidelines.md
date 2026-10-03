@@ -21,6 +21,8 @@
 
 Source of truth: `back-end/SERVICES.md`, `back-end/docker-compose.yml`, `99-api-gateway/kong/kong.yml`.
 
+> Decisions 2026-10-03: `FULL/back-end/99-api-gateway/kong/kong.yml` is canonical; `contracts/openapi/api-gateway.yaml` is the published view. Probes are `/health` + `/health/ready` + `/health/quality` where implemented.
+
 ## 2. Versioning
 
 - **URL versioning only:** all canonical paths start with `/api/v1/`.

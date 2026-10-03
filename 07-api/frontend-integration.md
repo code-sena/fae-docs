@@ -1,5 +1,7 @@
 # Frontend Integration — FaceAttendEDU APIs
 
+> Decisions 2026-10-03: canonical base is `http://localhost:8080/api/v1` via Kong for Web and Mobile; default is `requiresAuth:true` with refresh-on-401. Web mocks stay as fallback only.
+
 > How `front-end/Web` and `front-end/Mobile` really consume the backend.
 > Sources: `front-end/Web/src/**`, `front-end/Mobile/src/**`.
 

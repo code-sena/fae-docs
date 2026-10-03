@@ -109,7 +109,7 @@
 | GET /api/v1/justification-types | ✅ | jwt | List (`?schoolId` per-school, NULL = global) |
 | POST /api/v1/justification-types | ✅ | jwt | Create → 201 |
 | GET/PUT/DELETE /api/v1/justification-types/{id} | ✅ | jwt | CRUD |
-| POST/GET /api/v1/attendance-reports | ❌ | jwt | Missing — `attendance_report` derived projection, gap |
+| POST/GET /api/v1/attendance-reports | ❌ | jwt | Planned — `attendance_report` derived projection owned by 05-attendance, to implement |
 | GET /api/v1/supporting-documents?justificationId | ✅ | jwt | List filtered |
 | POST /api/v1/supporting-documents | ✅ | jwt | Create → 201 |
 | GET/DELETE /api/v1/supporting-documents/{id} | ✅ | jwt | Read/Delete |
@@ -134,7 +134,7 @@
 | DELETE /api/v1/biometric/fingerprint/{person_id}/{finger} | ✅ | jwt | Deactivate → 204 |
 | POST /api/v1/biometric/fingerprint/verify | ✅ | jwt | 1:1 |
 | POST /api/v1/biometric/fingerprint/identify | ✅ | jwt | 1:N + finger filter |
-| POST /api/v1/biometric/update-request | ✅ | jwt | Mirror → 201 Pending (mirror of canonical case) |
+| POST /api/v1/biometric/update-request | ✅ | jwt | Mirror → 201 Pending (thin proxy of canonical case in configuration) |
 | GET /api/v1/biometric/update-requests/{person_id} | ✅ | jwt | By person |
 | PATCH /api/v1/biometric/update-request/{request_id}/review | ✅ | jwt | Review |
 | DELETE /api/v1/biometric/update-request/{request_id} | ✅ | jwt | Delete → 204 |

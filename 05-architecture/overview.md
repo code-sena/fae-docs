@@ -27,12 +27,14 @@ graph TB
   Admin[Administrator<br/>Web]
   GW[API Gateway<br/>Kong :8080<br/>JWT + Rate Limit]
   APP[FaceAttend EDU<br/>Modular Monolith<br/>8 modules, 1 process]
-  PG[(PostgreSQL 17<br/>8 schemas<br/>+ MongoDB for Biometric)]
+  PG[(PostgreSQL 17<br/>faceattend_db 7 schemas)]
+  MG[(MongoDB 7<br/>vectors)]
   Learner --> GW
   Instructor --> GW
   Admin --> GW
   GW --> APP
   APP --> PG
+  APP --> MG
 ```
 
 ---

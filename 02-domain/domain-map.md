@@ -21,7 +21,7 @@ This document does not describe tables, columns, or database details. It describ
 | Attendance | System core | Record attendance through facial recognition or alternative methods. Manage justifications and supporting documents. | RF 3, RF 6 |
 | Biometric | Supporting subdomain | Store and manage facial and fingerprint embeddings (NoSQL). | RF 3.1.1, RNF 4 |
 | Notification | Supporting subdomain | Manage alert types and alerts for system events. | RF 4.1 |
-| Configuration | Cross-cutting supporting subdomain | Manage academic, security, and biometric-update configuration parameters. | RF 4 |
+| Configuration | Cross-cutting supporting subdomain | Manage academic and security configuration parameters. | RF 4 |
 
 ---
 
@@ -302,6 +302,9 @@ Embeddings persist in **MongoDB** (NoSQL); `biometric_update_case` is the SQL wo
 - `FacialEmbeddingUpdated`
 - `FingerprintEmbeddingEnrolled`
 - `FingerprintEmbeddingUpdated`
+- `BiometricUpdateRequested`
+- `BiometricUpdateApproved`
+- `BiometricUpdateRejected`
 
 ---
 
@@ -366,9 +369,6 @@ Cross-cutting supporting subdomain.
 ### Possible Events
 - `AcademicConfigurationUpdated`
 - `SecurityConfigurationUpdated`
-- `BiometricUpdateRequested`
-- `BiometricUpdateApproved`
-- `BiometricUpdateRejected`
 
 ---
 

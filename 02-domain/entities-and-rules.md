@@ -346,11 +346,21 @@
 
 **Associated rules:** RN-33, RN-34.
 
+### Attendance_Report
+
+**Description:** Derived reporting projection (filters + result JSONB, no FKs). Outside the 3NF core.
+
+**Identity:** `report_id` (UUID).
+
+**Conceptual attributes:**
+- School / cohort / generator (logical cross-context ids, no FK).
+- Report type, filters (JSONB), result (JSONB), generated_at.
+
 ---
 
 ## 6. Biometric Context
 
-> This context persists entirely in **MongoDB** (NoSQL). Entities below represent document collections, not SQL tables.
+> Embeddings persist in **MongoDB** (NoSQL); `biometric_update_case` is the SQL workflow table logically owned by this context (physically hosted in `configuration`).
 
 ### Facial_Embedding
 
@@ -385,19 +395,28 @@
 
 **Associated rules:** RN-27, RN-28.
 
+### Biometric_Update_Case
+
+**Description:** Unified case for requesting facial or fingerprint embedding updates. Logically owned by Biometric (physically hosted in `configuration` transiently). Tracks the full workflow from request to review.
+
+**Identity:** `case_id` (UUID).
+
+**Conceptual attributes:**
+- Person reference (external ID → Identity.Person).
+- Biometric type (native ENUM): FACIAL or FINGERPRINT.
+- Finger number: 1..10 if FINGERPRINT else NULL (`chk_finger_number`).
+- Current embedding reference (logical _id in MongoDB, cross-paradigm, no FK).
+- Reason.
+- Update status (native ENUM, default Pending): Pending, In_Review, Approved, Rejected.
+- Requested by (mandatory), requested at (mandatory).
+- Reviewed by, reviewed at.
+- Resolution notes (text).
+
+**Lifecycle:** Pending → In_Review → Approved / Rejected.
+
 ---
 
 ## 7. Notification Context
-
-### Attendance_Report
-
-**Description:** Derived reporting projection (filters + result JSONB, no FKs). Outside the 3NF core.
-
-**Identity:** `report_id` (UUID).
-
-**Conceptual attributes:**
-- School / cohort / generator (logical cross-context ids, no FK).
-- Report type, filters (JSONB), result (JSONB), generated_at.
 
 ### Alert_Type
 
@@ -452,24 +471,7 @@
 - Configuration value.
 - Description.
 
-### Biometric_Update_Case
-
-**Description:** Unified case for requesting facial or fingerprint embedding updates. Logically owned by Biometric (physically hosted in `configuration` transiently). Tracks the full workflow from request to review.
-
-**Identity:** `case_id` (UUID).
-
-**Conceptual attributes:**
-- Person reference (external ID → Identity.Person).
-- Biometric type (native ENUM): FACIAL or FINGERPRINT.
-- Finger number: 1..10 if FINGERPRINT else NULL (`chk_finger_number`).
-- Current embedding reference (logical _id in MongoDB, cross-paradigm, no FK).
-- Reason.
-- Update status (native ENUM, default Pending): Pending, In_Review, Approved, Rejected.
-- Requested by (mandatory), requested at (mandatory).
-- Reviewed by, reviewed at.
-- Resolution notes (text).
-
-**Lifecycle:** Pending → In_Review → Approved / Rejected.
+> `biometric_update_case` is logically owned by Biometric (see §6); it is only physically hosted in `configuration` transiently.
 
 ---
 

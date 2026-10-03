@@ -14,7 +14,7 @@ NFR-007 requires structured logging, RED metrics, distributed tracing, and alert
 The observability stack must:
 1. Collect structured JSON logs from all modules (TypeScript and Python).
 2. Expose RED metrics (Rate, Errors, Duration) per endpoint.
-3. Provide distributed tracing across the attendance registration flow (Biometric → Attendance → Audit).
+3. Provide distributed tracing across the attendance registration flow (Biometric → Attendance → Notification).
 4. Support alerting when SLIs violate SLOs.
 5. Be operationally manageable by a 3-person team.
 

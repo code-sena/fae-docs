@@ -10,7 +10,7 @@
 ## Context
 
 The system's relational data model already defines eight explicit bounded contexts — Identity,
-Authorization, Academic, Attendance, Biometric, IoT, Audit, and Configuration — each grouped
+Authorization, Academic, Scheduling, Attendance, Biometric, Notification, and Configuration — each grouped
 with `TableGroup` and governed by an explicit rule stated in the model's documentation header:
 
 > "FK only inside the same bounded context. Between contexts: public IDs with no FK.
@@ -50,16 +50,16 @@ load (one institution, not a multi-tenant platform at scale).
 ## Decision
 
 **We decided:** The system is built as a **Modular Monolith**. Each bounded context already
-identified in the relational data model (Identity, Authorization, Academic, Attendance,
-Biometric, IoT, Audit, Configuration) is implemented as an internal **module** — a folder with its own
+identified in the relational data model (Identity, Authorization, Academic, Scheduling, Attendance,
+Biometric, Notification, Configuration) is implemented as an internal **module** — a folder with its own
 `domain/`, `application/`, and `infrastructure/` layers per the project's Hexagonal
 Architecture standard (`05-architecture/hexagonal-architecture.md`) — rather than as a
 separately deployed process.
 
 All modules run inside a **single deployable application** connected to a **single
 PostgreSQL instance**. Each bounded context owns **its own schema** inside that instance
-(`identity`, `authorization`, `academic`, `attendance`, `iot`, `audit`, `configuration`;
-`biometric` is addressed separately in ADR-003). Each schema has its own database role with
+(`identity`, `authorization`, `academic`, `scheduling`, `attendance`, `notification`, `configuration`;
+`biometric` is logical — embeddings in MongoDB plus `biometric_update_case` hosted in `configuration`). Each schema has its own database role with
 privileges restricted to that schema only — enforcing isolation at the database-permission
 level, not only by team convention.
 

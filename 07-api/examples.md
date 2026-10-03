@@ -18,9 +18,9 @@ export TOKEN=<sessionId>
 ## 1. Identity (public)
 
 ```bash
-curl -s http://localhost:8080/api/v1/cities?limit=20&offset=0
-curl -s -X POST http://localhost:8080/api/v1/cities \
-  -H 'Content-Type: application/json' -d '{"name":"Medellín","department":"Antioquia"}'
+# cities: REMOVED from relational model — use external API
+curl -s 'https://countriesnow.space/api/v0.1/countries/cities' \
+  -H 'Content-Type: application/json' -d '{"country":"Colombia"}'
 curl -s http://localhost:8080/api/v1/persons/<uuid>
 ```
 
@@ -38,7 +38,7 @@ curl -s "http://localhost:8080/api/v1/auth/evaluate?userId=<uuid>&permission=att
 ```bash
 curl -s 'http://localhost:8080/api/v1/schools?limit=20&offset=0' -H "Authorization: Bearer $TOKEN"
 curl -s -X POST http://localhost:8080/api/v1/schools -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"code":"COL001","name":"Colegio San José","cityId":1}'
+  -H 'Content-Type: application/json' -d '{"code":"COL001","name":"Colegio San José","cityId":"CO-BOG","cityName":"Bogotá","district":"Cundinamarca","country":"Colombia"}'
 curl -s http://localhost:8080/api/v1/programs/<id>/cohorts -H "Authorization: Bearer $TOKEN"
 ```
 

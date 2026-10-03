@@ -12,7 +12,7 @@
 The system exposes external clients (web, mobile, API) through a single edge component that handles routing, authentication, rate limiting, and CORS. The architecture overview (`05-architecture/overview.md` §7) and service catalog (`09-microservices/service-catalog.md`) already define the API Gateway as the entry point on port 8080.
 
 The gateway must:
-1. Route requests to the correct internal module (all 9 bounded contexts share a single deployable per ADR-002).
+1. Route requests to the correct internal module (all 8 bounded contexts share a single deployable per ADR-002).
 2. Validate JWT tokens and enforce authentication before forwarding.
 3. Apply rate limiting to prevent abuse (NFR-004).
 4. Handle CORS for web clients.
@@ -20,7 +20,7 @@ The gateway must:
 6. Be operationally simple for a 3-person team.
 
 **Known constraints:**
-- ADR-002 establishes a modular monolith — the gateway routes to a single application, not to 9 separate services (yet).
+- ADR-002 establishes a modular monolith — the gateway routes to a single application, not to 8 separate services (yet).
 - The gateway must be ready for service extraction (ADR-002 Strangler Fig path).
 - Team has no dedicated DevOps role.
 

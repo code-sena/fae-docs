@@ -210,7 +210,7 @@
 - This story does not cover general audit of all system actions. It focuses specifically on user data changes.
 - The team must define the retention period for change history records, considering institutional policies and data protection regulations.
 
-**Responsible service(s):** History service / Audit service, proposed.  
+**Responsible service(s):** attendance-service (HIST-001) / identity-service via platform logging (HIST-002).  
 **Endpoint(s) implemented:**  
 - `GET /api/v1/users/{userId}/change-history` — proposed.  
 - `GET /api/v1/users/{userId}/change-history` with query parameters for date range, type of change, and author — proposed.  

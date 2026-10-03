@@ -18,7 +18,7 @@ The system uses a single PostgreSQL instance with schema-per-context (ADR-002), 
 5. Capable of handling both PostgreSQL and MongoDB schema changes.
 
 **Known constraints:**
-- ADR-002 establishes 8 PostgreSQL schemas in one instance.
+- ADR-002 establishes 7 PostgreSQL schemas in one `faceattend_db` instance plus MongoDB for biometric embeddings (with `biometric_update_case` hosted in `configuration`).
 - Team of 3 with no dedicated DBA.
 - `environments.md` CI/CD pipeline expects repeatable migrations.
 - The modular monolith means all schemas are managed by a single application process.
@@ -51,25 +51,23 @@ db/
 ├── changelog/
 │   ├── master.xml                 (includes all context changelogs)
 │   ├── identity/
-│   │   ├── 001_create_school.sql
-│   │   ├── 002_create_person.sql
-│   │   └── 003_create_user.sql
+│   │   ├── 001_create_person.sql
+│   │   ├── 002_create_user.sql
+│   │   └── 003_create_session.sql
 │   ├── authorization/
 │   │   ├── 001_create_role.sql
 │   │   └── 002_create_permission.sql
 │   ├── academic/
+│   │   ├── 001_create_school.sql
+│   │   └── ...
+│   ├── scheduling/
 │   │   └── ...
 │   ├── attendance/
 │   │   └── ...
-│   ├── iot/
-│   │   └── ...
-│   ├── audit/
+│   ├── notification/
 │   │   └── ...
 │   └── configuration/
 │       └── ...
-└── rollback/
-    └── {context-name}/
-        └── {version}_rollback.sql
 ```
 
 ---
@@ -90,7 +88,7 @@ db/
 ## Consequences
 
 **Positive:**
-- Single migration tool for all 8 PostgreSQL schemas.
+- Single migration tool for all 7 PostgreSQL schemas.
 - SQL-native changelogs are readable and version-controllable.
 - CLI integration with Jenkins pipelines is straightforward.
 - Rollback support satisfies `environments.md` revert requirement.
@@ -101,7 +99,7 @@ db/
 - MongoDB schema changes must be handled separately (no Liquibase support for MongoDB collections).
 
 **Impact on the system:**
-- Affected modules: all 8 PostgreSQL-backed modules.
+- Affected modules: all 7 PostgreSQL-backed modules.
 - Documents that must be updated:
   - `10-devops/local-setup.md` — document Liquibase CLI installation
   - `10-devops/environments.md` — confirm Liquibase as the migration tool in pipeline steps

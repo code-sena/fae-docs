@@ -34,7 +34,7 @@ We decided on a **polyglot modular monolith** with the following technology stac
 |---|---------|-----------|-----------|
 | 01 | `identity-service` (+ auth) | **Java 21 + Spring Boot 3** | Best ORM (Hibernate/JPA) for the 4 entities. Authentication merged into this service (no separate auth-service). Spring Security handles JWT + session management. |
 | 02 | `authorization-service` | **Java 21 + Spring Boot 3** | Spring Security is the gold standard for RBAC. Permission checks embedded in JWT claims reduce cross-service calls. |
-| 03 | `academic-service` | **TypeScript + Fastify + Drizzle ORM** | Drizzle generates efficient SQL for 7-table JOINs (TypeORM generates bad SQL). Fastify's speed handles complex reporting queries. |
+| 03 | `academic-service` | **TypeScript + Fastify + Drizzle ORM** | Drizzle generates efficient SQL for 8-table JOINs (TypeORM generates bad SQL). Fastify's speed handles complex reporting queries. |
 | 04 | `scheduling-service` | **Java 21 + Spring Boot 3** | Unique constraints for anti-double-booking are critical. Hibernate's `@UniqueConstraint` + ACID transactions ensure room/instructor conflict prevention. |
 | 05 | `attendance-service` | **Java 21 + Spring Boot 3** | Most critical business path. `@Transactional` ensures ACID for Attendance writes. Spring microservice transport ready for future extraction. |
 | 06 | `biometric-service` | **Python 3.12 + FastAPI** | OpenCV canonical binding. face_recognition is Python-first. pymongo vector search. **Non-negotiable — only correct choice for CV workloads.** |
@@ -64,7 +64,7 @@ Each option is scored on 5 dimensions (1 = worst, 5 = best):
 
 **Port 8081 | PostgreSQL | Core domain**
 
-Workload: Standard CRUD with bulk CSV imports. 4 entities (School, Person, User, Session). Authentication (JWT issuance, refresh token rotation, Redis session management) is merged into this service. **Every authenticated request touches this service.**
+Workload: Standard CRUD with bulk CSV imports. 4 entities (Person, App_User, User_Session, Password_Policy). Authentication (JWT issuance, refresh token rotation, Redis session management) is merged into this service. **Every authenticated request touches this service.**
 
 | # | Option | Performance | Ecosystem | Learning | Lib Fit | Ops | **Total** | Notes |
 |---|--------|:-----------:|:---------:|:--------:|:-------:|:---:|:---------:|-------|
@@ -100,17 +100,17 @@ Workload: Permission checks on **every request**. 4 entities (Role, Permission, 
 
 **Port 8084 | PostgreSQL | Core domain**
 
-Workload: 7 entities with relationships. Complex JOIN queries for reports (enrollment lists, schedule conflicts). Reporting is read-heavy. Writes are periodic (semester setup).
+Workload: 8 entities with relationships. Complex JOIN queries for reports (enrollment lists, schedule conflicts). Reporting is read-heavy. Writes are periodic (semester setup).
 
 | # | Option | Performance | Ecosystem | Learning | Lib Fit | Ops | **Total** | Notes |
 |---|--------|:-----------:|:---------:|:--------:|:-------:|:---:|:---------:|-------|
 | 1 | **TS + Fastify + Drizzle** | 4 | 4 | 5 | 4 | 5 | **22** | Drizzle generates efficient SQL for complex JOINs. TypeORM generates bad SQL. |
-| 2 | Java + Spring Boot | 4 | 5 | 2 | 5 | 3 | **19** | Hibernate handles 7-entity models perfectly. JVM overhead + team learning. |
+| 2 | Java + Spring Boot | 4 | 5 | 2 | 5 | 3 | **19** | Hibernate handles 8-entity models perfectly. JVM overhead + team learning. |
 | 3 | Python + FastAPI + SQLAlchemy | 3 | 4 | 4 | 4 | 4 | **19** | SQLAlchemy excellent for complex queries. GIL limits concurrent report generation. |
 | 4 | TS + NestJS + TypeORM | 3 | 5 | 4 | 4 | 4 | **20** | NestJS modules map to entities. But TypeORM generates inefficient JOINs. |
 | 5 | Go + Gin + sqlx | 5 | 3 | 2 | 3 | 4 | **17** | Fastest raw queries. But ORM story is weak — manual SQL for everything. |
 
-**Critical analysis:** This is the service where ORM choice matters most. TypeORM's QueryBuilder generates verbose, sometimes incorrect SQL for 7-table JOINs. Drizzle ORM uses a SQL-like API that produces efficient queries without the Hibernate-style overhead. TypeScript + Fastify is the right choice here because Drizzle's type-safety catches schema mismatches at compile time.
+**Critical analysis:** This is the service where ORM choice matters most. TypeORM's QueryBuilder generates verbose, sometimes incorrect SQL for 8-table JOINs. Drizzle ORM uses a SQL-like API that produces efficient queries without the Hibernate-style overhead. TypeScript + Fastify is the right choice here because Drizzle's type-safety catches schema mismatches at compile time.
 
 ---
 
@@ -136,7 +136,7 @@ Workload: 3 entities (Environment, Schedule_Block, Class_Session). **Unique cons
 
 **Port 8085 | PostgreSQL | Core domain (critical path)**
 
-Workload: ACID transaction for Attendance + Audit write. Biometric match is a precondition (read from MongoDB). This is the most critical business operation. Must be **reliable**, not necessarily the fastest.
+Workload: ACID transaction for Attendance write. Biometric match is a precondition (read from MongoDB). This is the most critical business operation. Must be **reliable**, not necessarily the fastest.
 
 | # | Option | Performance | Ecosystem | Learning | Lib Fit | Ops | **Total** | Notes |
 |---|--------|:-----------:|:---------:|:--------:|:-------:|:---:|:---------:|-------|
@@ -190,7 +190,7 @@ Workload: 2 entities (Alert_Type, Alert). Simple CRUD with alert lifecycle (rais
 
 **Port 8089 | PostgreSQL | Support domain**
 
-Workload: 3 tables (Academic_Configuration, Security_Configuration, Password_Policy). Basic CRUD. Published config changes to Kafka. **Trivial service.**
+Workload: 2 tables (Academic_Configuration, Security_Configuration). Basic CRUD. Published config changes to Kafka. **Trivial service.**
 
 | # | Option | Performance | Ecosystem | Learning | Lib Fit | Ops | **Total** | Notes |
 |---|--------|:-----------:|:---------:|:--------:|:-------:|:---:|:---------:|-------|
@@ -200,7 +200,7 @@ Workload: 3 tables (Academic_Configuration, Security_Configuration, Password_Pol
 | 4 | Go + Gin | 5 | 3 | 2 | 3 | 4 | **17** | Fastest. But we're talking about 3 config tables. |
 | 5 | Express (TS) | 3 | 4 | 5 | 3 | 5 | **20** | Simplest possible. No structure needed. But no OpenAPI generation. |
 
-**Critical analysis:** This service has no domain logic. It's 3 Postgres tables with CRUD endpoints. Fastify is the lightest framework that still gives good performance. NestJS's decorators for auto-generated OpenAPI are nice but not worth the overhead for a service that will never change.
+**Critical analysis:** This service has no domain logic. It's 2 Postgres tables with CRUD endpoints. Fastify is the lightest framework that still gives good performance. NestJS's decorators for auto-generated OpenAPI are nice but not worth the overhead for a service that will never change.
 
 ---
 

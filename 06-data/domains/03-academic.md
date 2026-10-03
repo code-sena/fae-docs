@@ -27,8 +27,12 @@ CREATE TABLE school (
   school_id     SERIAL      PRIMARY KEY,
   code          VARCHAR     NOT NULL UNIQUE,
   name          VARCHAR     NOT NULL,
-  city_id       INT         NOT NULL,
+  -- External catalog via countriesnow API, no FK (DBML v6/v7: city table removed)
+  city_id       VARCHAR     NULL,
   address       VARCHAR,
+  district      VARCHAR     NULL,
+  country       VARCHAR     NULL,
+  city_name     VARCHAR     NULL,
   phone         VARCHAR,
   email         VARCHAR,
 
@@ -53,8 +57,11 @@ CREATE TABLE school (
 | school_id | SERIAL | Auto-incremental school identifier | `1` |
 | code | VARCHAR | Unique school code | `ESC-001` |
 | name | VARCHAR | Institution name | `Escuela Nacional` |
-| city_id | INT | City where the school is located (FK → Identity.city) | `1` |
+| city_id | VARCHAR | External city id (countriesnow API, no FK, NULL allowed) | `CO-BOG` |
 | address | VARCHAR | Physical address | `Calle 123 #45-67` |
+| district | VARCHAR | District/state | `Cundinamarca` |
+| country | VARCHAR | Country | `Colombia` |
+| city_name | VARCHAR | Denormalized city label from external API | `Bogota` |
 | phone | VARCHAR | Contact phone number | `+57 300 123 4567` |
 | email | VARCHAR | Institutional email | `info@escuela.edu.co` |
 | status | BOOLEAN | Active/inactive flag | `true` |
@@ -69,7 +76,7 @@ CREATE TABLE school (
 **Modeling decisions:**
 1. `school_id` is SERIAL (not UUID) — internal identifier, not exposed cross-context.
 2. `code` is the business identifier used in APIs and reports.
-3. `city_id` is a reference to Identity.city (cross-context, no FK).
+3. `city_id` is an external catalog id (VARCHAR NULL, no FK) — `identity.city` is deprecated; cities come from `countriesnow.space`. `district/country/city_name` are display fields from that API.
 
 ---
 
@@ -131,7 +138,7 @@ CREATE TABLE academic_period (
   school_id           INT         NOT NULL,
   name                VARCHAR     NOT NULL,
   starts_on           DATE        NOT NULL,
-  ends_on             DATE        NOT NULL,
+  ends_on             DATE        NOT NULL CHECK (ends_on > starts_on),
 
   -- Status fields
   is_active           BOOLEAN     NOT NULL DEFAULT false,
@@ -143,7 +150,9 @@ CREATE TABLE academic_period (
   created_by          UUID,
   updated_by          UUID,
   deleted_by          UUID,
-  row_version         BIGINT      NOT NULL DEFAULT 1
+  row_version         BIGINT      NOT NULL DEFAULT 1,
+
+  CONSTRAINT chk_period_dates CHECK (starts_on < ends_on)
 );
 
 CREATE UNIQUE INDEX uq_period_name_school ON academic_period (school_id, name);
@@ -369,6 +378,7 @@ CREATE INDEX idx_actor_deleted ON academic_actor (deleted_at) WHERE deleted_at I
 **Purpose:** Enrollment of an academic_actor in a cohort.
 
 ```sql
+-- Native ENUM: CREATE TYPE academic.enrollment_status AS ENUM ('Active','Withdrawn','Completed');
 CREATE TABLE enrollment (
   -- Business fields
   enrollment_id       BIGSERIAL   PRIMARY KEY,
@@ -377,7 +387,7 @@ CREATE TABLE enrollment (
   enrolled_on         DATE        NOT NULL,
 
   -- Status fields
-  enrollment_status   VARCHAR     NOT NULL,
+  enrollment_status   academic.enrollment_status NOT NULL,
 
   -- Audit (in all tables)
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -481,7 +491,7 @@ erDiagram
 
 | From | To | Reference Type | Mechanism |
 |------|----|----------------|-----------|
-| School.city_id | Identity.City.city_id | External ID (no FK) | Cross-context reference by SERIAL |
+| School.city_id | External countriesnow API | External catalog (no FK) | VARCHAR NULL display id + city_name/district/country |
 | Academic_Actor.person_id | Identity.Person.person_id | External ID (no FK) | Cross-context reference by UUID |
 | Scheduling.Schedule_Block.cohort_id | Academic.Cohort.cohort_id | External ID (no FK) | Cross-context reference by BIGINT |
 | Scheduling.Schedule_Block.course_id | Academic.Course.course_id | External ID (no FK) | Cross-context reference by SERIAL |

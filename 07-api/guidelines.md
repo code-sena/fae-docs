@@ -38,15 +38,16 @@ Source of truth: `back-end/SERVICES.md`, `back-end/docker-compose.yml`, `99-api-
   - `PATCH /api/v1/justifications/{id}/review` (attendance, real)
   - `PATCH /api/v1/academic-actors/{id}/status`, `PATCH /api/v1/enrollments/{id}/status` (academic, real)
   - `PATCH /api/v1/alerts/{id}/resolve` (notification, real)
-  - `PATCH /api/v1/biometric-update-cases/{id}/review` (configuration, real)
-  - `POST /api/v1/users/{id}/activate`, `PATCH /api/v1/users/{id}/status`, `POST /api/v1/persons/{id}/transfer` (identity, real)
+  - `PATCH /api/v1/biometric-update-cases/{id}/review` (canonical route in configuration; logical owner Biometric)
+  - `POST /api/v1/users/{id}/activate`, `PATCH /api/v1/users/{id}/status` (identity, real); `POST /api/v1/persons/{id}/transfer` deprecated (person has no `school_id`)
 - **Nested reads** for ownership (mirrors `kong.yml` nested routes):
   - `GET /api/v1/schools/{schoolId}/programs|periods|actors|configurations`
   - `GET /api/v1/programs/{programId}/cohorts|courses`
   - `GET /api/v1/cohorts/{cohortId}/blocks|enrollments`
   - `GET /api/v1/class-sessions/{id}/attendance`, `GET /api/v1/academic-actors/{actorId}/attendance|enrollments`
   - `GET /api/v1/persons/{personId}/biometric-cases`, `GET /api/v1/justifications/{id}/documents`
-- IDs: cross-context references are **UUID** (`personId`, `userId`, `academicActorId`); local catalogs are **INT** (`cityId`, `roleId`, `permissionId`, `environmentId`) or **BIGINT** (`cohortId`, `scheduleBlockId`, `classSessionId`, `attendanceRecordId`, `alertId`); small catalogs **SMALLINT** (`actorTypeId`, `alertTypeId`). Never expose DB sequences directly without schema.
+- IDs: cross-context references are **UUID** (`personId`, `userId`, `academicActorId`, `requestedBy`, `generatedBy`); local catalogs are **INT** (`roleId`, `permissionId`, `environmentId`, `schoolId`) or **BIGINT** (`cohortId`, `scheduleBlockId`, `classSessionId`, `attendanceRecordId`, `alertId`); small catalogs **SMALLINT** (`actorTypeId`, `alertTypeId`). `cityId` removed — external `countriesnow.space` string id. Never expose DB sequences directly without schema.
+- Serialization note: DBML `INT/BIGINT` is authoritative for the model. TS services (`03,07`) serialize numeric ids as JSON strings via Zod/Drizzle; Java/Go use JSON numbers. Both map to the same DBML integer — do not change the model to match one serialization.
 
 ## 4. HTTP methods
 
@@ -64,7 +65,7 @@ Real deviations documented per contract (e.g. identity `PUT /users/{id}` → 204
 
 Canonical (see `pagination.md`):
 
-- Java services: `?limit=20&offset=0` only enforced on `GET /api/v1/cities` (clamp 1..100); others filter in memory (`?schoolId`, `?cohortId`, `?classSessionId`, `?status`, …).
+- Java services: lists filter in memory (`?schoolId`, `?cohortId`, `?classSessionId`, `?status`, …); `?limit=20&offset=0` is the canonical pagination for new endpoints.
 - TS services (`03,07,09`): `?limit=20&offset=0`, cap 100, response header `x-total-count`; `09` list envelope is `{data,total,limit,offset}`; `03/07` return bare array + header.
 - Go service (`08`): `?limit&offset` (alert-types default 50/0), filters `?actorId&?typeId&?resolved|?status=open|resolved|pending`.
 - Python service (`06`): no pagination (single-template or small history).

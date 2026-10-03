@@ -18,13 +18,13 @@
 | POST /api/v1/persons | ✅ | public | Create person |
 | GET /api/v1/persons/{id} | ✅ | public | Get person |
 | PUT /api/v1/persons/{id} | ✅ | public | Update → 204 |
-| POST /api/v1/persons/{id}/transfer | ✅ nested | public | Transfer `{newSchoolId}` → 204 |
+| POST /api/v1/persons/{id}/transfer | ❌ deprecated | public | Transfer → 204 (deprecated: person has no `school_id`; use academic_actor) |
 | PATCH /api/v1/persons/{id}/status | ✅ | public | Status → 204 |
-| POST /api/v1/cities | ✅ | public | Create city → 201 |
-| GET /api/v1/cities?limit&offset | ✅ | public | List (real pagination) |
-| GET /api/v1/cities/{id} | ✅ | public | Get city |
-| PUT /api/v1/cities/{id} | ✅ | public | Update → 204 |
-| DELETE /api/v1/cities/{id} | ✅ | public | Delete → 204 |
+| POST /api/v1/cities | ❌ deprecated | public | Removed — cities come from external `countriesnow.space` API |
+| GET /api/v1/cities?limit&offset | ❌ deprecated | public | Removed — see external API |
+| GET /api/v1/cities/{id} | ❌ deprecated | public | Removed — see external API |
+| PUT /api/v1/cities/{id} | ❌ deprecated | public | Removed — see external API |
+| DELETE /api/v1/cities/{id} | ❌ deprecated | public | Removed — see external API |
 | POST /api/v1/password-policies | ✅ | public | Create policy → 201 |
 | GET /api/v1/password-policies | ✅ | public | List |
 | GET /api/v1/password-policies/{id} | ✅ | public | Get |
@@ -106,9 +106,10 @@
 | POST /api/v1/justifications | ✅ | jwt | Create → 201 |
 | GET/DELETE /api/v1/justifications/{id} | ✅ | jwt | Read/Delete |
 | PATCH /api/v1/justifications/{id}/review | ✅ | jwt | Review |
-| GET /api/v1/justification-types | ✅ | jwt | List |
+| GET /api/v1/justification-types | ✅ | jwt | List (`?schoolId` per-school, NULL = global) |
 | POST /api/v1/justification-types | ✅ | jwt | Create → 201 |
 | GET/PUT/DELETE /api/v1/justification-types/{id} | ✅ | jwt | CRUD |
+| POST/GET /api/v1/attendance-reports | ❌ | jwt | Missing — `attendance_report` derived projection, gap |
 | GET /api/v1/supporting-documents?justificationId | ✅ | jwt | List filtered |
 | POST /api/v1/supporting-documents | ✅ | jwt | Create → 201 |
 | GET/DELETE /api/v1/supporting-documents/{id} | ✅ | jwt | Read/Delete |
@@ -133,7 +134,7 @@
 | DELETE /api/v1/biometric/fingerprint/{person_id}/{finger} | ✅ | jwt | Deactivate → 204 |
 | POST /api/v1/biometric/fingerprint/verify | ✅ | jwt | 1:1 |
 | POST /api/v1/biometric/fingerprint/identify | ✅ | jwt | 1:N + finger filter |
-| POST /api/v1/biometric/update-request | ✅ | jwt | Mirror → 201 Pending |
+| POST /api/v1/biometric/update-request | ✅ | jwt | Mirror → 201 Pending (mirror of canonical case) |
 | GET /api/v1/biometric/update-requests/{person_id} | ✅ | jwt | By person |
 | PATCH /api/v1/biometric/update-request/{request_id}/review | ✅ | jwt | Review |
 | DELETE /api/v1/biometric/update-request/{request_id} | ✅ | jwt | Delete → 204 |
@@ -147,9 +148,9 @@
 | POST/GET /api/v1/configurations/security (+alias /security-configurations) | ✅ | jwt | CRUD (no schoolId) |
 | GET/PUT/DELETE /api/v1/configurations/security/{id} (+alias) | ✅ | jwt | CRUD |
 | GET /api/v1/schools/{schoolId}/configurations | ✅ nested | jwt | By school |
-| POST/GET /api/v1/biometric-update-cases?status&limit&offset | ✅ | jwt | Cases (canonical) |
+| POST/GET /api/v1/biometric-update-cases?status&limit&offset | ✅ | jwt | Cases (canonical route; logical owner Biometric) |
 | GET/PUT/DELETE /api/v1/biometric-update-cases/{id} | ✅ | jwt | CRUD |
-| PATCH /api/v1/biometric-update-cases/{id}/review | ✅ | jwt | `In_Review\|Approved\|Rejected` + `reviewedAt` |
+| PATCH /api/v1/biometric-update-cases/{id}/review | ✅ | jwt | `In_Review\|Approved\|Rejected` + `reviewedAt` (`requestedBy` mandatory) |
 | GET /api/v1/persons/{personId}/biometric-cases | ✅ nested | jwt | By person |
 
 ## 8. Notification 08 (`08-ms-notification`, Go 8090 → `08-notification-service.yaml`)
@@ -161,7 +162,7 @@
 | GET /api/v1/alerts/{id} | ✅ | jwt | Get |
 | PATCH /api/v1/alerts/{id}/resolve | ✅ | jwt | Resolve |
 | DELETE /api/v1/alerts/{id} | ✅ | jwt | Delete → 204 |
-| POST /api/v1/alert-types | ✅ | jwt | Create → 201 |
+| POST /api/v1/alert-types | ✅ | jwt | Create → 201 (`severity` INFO/WARNING/CRITICAL, `channel` DASHBOARD/EMAIL/PUSH) |
 | GET /api/v1/alert-types?limit=50&offset=0 | ✅ | jwt | List `{alert_types}` |
 | GET/PUT/DELETE /api/v1/alert-types/{id} | ✅ | jwt | CRUD |
 

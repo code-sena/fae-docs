@@ -23,6 +23,8 @@
 **Purpose:** Individual attendance record of an academic_actor in a class_session.
 
 ```sql
+-- Native ENUMs: CREATE TYPE attendance.attendance_status AS ENUM ('Present','Absent','Late','Justified');
+-- CREATE TYPE attendance.capture_method AS ENUM ('FACIAL','MANUAL','IOT','IMPORT');
 CREATE TABLE attendance_record (
   -- Business fields
   attendance_record_id  BIGSERIAL   PRIMARY KEY,
@@ -31,8 +33,8 @@ CREATE TABLE attendance_record (
   captured_at           TIMESTAMPTZ,
 
   -- Status fields
-  attendance_status     VARCHAR     NOT NULL,
-  capture_method        VARCHAR     NOT NULL,
+  attendance_status     attendance.attendance_status NOT NULL,
+  capture_method        attendance.capture_method NOT NULL,
   match_score           DECIMAL(5,4),
 
   -- Audit (in all tables)
@@ -59,8 +61,8 @@ CREATE INDEX idx_attendance_deleted ON attendance_record (deleted_at) WHERE dele
 | class_session_id | BIGINT | Class session (external ID → Scheduling.class_session) | `1` |
 | academic_actor_id | BIGINT | Actor being tracked (external ID → Academic.academic_actor) | `1` |
 | captured_at | TIMESTAMPTZ | When attendance was captured | `2024-06-01T08:05:00Z` |
-| attendance_status | VARCHAR | Status: Present, Absent, Late, Justified | `Present` |
-| capture_method | VARCHAR | Method: FACIAL, MANUAL, IMPORT | `FACIAL` |
+| attendance_status | ENUM | Status: Present, Absent, Late, Justified | `Present` |
+| capture_method | ENUM | Method: FACIAL, MANUAL, IOT, IMPORT | `FACIAL` |
 | match_score | DECIMAL(5,4) | Biometric match score (0.0000..1.0000) | `0.9876` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T08:05:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T08:05:00Z` |
@@ -85,7 +87,9 @@ CREATE INDEX idx_attendance_deleted ON attendance_record (deleted_at) WHERE dele
 CREATE TABLE justification_type (
   -- Business fields
   justification_type_id  SERIAL      PRIMARY KEY,
-  name                   VARCHAR     NOT NULL UNIQUE,
+  -- NULL = global type, NOT NULL = per-school custom type
+  school_id              INT         NULL,
+  name                   VARCHAR     NOT NULL,
   description            VARCHAR,
   requires_attachment    BOOLEAN     NOT NULL DEFAULT false,
 
@@ -101,6 +105,11 @@ CREATE TABLE justification_type (
   deleted_by             UUID,
   row_version            BIGINT      NOT NULL DEFAULT 1
 );
+
+CREATE UNIQUE INDEX uq_justification_type_school_name ON justification_type (school_id, name);
+-- In PostgreSQL NULL != NULL: the composite UNIQUE does not cover globals.
+CREATE UNIQUE INDEX uq_justification_type_global_name ON justification_type (name) WHERE school_id IS NULL;
+CREATE INDEX idx_justification_type_school ON justification_type (school_id);
 ```
 
 **Data dictionary:**
@@ -108,7 +117,8 @@ CREATE TABLE justification_type (
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
 | justification_type_id | SERIAL | Auto-incremental type identifier | `1` |
-| name | VARCHAR | Unique type name | `Medical leave` |
+| school_id | INT | NULL = global, NOT NULL = per-school custom | `NULL` |
+| name | VARCHAR | Type name (unique per school + partial unique for globals) | `Medical leave` |
 | description | VARCHAR | Type description | `Validated medical incapacity` |
 | requires_attachment | BOOLEAN | Whether supporting document is required | `true` |
 | status | BOOLEAN | Active/inactive flag | `true` |
@@ -127,6 +137,7 @@ CREATE TABLE justification_type (
 **Purpose:** Justification request for a specific absence. Linked 1:1 to attendance_record.
 
 ```sql
+-- Native ENUM: CREATE TYPE attendance.review_status AS ENUM ('Pending','Approved','Rejected');
 CREATE TABLE justification (
   -- Business fields
   justification_id        BIGSERIAL   PRIMARY KEY,
@@ -136,7 +147,8 @@ CREATE TABLE justification (
   submitted_at            TIMESTAMPTZ NOT NULL,
 
   -- Status fields
-  review_status           VARCHAR     NOT NULL,
+  review_status           attendance.review_status NOT NULL,
+  resolution_notes        TEXT        NULL,
 
   -- Audit (in all tables)
   created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -165,7 +177,8 @@ CREATE INDEX idx_justification_reviewer ON justification (reviewed_by);
 | justification_type_id | INT | Type of justification (FK → justification_type) | `1` |
 | reason | TEXT | Detailed justification reason | `Medical appointment` |
 | submitted_at | TIMESTAMPTZ | When the justification was submitted | `2024-06-01T10:00:00Z` |
-| review_status | VARCHAR | Status: Pending, Approved, Rejected | `Pending` |
+| review_status | ENUM | Status: Pending, Approved, Rejected | `Pending` |
+| resolution_notes | TEXT | Review resolution notes | `Approved — certificate verified` |
 | created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T10:00:00Z` |
 | updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T10:00:00Z` |
 | deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
@@ -205,7 +218,52 @@ CREATE TABLE supporting_document (
 CREATE INDEX idx_document_justification ON supporting_document (justification_id);
 ```
 
-**Data dictionary:**
+## 5. Table: attendance_report (derived projection, outside 3NF core)
+
+> **Derived projection (JSONB, no FKs):** kept in the full model but outside the 3NF core. Cross-context ids are logical only.
+
+```sql
+CREATE TABLE attendance_report (
+  -- Business fields
+  report_id     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id     INT         NULL,
+  cohort_id     BIGINT      NULL,
+  generated_by  UUID        NULL,
+  report_type   VARCHAR     NOT NULL,
+  filters       JSONB       NULL,
+  result        JSONB       NULL,
+  generated_at  TIMESTAMPTZ NOT NULL,
+
+  -- Audit (in all tables)
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at    TIMESTAMPTZ,
+  created_by    UUID,
+  updated_by    UUID,
+  deleted_by    UUID,
+  row_version   BIGINT      NOT NULL DEFAULT 1
+);
+
+CREATE INDEX idx_report_school ON attendance_report (school_id);
+CREATE INDEX idx_report_cohort ON attendance_report (cohort_id);
+```
+
+**Data dictionary (attendance_report):**
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| report_id | UUID | Report identifier | `550e8400-...` |
+| school_id | INT | Cross-context to Academic.school (no FK) | `1` |
+| cohort_id | BIGINT | Cross-context to Academic.cohort (no FK) | `1` |
+| generated_by | UUID | Cross-context to Identity.app_user (no FK) | `550e8400-...` |
+| report_type | VARCHAR | Report type | `cohort-summary` |
+| filters | JSONB | Input filters | `{"cohort_id":1}` |
+| result | JSONB | Computed result | `{"present":25}` |
+| generated_at | TIMESTAMPTZ | Generation time | `2024-06-02T14:00:00Z` |
+
+---
+
+**Data dictionary (supporting_document):**
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
@@ -225,14 +283,14 @@ CREATE INDEX idx_document_justification ON supporting_document (justification_id
 
 ---
 
-## 5. Relationship Diagram
+## 6. Relationship Diagram
 
 ```mermaid
 erDiagram
     ATTENDANCE_RECORD {
         bigserial attendance_record_id PK
-        bigserial class_session_id FK
-        bigserial academic_actor_id FK
+        bigserial class_session_id
+        bigserial academic_actor_id
         datetime captured_at
         varchar attendance_status
         varchar capture_method
@@ -240,7 +298,8 @@ erDiagram
     }
     JUSTIFICATION_TYPE {
         serial justification_type_id PK
-        varchar name UK
+        int school_id
+        varchar name
         boolean requires_attachment
     }
     JUSTIFICATION {
@@ -249,6 +308,7 @@ erDiagram
         int justification_type_id FK
         text reason
         varchar review_status
+        text resolution_notes
         uuid reviewed_by
     }
     SUPPORTING_DOCUMENT {
@@ -259,25 +319,35 @@ erDiagram
         varchar mime_type
         bigint size_bytes
     }
+    ATTENDANCE_REPORT {
+        uuid report_id PK
+        int school_id
+        bigint cohort_id
+        uuid generated_by
+        varchar report_type
+    }
 
     ATTENDANCE_RECORD ||--o| JUSTIFICATION : "may justify"
     JUSTIFICATION_TYPE ||--o{ JUSTIFICATION : "classifies"
     JUSTIFICATION ||--o{ SUPPORTING_DOCUMENT : "has"
 ```
 
+> `attendance_report` has no FKs (derived projection). Cross-context ids are logical only.
+
 ---
 
-## 6. Cross-Context Relationships
+## 7. Cross-Context Relationships
 
 | From | To | Reference Type | Mechanism |
 |------|----|----------------|-----------|
 | Attendance_Record.class_session_id | Scheduling.Class_Session.class_session_id | External ID (no FK) | Cross-context reference by BIGINT |
 | Attendance_Record.academic_actor_id | Academic.Academic_Actor.academic_actor_id | External ID (no FK) | Cross-context reference by BIGINT |
 | Justification.reviewed_by | Identity.App_User.user_id | External ID (no FK) | Cross-context reference by UUID |
+| Attendance_Report.school_id / cohort_id / generated_by | Academic / Identity | External ID (no FK) | Derived projection, no FKs |
 
 ---
 
-## 7. Correlations
+## 8. Correlations
 
 - Domain entities that map to these tables → `02-domain/entities-and-rules.md`
 - Saga and Outbox pattern for distributed consistency → `05-architecture/pattern-guide.md`

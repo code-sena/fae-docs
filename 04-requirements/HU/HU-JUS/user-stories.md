@@ -236,13 +236,13 @@
 
 - [ ] **AC3:** Given that the notification is sent, when the student accesses the notification module or their notification inbox, then the student can see the notification with the justification result, the date of the evaluation, and the associated attendance record.
 
-- [ ] **AC4:** Given that the notification fails to be delivered due to a system error, when the delivery fails, then the system records the failure in the audit log and retries delivery according to the configured retry policy, or marks the notification as failed for administrative review.
+- [ ] **AC4:** Given that the notification fails to be delivered due to a system error, when the delivery fails, then the system records the failure in the platform log and retries delivery according to the configured retry policy, or marks the notification as failed for administrative review.
 
 - [ ] **AC5:** Given that a justification is evaluated, when the result notification is generated, then the notification does not include sensitive details such as the support document content, the reviewer's personal data, or any biometric information. Only the result, justification identifier, and attendance date are included.
 
 - [ ] **AC6:** Given that the student has notifications enabled, when multiple justifications are evaluated, then the system sends individual notifications for each justification result.
 
-- [ ] **AC7:** Given that the notification is generated, when the operation is completed, then the system records an audit event containing the notification type, the student identifier, the justification identifier, the result, and the notification delivery status.
+- [ ] **AC7:** Given that the notification is generated, when the operation is completed, then the system emits a platform audit event containing the notification type, the student identifier, the justification identifier, the result, and the notification delivery status.
 
 - [ ] **AC8:** Given normal system conditions, when the justification result is processed, then the notification is generated and queued for delivery within 60 seconds of the evaluation.
 

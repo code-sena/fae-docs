@@ -4,21 +4,23 @@ info:
   version: 1.1.0
   description: |
     Servicio 01-ms-identity (Java 21 Spring Boot :8081, schema `identity`).
-    Personas, usuarios, ciudades, sesiones y políticas de contraseña.
+    Personas, usuarios, sesiones y políticas de contraseña.
+    `identity.city` DEPRECATED/removed (DBML v6/v7): cities come from external `countriesnow.space` API.
 
     ## Fuente real
     - Controllers: `AuthController`, `UserController`, `PersonController`,
-      `CityController`, `PasswordPolicyController`, `SessionController`, `HealthController`
+      `PasswordPolicyController`, `SessionController`, `HealthController`
+      (`CityController` deprecated, pending removal)
     - DTOs: `UserDto{userId,username,authenticationType,status}`,
-      `PersonDto{personId,name,lastName,email}`,
-      `CityDto{cityId,name(1-120),department}`,
+      `PersonDto{personId,documentType,documentNumber,name,lastName,email,phone,bloodType,birthDate,address}`,
       `PasswordPolicyDto{policyId,minLength,maxLength,requiresUppercase,requiresNumbers,requiresSymbols,expirationDays}`,
       `UserSessionDto{sessionId,userId,sessionStatus}`
     - Seguridad local: `SecurityConfig permitAll /api/v1/**`. En Kong la ruta identity es **pública** (solo cors + rate-limit 60/min, sin jwt).
 
     ## Gateway
-    Via Kong `http://localhost:8080/api/v1/persons|users|auth|sessions|cities|password-policies`
+    Via Kong `http://localhost:8080/api/v1/persons|users|auth|sessions|password-policies`
     + nested `~/persons/.+/transfer`, `~/users/.+/activate` (`kong.yml:6-15`).
+    `/cities` removed — use external `countriesnow.space` API.
 
     ## Alcance
     La gestión de escuelas NO pertenece a este servicio: ver `03-academic-service.yaml`.
@@ -54,7 +56,7 @@ tags:
   - name: Person
     description: Personas (vínculo con academic-actor)
   - name: City
-    description: Catálogo de ciudades
+    description: DEPRECATED — removed in DBML v6/v7, use external countriesnow.space API
   - name: PasswordPolicy
     description: Políticas de contraseña
   - name: Session
@@ -327,9 +329,15 @@ paths:
         schema:
           $ref: './_shared.yaml#/components/schemas/UUID'
     post:
-      summary: Transferir persona de escuela
+      summary: Transferir persona de escuela [DEPRECATED — person has no school_id]
       operationId: transferPerson
       tags: [Person]
+      deprecated: true
+      description: |
+        DEPRECATED. `person` is school-agnostic (DBML v7, no `school_id`);
+        school linkage lives in `academic_actor`. Transfer is an
+        `academic_actor`-level operation, not a person-level one.
+        Kept for history; do not implement new callers.
       requestBody:
         required: true
         content:
@@ -371,9 +379,10 @@ paths:
 
   /api/v1/cities:
     get:
-      summary: Listar ciudades (único listado Java con paginación real)
+      summary: Listar ciudades [DEPRECATED — removed, use countriesnow.space]
       operationId: listCities
       tags: [City]
+      deprecated: true
       parameters:
         - $ref: './_shared.yaml#/components/parameters/LimitParam'
         - $ref: './_shared.yaml#/components/parameters/OffsetParam'
@@ -387,9 +396,10 @@ paths:
                 items:
                   $ref: '#/components/schemas/CityDto'
     post:
-      summary: Crear ciudad
+      summary: Crear ciudad [DEPRECATED — removed]
       operationId: createCity
       tags: [City]
+      deprecated: true
       requestBody:
         required: true
         content:
@@ -413,9 +423,10 @@ paths:
     parameters:
       - $ref: './_shared.yaml#/components/parameters/IntIdParam'
     get:
-      summary: Obtener ciudad por ID
+      summary: Obtener ciudad por ID [DEPRECATED — removed]
       operationId: getCityById
       tags: [City]
+      deprecated: true
       responses:
         '200':
           description: Ciudad encontrada
@@ -426,9 +437,10 @@ paths:
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
     put:
-      summary: Actualizar ciudad
+      summary: Actualizar ciudad [DEPRECATED — removed]
       operationId: updateCity
       tags: [City]
+      deprecated: true
       requestBody:
         required: true
         content:
@@ -441,9 +453,10 @@ paths:
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
     delete:
-      summary: Eliminar ciudad
+      summary: Eliminar ciudad [DEPRECATED — removed]
       operationId: deleteCity
       tags: [City]
+      deprecated: true
       responses:
         '204':
           description: Eliminada
@@ -603,16 +616,25 @@ components:
           example: admin@example.com
         authenticationType:
           type: string
-          example: PASSWORD
+          enum: [Local, Windows, External]
+          example: Local
         status:
           type: boolean
           example: true
     PersonDto:
       type: object
-      required: [name, lastName]
+      required: [documentNumber, name, lastName]
       properties:
         personId:
           $ref: './_shared.yaml#/components/schemas/UUID'
+        documentNumber:
+          type: string
+          example: '1234567890'
+        documentType:
+          type: string
+          enum: [CC, TI, CE, PP]
+          nullable: true
+          example: CC
         name:
           type: string
           example: María
@@ -624,7 +646,24 @@ components:
           format: email
           nullable: true
           example: maria.garcia@email.com
+        phone:
+          type: string
+          nullable: true
+        bloodType:
+          type: string
+          enum: [A+, A-, B+, B-, AB+, AB-, O+, O-]
+          nullable: true
+          example: O+
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        address:
+          type: string
+          nullable: true
     CityDto:
+      deprecated: true
+      description: DEPRECATED — removed in DBML v6/v7, use external countriesnow.space API.
       type: object
       required: [name]
       properties:
@@ -651,7 +690,7 @@ components:
           example: 8
         maxLength:
           type: integer
-          example: 100
+          example: 20
         requiresUppercase:
           type: boolean
           example: true
@@ -674,6 +713,7 @@ components:
           $ref: './_shared.yaml#/components/schemas/UUID'
         sessionStatus:
           type: string
+          enum: [Active, Closed]
           example: Active
   securitySchemes:
     bearerAuth:

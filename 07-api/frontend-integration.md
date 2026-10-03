@@ -43,19 +43,19 @@
 All screens read `useAppData()` / `mockData.ts` / `models/data/*Storage` (local CRUD). `FaceRegistrationModal` does local cropping, no `POST face/*`.
 
 ### Mobile: generic services + N+1 in viewmodels
-`getAll/getById/create/update/delete` pattern over `app_user,person,user_session,academic_actor,attendance_record,justification,justification_type,course,program,school,academic_period,cohort,enrollment,environment,schedule_block,class_session,alert,academic_configuration,security_configuration,biometric_update_case,role,permission,city,audit_log,error_log,blood_type,document_type,language` + `face/register` multipart + external `countriesnow`.
+`getAll/getById/create/update/delete` pattern over `app_user,person,user_session,academic_actor,attendance_record,justification,justification_type,course,program,school,academic_period,cohort,enrollment,environment,schedule_block,class_session,alert,alert_type,academic_configuration,security_configuration,biometric_update_case,role,permission` + `face/register` multipart + external `countriesnow`. Removed: `city,audit_log,error_log` (not relational tables); `blood_type,document_type` are person fields, not resources.
 
 ViewModels with direct calls (`request()` / `fetch`):
 - `useDashboardViewModel`: `GET attendance_record?_limit=100`, `GET class_session?class_session_id=`, `GET schedule_block?schedule_block_id=`, `GET course?course_id=`, `GET alert_type`, `GET alert?_sort=raised_at&_order=desc&_limit=5`, `GET academic_actor?academic_actor_id=`, `GET person?person_id=`, `GET justification?review_status=Pending`.
 - `useDisplayingAttendanceViewModel`: `GET attendance_record?_limit=200` + N+1 enrichment (actor→person, block→course→environment).
-- `useAttendanceReportViewModel`: `GET attendance_record?_limit=500` + `POST attendance_report {role,attendance_type,people}` (endpoint missing in backend — record as gap).
+- `useAttendanceReportViewModel`: `GET attendance_record?_limit=500` + `POST attendance_report {role,attendance_type,people}` (no backend endpoint — `attendance_report` is a derived JSONB projection with no FKs, outside the 3NF core; gap recorded).
 - `useAddJustifyViewModel`: `POST justification {attendance_record_id,justification_type_id,reason,submitted_at,review_status:Pending,attachment{…}}`.
 - `useManageUsersViewModel`: `GET app_user?_limit=50` + `GET user_role?user_id=` + `GET person?person_id=`.
 - `UpdatePhotoScreen`: `POST face/register` multipart.
 
 ## 5. DTOs, errors, pagination
 
-- DTOs: `BaseModel{created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,row_version}` + `fromApi/toApi` snake_case; `AuthRequest/AuthResponse`, `AttendanceRecord{Present/Absent/Late/Justified}`, roles `Administrator/Teacher/Student` (legacy code uses Spanish `Administrador/Docente/Estudiante`).
+- DTOs: `BaseModel{created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,row_version}` + `fromApi/toApi` snake_case; `AuthRequest/AuthResponse`, `AttendanceRecord{Present/Absent/Late/Justified}`, `captureMethod{FACIAL/MANUAL/IOT/IMPORT}`, canonical roles `SUPER_ADMIN/SCHOOL_ADMIN/INSTRUCTOR/STUDENT` (legacy code uses `Administrator/Teacher/Student` and Spanish `Administrador/Docente/Estudiante` — migrate).
 - Errors: `ApiError(status,message,data)`; login maps `0/408→connectionError`; viewmodels use `useCustomAlert`; `LanguageService` falls back to `DEFAULT_LANGUAGES`; `CountryService` `{success,data/error}`.
 - Pagination: only `?_limit (+_sort/_order on alerts)`, no `page/offset`. Migrate to backend `?limit&offset`.
 

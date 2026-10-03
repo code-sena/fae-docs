@@ -57,10 +57,9 @@ attendance).
 
 ## Decision
 
-**We decided:** The `Biometric` bounded context is persisted in an **external NoSQL document
-store (MongoDB)**, separate from the main PostgreSQL instance. The `Facial_Embedding`,
-`Fingerprint_Embedding`, and `Facial_Update_Case` collections reside in a dedicated MongoDB
-database with vector search indexing enabled for similarity queries on embedding vectors.
+**We decided:** The `Biometric` bounded context uses **MongoDB 7 for embeddings plus one SQL workflow table**. The `facial_embeddings` and
+`fingerprint_embeddings` collections reside in a dedicated MongoDB
+database with vector search indexing enabled for similarity queries on embedding vectors. The `biometric_update_case` workflow table is logically owned by Biometric and physically hosted in the `configuration` schema (DBML v7).
 
 **Justification:** Biometric data (facial embeddings, fingerprint templates) has fundamentally
 different storage and query patterns than relational data. Document databases naturally
@@ -129,8 +128,8 @@ in the DBML model are conceptual representations; the actual MongoDB implementat
   for the Biometric context because embedding data is read-heavy and write-once.
 
 **Impact on the system:**
-- Affected services: `Biometric` module only (`Facial_Embedding`, `Fingerprint_Embedding`,
-  `Facial_Update_Case`).
+- Affected services: `Biometric` module only (`facial_embeddings`, `fingerprint_embeddings`,
+  `biometric_update_case` SQL hosted in `configuration`).
 - Documents that must be updated:
   - `09-microservices/services/05-biometric-service/data-model.md` — document the MongoDB
     database, collections, and vector search index configuration.

@@ -184,23 +184,6 @@ paths:
             application/json:
               schema:
                 type: object
-  /api/v1/cities:
-    get:
-      summary: Proxy → identity cities (?limit&offset, público)
-      tags: [Identity]
-      security: []
-      parameters:
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
-        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
-      responses:
-        '200':
-          description: Proxied
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
   /api/v1/password-policies:
     get:
       summary: Proxy → identity password-policies (público)

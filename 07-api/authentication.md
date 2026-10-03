@@ -19,7 +19,7 @@
 
 | Upstream | Paths | Gateway plugins |
 |----------|-------|-----------------|
-| identity `ms-identity:8081` | `/api/v1/persons,/users,/auth,/sessions,/cities,/password-policies` + nested `~/persons/.+/transfer`, `~/users/.+/activate` | `cors(*)`, `rate-limiting 60/min redis` — **no `jwt` (public)** |
+| identity `ms-identity:8081` | `/api/v1/persons,/users,/auth,/sessions,/password-policies` + nested `~/persons/.+/transfer`, `~/users/.+/activate` (`/cities` removed — external API) | `cors(*)`, `rate-limiting 60/min redis` — **no `jwt` (public)** |
 | authorization `ms-authorization:8083` | `/api/v1/roles,/permissions` + `~/users/.+/roles`, `/api/v1/auth/evaluate` | `jwt` + `rate-limiting 100/min` |
 | academic `ms-academic:8084` | `/api/v1/schools,/programs,/academic-periods,/periods,/cohorts,/courses,/actor-types,/academic-actors,/enrollments` | `jwt` |
 | scheduling `ms-scheduling:8087` | `/api/v1/environments,/schedule-blocks,/class-sessions` + `~/cohorts/.+/blocks` | `jwt` |
@@ -44,13 +44,14 @@ GET /api/v1/sessions/user/{userId} → [{sessionId,userId,sessionStatus}]
 ```
 
 - No password hashing/refresh documented in code; session token IS the bearer token in current Mobile flow.
-- `UserDto{userId,username,authenticationType,status}`, `PersonDto{personId,name,lastName,email}`, `UserSessionDto{sessionId,userId,sessionStatus}`.
+- `UserDto{userId,username,authenticationType:Local|Windows|External,status}`, `PersonDto{personId,documentType,documentNumber,name,lastName,email,phone,bloodType,birthDate,address}`, `UserSessionDto{sessionId,userId,sessionStatus:Active|Closed}`.
 
 ### 3.2 Users / persons lifecycle
 
 ```
 POST /api/v1/users / GET /{id} / PUT /{id} (204) / POST /{id}/activate (204) / PATCH /{id}/status?status (204)
-POST /api/v1/persons / GET /{id} / PUT /{id} (204) / POST /{id}/transfer {newSchoolId} (204) / PATCH /{id}/status (204)
+POST /api/v1/persons / GET /{id} / PUT /{id} (204) / PATCH /{id}/status (204)
+POST /api/v1/persons/{id}/transfer {newSchoolId} (204) — DEPRECATED (person has no school_id; use academic_actor)
 ```
 
 ## 4. RBAC model (`02-ms-authorization`)
@@ -125,7 +126,7 @@ components:
       $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'
 ```
 
-Identity marks `/auth/*`, `/users`, `/persons`, `/cities`, `/sessions`, `/password-policies` as `security: []` (public at gateway) with a note that prod MAY add `jwt` selectively.
+Identity marks `/auth/*`, `/users`, `/persons`, `/sessions`, `/password-policies` as `security: []` (public at gateway) with a note that prod MAY add `jwt` selectively. `/cities` removed.
 
 ## 10. Gaps and TODOs (honest)
 

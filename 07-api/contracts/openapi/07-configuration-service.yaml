@@ -4,13 +4,15 @@ info:
   version: 1.0.0
   description: |
     Servicio 07-ms-configuration (TS Fastify + Zod :8089, schema `configuration`).
-    Configuraciones académicas/seguridad y casos de actualización biométrica (canónico).
+    Configuraciones académicas/seguridad. `biometric-update-cases` es el endpoint
+    canónico actual, pero su dueño lógico es Biometric (DBML v7): hospedaje
+    físico transitorio en `configuration`, pendiente de migración con compatibilidad.
 
     ## Fuente real
     - `src/infrastructure/http/routes.ts:103 registerConfigurationRoutes`, `src/main.ts:65`
     - Doble base: `/configurations/academic|security` + alias `/academic-configurations|/security-configurations`
     - Filtros `?name=` y `?status=` exactos; paginación `?limit&offset` + `x-total-count`
-    - Caso: `personId*,biometricType FACIAL|FINGERPRINT,fingerNumber 1-10 (requerido si FINGERPRINT),currentEmbeddingRef?,reason*,requestedBy?` → `{updateStatus:Pending,requestedAt}`; review `{updateStatus:In_Review|Approved|Rejected,reviewedBy?,resolutionNotes?}` + `reviewedAt`
+    - Caso: `personId*,biometricType FACIAL|FINGERPRINT,fingerNumber 1-10 (requerido si FINGERPRINT, NULL si FACIAL),currentEmbeddingRef?,reason*,requestedBy*,requestedAt*` → `{updateStatus:Pending}`; review `{updateStatus:In_Review|Approved|Rejected,reviewedBy?,resolutionNotes?}` + `reviewedAt`
     - Gateway `jwt` (`kong.yml:96-106`).
 
 servers:
@@ -600,7 +602,7 @@ components:
       allOf:
         - $ref: './_shared.yaml#/components/schemas/AuditFields'
         - type: object
-          required: [caseId, personId, biometricType, reason, updateStatus, requestedAt]
+          required: [caseId, personId, biometricType, reason, updateStatus, requestedBy, requestedAt]
           properties:
             caseId:
               type: string
@@ -614,14 +616,16 @@ components:
               minimum: 1
               maximum: 10
               nullable: true
+              description: Required 1..10 if FINGERPRINT, NULL if FACIAL (chk_finger_number)
             currentEmbeddingRef:
               type: string
               nullable: true
+              description: Logical Mongo _id, cross-paradigm, no FK
             reason:
               type: string
             requestedBy:
               type: string
-              nullable: true
+              description: Mandatory cross-context app_user id
             updateStatus:
               type: string
               enum: [Pending, In_Review, Approved, Rejected]
@@ -638,7 +642,7 @@ components:
               nullable: true
     BiometricUpdateCaseInput:
       type: object
-      required: [personId, biometricType, reason]
+      required: [personId, biometricType, reason, requestedBy]
       properties:
         personId:
           type: string
@@ -650,6 +654,7 @@ components:
           minimum: 1
           maximum: 10
           nullable: true
+          description: Required 1..10 if FINGERPRINT, NULL if FACIAL
         currentEmbeddingRef:
           type: string
           nullable: true
@@ -657,7 +662,7 @@ components:
           type: string
         requestedBy:
           type: string
-          nullable: true
+          description: Mandatory cross-context app_user id
   securitySchemes:
     bearerAuth:
       $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

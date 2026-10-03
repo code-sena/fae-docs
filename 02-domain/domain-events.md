@@ -29,6 +29,9 @@
 | Biometric | `FacialEmbeddingEnrolled` | Biometric enrollment succeeds for Person | Person can use FACIAL capture |
 | Biometric | `FacialEmbeddingUpdated` | Re-enrollment approved via Biometric_Update_Case | Template version++ ; old embedding deactivated |
 | Biometric | `FingerprintEmbeddingEnrolled` | Fingerprint captured (1..10 per Person) | Alternative capture available |
+| Biometric | `BiometricUpdateRequested` | Learner requests embedding update (Pending) | Administrator notified |
+| Biometric | `BiometricUpdateApproved` | Administrator approves case | Embedding may be re-enrolled |
+| Biometric | `BiometricUpdateRejected` | Administrator rejects case | No change; requestor notified |
 | Attendance | `AttendanceRecorded` | Learner captured via FACIAL/MANUAL/IMPORT during Open session | Late calculation vs Schedule_Block; Notification may raise alert |
 | Attendance | `LateArrivalDetected` | System marks arrival after tardy tolerance | Alert to instructor |
 | Attendance | `AbsenceDetected` | Session closes without record for enrolled actor | Alert; learner may submit Justification |
@@ -38,9 +41,6 @@
 | Attendance | `JustificationRejected` | Reviewer rejects justification | Absence remains; learner notified |
 | Notification | `AlertRaised` | Threshold/conflict detected | Recipient notified in-app |
 | Notification | `AlertResolved` | Authorized user resolves alert | Alert closed |
-| Configuration | `BiometricUpdateRequested` | Learner requests embedding update (Pending) | Administrator notified |
-| Configuration | `BiometricUpdateApproved` | Administrator approves case | Embedding may be re-enrolled |
-| Configuration | `BiometricUpdateRejected` | Administrator rejects case | No change; requestor notified |
 
 ---
 

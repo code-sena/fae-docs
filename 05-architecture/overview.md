@@ -27,12 +27,14 @@ graph TB
   Admin[Administrator<br/>Web]
   GW[API Gateway<br/>Kong :8080<br/>JWT + Rate Limit]
   APP[FaceAttend EDU<br/>Modular Monolith<br/>8 modules, 1 process]
-  PG[(PostgreSQL 17<br/>8 schemas<br/>+ MongoDB for Biometric)]
+  PG[(PostgreSQL 17<br/>faceattend_db 7 schemas)]
+  MG[(MongoDB 7<br/>vectors)]
   Learner --> GW
   Instructor --> GW
   Admin --> GW
   GW --> APP
   APP --> PG
+  APP --> MG
 ```
 
 ---
@@ -121,8 +123,8 @@ verify it is consistent with these principles.
 Design the API contract (OpenAPI) before implementing the service.
 Contracts are the source of truth for consumers.
 
-### P2: Database per Service
-Each service has its own database. No service directly accesses another service's database.
+### P2: Schema per bounded context (single DB)
+One logical DB `faceattend_db` with one schema per bounded context; no cross-schema FK. No module directly accesses another module's schema.
 Communication is always through API or events.
 
 ### P3: Fail Fast, Recover Gracefully

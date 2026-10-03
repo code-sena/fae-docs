@@ -28,6 +28,8 @@ can work in parallel (frontend, backend, other services) with an agreed contract
 | 07 | Configuration | 8089 | TS Fastify | `contracts/openapi/07-configuration-service.yaml` | jwt |
 | 08 | Notification | 8090 | Go Gin | `contracts/openapi/08-notification-service.yaml` | jwt |
 | 09 | Quality | 8091 | TS Fastify | `contracts/openapi/09-quality-service.yaml` | jwt + 100/min |
+
+> Decisions 2026-10-03: Quality 09 is tooling owned by `11-quality`, not a DDD bounded context (00-06 stay at 8 contexts). Port matrix is frozen from `FULL/back-end/docker-compose.yml` + `99-api-gateway/kong/kong.yml` as canonical; this table is the published view.
 | 99 | Gateway | 8080/8001 | Kong + Redis | `contracts/openapi/api-gateway.yaml` | global cors + 300/min |
 
 Shared: `contracts/openapi/_shared.yaml`. Template: `_template-service.yaml`. Lint: `redocly.yaml`.

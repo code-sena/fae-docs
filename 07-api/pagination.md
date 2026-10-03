@@ -1,6 +1,6 @@
 # Pagination, Filtering & Sorting — FaceAttendEDU
 
-> Real behaviors per stack. Frontends MUST use `limit/offset`; `?_limit` is Mobile legacy (JSON-Server) and MUST NOT be added to new backend endpoints.
+> Decisions 2026-10-03: new endpoints MUST use `?limit&offset` + `x-total-count`; Quality `{data,total,limit,offset}` stays as documented exception. Frontends MUST use `limit/offset`; `?_limit` is Mobile legacy (JSON-Server) and MUST NOT be added to new backend endpoints.
 
 ## 1. Canonical query params
 

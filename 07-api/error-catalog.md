@@ -1,6 +1,6 @@
 # Error Catalog — FaceAttendEDU
 
-> Canonical envelope is `ErrorResponse` (`_shared.yaml`). Per-stack wire formats below are real (from exception handlers).
+> Decisions 2026-10-03: `{error,message}` is the minimal contract in `_shared.yaml` validated by `11-quality` tests; per-stack fields stay as allowed extensions. Canonical envelope is `ErrorResponse` (`_shared.yaml`). Per-stack wire formats below are real (from exception handlers).
 
 ## 1. Canonical envelope
 

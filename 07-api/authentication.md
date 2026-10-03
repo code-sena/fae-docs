@@ -1,5 +1,7 @@
 # Authentication & Authorization — FaceAttendEDU
 
+> Decisions 2026-10-03: Kong `jwt` is canonical at the edge (identity public); in-MS `AuthTokenFilter` stays as fallback. Dev HS256 lives in `kong.yml`; prod target is RS256 via JWKS.
+
 > Real strategy as implemented: Kong JWT at the edge, permissive services behind it,
 > RBAC owned by `02-ms-authorization`, sessions owned by `01-ms-identity`.
 > Sources: `99-api-gateway/kong/kong.yml`, `01-ms-identity/.../AuthController|SessionController|SecurityConfig`,

@@ -13,7 +13,7 @@ info:
     - Routers: `facial_router.py`, `fingerprint_router.py`, `update_router.py`, `main.py:82-84,106-110`
     - Umbral `SIMILARITY_THRESHOLD=0.85` (cosine). Store `EmbeddingStore{_id,is_active,enrolled_at,…}`
     - Sin paginación. Errores `{error:NotFound|BadRequest|InternalError,message,path,timestamp}` + `422 Invalid biometric payload` + headers `x-request-id,x-process-time-ms`.
-    - Gateway `jwt` para `/api/v1/biometric` (`kong.yml:88-95`).
+    - Gateway sin plugins propios para `/api/v1/biometric` (`kong.yml:87-93`); el MS no valida el bearer hoy (tech-debt).
 
 servers:
   - url: http://localhost:8086

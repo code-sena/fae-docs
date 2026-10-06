@@ -3,7 +3,7 @@ info:
   title: Scheduling Service API
   version: 1.0.0
   description: |
-    Servicio 04-ms-scheduling (Java 21 Spring Boot :8087, schema `scheduling`).
+    Servicio 04-ms-scheduling (Java 21 Spring Boot 4.1 :8084, schema `scheduling`).
     Ambientes, bloques de horario y sesiones de clase. Anti-double-booking por
     unique `(environment,day,starts_at)` y `(instructor,day,starts_at)`.
 
@@ -16,10 +16,10 @@ info:
       `CreateClassSessionRequest{scheduleBlockId*,sessionDate*,sessionStatus?}`,
       estados `Open/Closed/Cancelled`
     - Acciones reales con POST (no PATCH): `/open`, `/close`, `/cancel`.
-    - Gateway `jwt` (`kong.yml:58-66`).
+    - Gateway sin plugins propios (`kong.yml:57-67`); el MS valida el bearer con `AuthTokenFilter`.
 
 servers:
-  - url: http://localhost:8087
+  - url: http://localhost:8084
     description: Direct (dev)
   - url: http://localhost:8080
     description: Via Kong gateway (dev, preferred)

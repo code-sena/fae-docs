@@ -18,14 +18,17 @@
 
 ### Project language tool
 
-> Add here the specific tool for the chosen stack and remove this instruction.
-> See your stack guide in `_stacks/` for recommended versions.
-
 | Tool | Minimum version | Install from | Verify with |
 |------|----------------|--------------|-------------|
-| [Language / Runtime] | [LTS version] | [Official URL] | `[command --version]` |
-| [Package manager] | [version] | [included / URL] | `[command --version]` |
-| [Additional tool] | [version] | [URL] | [command] |
+| Java (JDK) | 21 (LTS) | adoptium.net | `java --version` |
+| Maven | 3.9+ | maven.apache.org | `mvn --version` |
+| Node.js | 20+ | nodejs.org | `node --version` |
+| npm | 10+ | bundled with Node | `npm --version` |
+| Python | 3.12 | python.org | `python --version` |
+| Go | 1.22 | go.dev | `go version` |
+
+> Inside Docker none of these is required: compose builds every service image.
+> Install them only to run a service from your IDE.
 
 **Stack tool reference:**
 - Node.js + TypeScript → [`_stacks/node-typescript.md`](../_stacks/node-typescript.md)
@@ -45,19 +48,25 @@ Verify these ports are free before starting:
 
 | Port | Service | Description |
 |------|---------|-------------|
-| 8080 | api-gateway | Main entry point (Kong) |
-| 8081 | identity-service | Person, user, authentication, JWT |
-| 8083 | authorization-service | Roles, permissions |
-| 8084 | academic-service | Students, teachers, courses |
-| 8085 | attendance-service | Attendance records, justifications |
-| 8086 | biometric-service | Facial/fingerprint embeddings |
-| 8087 | scheduling-service | Environments, schedule blocks |
-| 8089 | configuration-service | Config values |
-| 8090 | notification-service | Alerts |
-| 5432 | PostgreSQL | Relational database |
-| 6379 | Redis | Cache and session store |
+| 8080 | kong-gateway (proxy) | Main entry point (Kong OSS 3.6, DB-less) |
+| 8081 | ms-identity | Person, user, authentication, sessions (opaque `sessionId`) |
+| 8082 | ms-authorization | Roles, permissions |
+| 8083 | ms-academic | Schools, programs, courses, actors, enrollments |
+| 8084 | ms-scheduling | Environments, schedule blocks, class sessions |
+| 8085 | ms-attendance | Attendance records, justifications |
+| 8086 | ms-biometric | Facial/fingerprint embeddings |
+| 8087 | ms-configuration | Academic/security configs, biometric update cases |
+| 8088 | ms-notification | Alerts |
+| 8089 | ms-quality | ISO 25010/29110/ISTQB quality tooling |
+| 8090 | frontend-web | Expo Web served by nginx |
+| 8001 | kong-gateway (admin) | Kong Admin API (loopback, `BIND_IP`) |
+| 5432 | PostgreSQL | Relational database (1 instance, 8 schemas) |
+| 6379 | Redis | Kong rate-limiting store |
 | 27017 | MongoDB | Biometric document store |
-| 9092 | Kafka | Message broker |
+| 9092 | Kafka | Domain events (KRaft) |
+
+All ports except **8080** (Kong proxy) and **8090** (frontend) bind to `BIND_IP`
+(default `127.0.0.1`). Full reference: `COMPOSE.md` §4.
 
 **Check free ports:**
 ```bash
@@ -89,28 +98,54 @@ cp .env.example .env
 # (for local, the .env.example defaults should work)
 ```
 
-**Required variables to configure in .env:**
+**Variables in `.env` (copy from `.env.example`; every one has a working default):**
 
 | Variable | Description | Value for local |
 |----------|-------------|----------------|
-| `DATABASE_URL` | PostgreSQL connection | `postgresql://dev:dev@localhost:5432/dev` |
-| `REDIS_URL` | Redis connection | `redis://localhost:6379` |
-| `JWT_SECRET` | Key for signing JWT | `[generate with: openssl rand -base64 32]` |
-| `[VARIABLE]` | [description] | [example value] |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | PostgreSQL credentials + database | `postgres` / `postgres` / `faceattend_db` |
+| `POSTGRES_PORT` | PostgreSQL host port | `5432` |
+| `FACEATTEND_LIQUIBASE_IMAGE` | Liquibase image used by the 8 migration jobs | `liquibase/liquibase:4.29.0` |
+| `MONGO_USER` / `MONGO_PASSWORD` / `MONGO_DB` / `MONGO_PORT` | MongoDB credentials for biometric vectors | `mongoadmin` / `mongopass` / `faceattend_biometric` / `27017` |
+| `REDIS_PORT` / `KAFKA_PORT` | Broker / cache host ports | `6379` / `9092` |
+| `KONG_PROXY_PORT` / `KONG_ADMIN_PORT` | Gateway ports | `8080` / `8001` |
+| `BIND_IP` | Bind for every non-edge port | `127.0.0.1` (use `0.0.0.0` for LAN/phone testing) |
+| `FRONTEND_PORT` | frontend-web host port | `8090` |
+| `EXPO_PUBLIC_API_URL` | Backend URL baked into the Web bundle at build time | `http://localhost:8080` |
+| `SEED_USERNAME` / `SEED_PASSWORD` | API seed tool credentials | `seed.admin` / `SeedAdmin123!` |
+| `BOOTSTRAP_USERNAME` / `BOOTSTRAP_PASSWORD` | Bootstrap admin user | `admin.faceattend` / `Admin123!ChangeMe` |
+
+There is **no** `DATABASE_URL`, `REDIS_URL` or `JWT_SECRET`: compose interpolates each file from
+the single root `.env`, and authentication uses opaque session ids issued by ms-identity.
 
 > **NEVER** commit the `.env` file. It is in `.gitignore` for a reason.
 
-### Step 3: Start the infrastructure
+### Step 3: Start the stack
 
 ```bash
-# Start databases and brokers in Docker
-docker compose up -d
+# From the repository root (FULL/): everything, including migrations
+docker compose up -d --build
 
-# Verify they are healthy
+# Verify state + health (Liquibase jobs must be "exited (0)")
 docker compose ps
 ```
 
-The command should show all containers in `healthy` or `running` state.
+Startup order is enforced by the compose file (see `COMPOSE.md` §2):
+`postgres` healthy → 8 Liquibase jobs in series
+(`identity → authorization → academic → scheduling → attendance → biometric → configuration
+→ notification`) → the 9 microservices → `kong-gateway` → `frontend-web`.
+
+Three bridge networks isolate the tiers — `faceattend-edge` (frontend ↔ Kong),
+`faceattend-app` (Kong ↔ ms-* ↔ Redis) and `faceattend-data` (ms-* ↔ PostgreSQL/MongoDB/Kafka
++ Liquibase) — so the data tier is unreachable from the browser-facing one (`COMPOSE.md` §3).
+
+Useful subsets:
+
+```bash
+docker compose up -d database     # solo datos + migraciones (o: cd database && docker compose up -d)
+docker compose up frontend-web kong-gateway   # tras el primer build
+docker compose logs -f ms-identity
+docker compose down               # para conservando volúmenes
+```
 
 ### Step 4: Install dependencies
 
@@ -125,18 +160,22 @@ The command should show all containers in `healthy` or `running` state.
 
 ### Step 5: Run migrations
 
-> The migration tool varies by stack. See `_stacks/[your-stack].md`.
+Migrations are **Liquibase** jobs that run as containers (image
+`FACEATTEND_LIQUIBASE_IMAGE`), one per schema, chained in `docker-compose.yml` — you never run
+them by hand:
 
-| Stack / Tool | Command |
-|--------------|---------|
-| Node.js + knex/Prisma | `npm run db:migrate` |
-| Java + Flyway | `mvn flyway:migrate` (or automatic on startup) |
-| Python + Alembic | `alembic upgrade head` |
-| Go + golang-migrate | `make migrate-up` |
+| Job | Schema | Changelog |
+|-----|--------|-----------|
+| `identity-liquibase` … `notification-liquibase` (8) | `identity, authorization, academic, scheduling, attendance, biometric, configuration, notification` | `database/<NN>-ms-*-db/changelog/changelog-master.yaml` |
 
 ```bash
-# Optionally: load initial test data (seed)
-# [see command in your stack guide]
+# Applied automatically by `docker compose up -d`; re-run one of them with:
+docker compose up identity-liquibase
+
+# Seeds (roles, permissions, actor types, justification types, alert types) are
+# changesets inside those same changelogs — see database/SEEDS.md.
+# Extra API seed data (optional, Node >= 20):
+#   tools/seed-api-test-data  using SEED_USERNAME/SEED_PASSWORD from .env
 ```
 
 ### Step 6: Start the services
@@ -153,14 +192,24 @@ The command should show all containers in `healthy` or `running` state.
 ### Step 7: Verify it works
 
 ```bash
-# Health check of the API Gateway
-curl http://localhost:8080/health
+# Gateway health (the only health route Kong proxies; no GET /health at :8080)
+curl http://localhost:8080/health/quality
+# → ISO quality report proxied to ms-academic:8083
 
-# Expected response:
-# {"status": "ok", "timestamp": "2024-01-15T10:30:00Z"}
+# Direct probes on the service ports
+curl http://localhost:8081/api/v1/health     # ms-identity
+curl http://localhost:8083/health            # ms-academic
+curl http://localhost:8084/actuator/health   # ms-scheduling (Java)
+
+# Login through the gateway (identifier = email o username)
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"identifier":"admin.faceattend","password":"Admin123!ChangeMe"}'
+# → {"sessionId":"…","userId":"…","sessionStatus":"Active",…}
 ```
 
-Open your browser at `http://localhost:15672` for the RabbitMQ interface (if using RabbitMQ).
+Then open `http://localhost:8090` (frontend-web). Swagger UI for the Java services:
+`http://localhost:8081/swagger-ui.html` (same pattern on 8082/8084/8085).
 
 ---
 
@@ -169,12 +218,11 @@ Open your browser at `http://localhost:15672` for the RabbitMQ interface (if usi
 ```bash
 # At the start of the day
 git pull origin develop
-# Install dependencies if they changed (see stack):
-#   npm install / mvn install / poetry install / go mod download
-# Run migrations if there are new ones (see stack):
-#   npm run db:migrate / alembic upgrade head / make migrate-up
-# Start the service (see stack):
-#   npm run dev / mvn spring-boot:run / uvicorn main:app --reload / make dev
+docker compose up -d            # Liquibase jobs re-run only if there are pending changesets
+docker compose ps               # services healthy; migration jobs exited (0)
+
+# Working on one service outside Docker (optional):
+#   cd back-end/0X-ms-… && mvn spring-boot:run | npm run dev | uvicorn main:app --reload | go run ./cmd/server
 
 # At the end
 git add [specific files]
@@ -221,22 +269,35 @@ docker compose logs postgres
 ### "Migration failed"
 
 ```bash
-# View migration status
-npm run db:migrate:status
+# Which Liquibase job failed (they run in series and block the chain)
+docker compose ps | findstr liquibase      # Windows
+docker compose ps | grep liquibase         # macOS/Linux
 
-# Revert the last migration
-npm run db:migrate:revert
+# Follow its output (changeset name, SQL error, preconditions)
+docker compose logs identity-liquibase
 
-# Run from a specific version
-npm run db:migrate -- --from V005
+# Re-run it after fixing; the chain resumes on the next `up`
+docker compose up identity-liquibase
+
+# Full reference of the 8 changelogs: database/<NN>-ms-*-db/changelog/
 ```
 
-### "JWT_SECRET not set" or authentication errors
+### "401 Unauthorized on every call"
+
+Authentication is **not** JWT-based: Kong has no `jwt` plugin, so a 401 always comes from the
+Java services (`01/02/04/05`) rejecting the session bearer.
 
 ```bash
-# Generate a valid JWT_SECRET
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-# Copy the result into .env
+# 1. Get a fresh session id (identifier = email o username)
+curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"identifier":"<email-or-username>","password":"<password>"}'
+
+# 2. Send it as a bearer on every /api/** call
+curl -s http://localhost:8080/api/v1/persons -H "Authorization: Bearer <sessionId>"
+
+# 3. No roles or a closed session also produce 401/403:
+#    GET /api/v1/users/<userId>/roles  ·  GET /api/v1/auth/evaluate?userId=…&permission=…
 ```
 
 ---
@@ -244,25 +305,25 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ## Utility commands
 
 ```bash
-# Tests
-npm test                    # All tests
-npm run test:unit           # Unit tests only
-npm run test:integration    # Integration tests only
-npm run test:coverage       # With coverage report
+# Stack (compose)
+docker compose up -d --build    # start everything
+docker compose ps               # state + health
+docker compose logs -f <svc>    # follow one service
+docker compose config           # validate the model
+docker compose down             # stop keeping volumes
 
-# Database
-npm run db:migrate          # Apply pending migrations
-npm run db:seed             # Load test data
-npm run db:reset            # Revert everything and start over (DELETES DATA!)
+# Tests (per stack, see _stacks/)
+mvn test                        # Java services
+npm test                        # TS services / frontends
+pytest                          # 06-ms-biometric
+go test ./...                   # 08-ms-notification
+
+# Database: migrations are the 8 Liquibase jobs (never edit data by hand)
+docker compose up identity-liquibase      # re-run one changeset chain
+# Reset (DELETES DATA!):  docker compose down -v && docker compose up -d --build
 
 # Code quality
-npm run lint                # Check ESLint
-npm run lint:fix            # Auto-fix
-npm run format              # Apply Prettier
-
-# Build
-npm run build               # Compile TypeScript
-npm run build:docker        # Build local Docker image
+npm run lint && npm run format  # TS/frontends (ESLint + Prettier)
 ```
 
 ---
@@ -271,10 +332,16 @@ npm run build:docker        # Build local Docker image
 
 | Service | URL | Credentials (local only) |
 |---------|-----|--------------------------|
-| API Gateway | http://localhost:8080 | |
-| RabbitMQ UI | http://localhost:15672 | guest / guest |
-| [Tool] | http://localhost:[port] | [user / pass] |
-| Swagger UI | http://localhost:3001/api-docs | |
+| Frontend web (SPA) | http://localhost:8090 | seed users from `tools/seed-api-test-data` |
+| API Gateway (Kong proxy) | http://localhost:8080 | `Authorization: Bearer <sessionId>` |
+| Kong Admin API | http://localhost:8001 | — (loopback) |
+| Swagger UI (Java services) | http://localhost:8081/swagger-ui.html · 8082 · 8084 · 8085 | — |
+| PostgreSQL | localhost:5432 (`faceattend_db`) | `.env` `POSTGRES_USER`/`POSTGRES_PASSWORD` |
+| MongoDB | localhost:27017 (`faceattend_biometric`) | `.env` `MONGO_*` |
+| Redis / Kafka | localhost:6379 / localhost:9092 | — |
+
+There is no RabbitMQ and no Flyway UI: the broker is **Kafka** (domain events) and migrations
+are the 8 Liquibase containers.
 
 ---
 

@@ -29,17 +29,17 @@ Include: software prerequisites, environment variables, exact commands, how to v
 ## Steps
 1. Clone the main repository: `git clone [url]`
 2. Copy environment variables: `cp .env.example .env`
-3. Start infrastructure: `docker-compose up -d`
-4. Wait for services to be ready: `./scripts/wait-for-services.sh`
-5. Verify: `curl http://localhost:8080/health`
+3. Start everything (services + migrations): `docker compose up -d --build`
+4. Wait for services to be ready: `docker compose ps`
+5. Verify: `curl http://localhost:8080/health/quality`
 
 ## Local ports
 | Service | Port |
 |---------|------|
-| API Gateway | 8080 |
-| [Service 1] | 8001 |
-| RabbitMQ UI | 15672 |
-| Adminer (DB) | 8090 |
+| API Gateway (Kong proxy) | 8080 |
+| Kong Admin API | 8001 |
+| Microservices | 8081-8089 |
+| Frontend web | 8090 |
 
 ## Common issues
 - **Port in use:** `lsof -i :8080` to see what is using it

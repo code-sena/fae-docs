@@ -6,14 +6,20 @@
 > **Engine justification:**
 > - Strong relational guarantees for person-user relationships.
 > - UUID primary keys for distributed ID generation across microservices.
-> - TIMESTAMPTZ for timezone-aware audit fields.
+> - TIMESTAMP (no time zone) for audit fields, filled by `fn_audit_timestamps()`.
 > - Optimistic locking via `row_version` for concurrent update safety.
 
 ---
 
-## 1. Table: city — DEPRECATED (removed in DBML v6/v7)
+## 1. Table: city — DEPRECATED (legacy, still deployed)
 
-> **Deprecated:** `identity.city` was removed from the relational model. Cities come from the external API `countriesnow.space`, not from a local catalog. Any `001-create-city-table` DDL is transitory pending removal. `academic.school.city_id` is `VARCHAR NULL` with no FK (see `03-academic.md`).
+> **Deprecated:** `identity.city` was removed from the relational model — cities come from the
+> external API `countriesnow.space` (see `academic.school.city_id`). The table is still created
+> by `01-ms-identity-db/01-ddl/03-tables/001-create-city-table.yaml` and Kong still routes
+> `GET/POST/PUT/DELETE /api/v1/cities` to `ms-identity` (marked `deprecated: true` in
+> `07-api/contracts/openapi/01-identity-service.yaml`). Treat it as read-only legacy pending
+> removal; do not build new features on it. `academic.school.city_id` is `VARCHAR NULL` with no
+> FK (see `03-academic.md`).
 
 ---
 
@@ -39,9 +45,9 @@ CREATE TABLE person (
   status            BOOLEAN     NOT NULL DEFAULT true,
 
   -- Audit (in all tables)
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at        TIMESTAMPTZ,
+  created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMP,
   created_by        UUID,
   updated_by        UUID,
   deleted_by        UUID,
@@ -51,7 +57,9 @@ CREATE TABLE person (
 -- Real uniqueness is the pair (document_type, document_number):
 -- CC and TI may share numbering across different persons.
 CREATE UNIQUE INDEX uq_person_document ON person (document_type, document_number);
-CREATE INDEX idx_person_email ON person (email);
+-- Partial UNIQUE (deployed as id-008-person-email-unique-index): login resolves an email to
+-- one app_user; NULLs allowed and a soft-deleted person frees its email for reuse.
+CREATE UNIQUE INDEX uq_person_email ON person (email) WHERE deleted_at IS NULL;
 CREATE INDEX idx_person_deleted ON person (deleted_at) WHERE deleted_at IS NULL;
 ```
 
@@ -70,9 +78,9 @@ CREATE INDEX idx_person_deleted ON person (deleted_at) WHERE deleted_at IS NULL;
 | birth_date | DATE | Birth date | `2000-05-10` |
 | address | VARCHAR | Home address | `Calle 123 #45-67` |
 | status | BOOLEAN | Active/inactive flag | `true` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -100,12 +108,12 @@ CREATE TABLE app_user (
   password_hash       VARCHAR     NOT NULL,
   authentication_type identity.authentication_type NOT NULL,
   status              BOOLEAN     NOT NULL DEFAULT true,
-  last_access         TIMESTAMPTZ,
+  last_access         TIMESTAMP,
 
   -- Audit (in all tables)
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at          TIMESTAMPTZ,
+  created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at          TIMESTAMP,
   created_by          UUID,
   updated_by          UUID,
   deleted_by          UUID,
@@ -125,10 +133,10 @@ CREATE UNIQUE INDEX uq_user_username ON app_user (username);
 | password_hash | VARCHAR | Hashed password (never plaintext) | `$2b$10$...` |
 | authentication_type | VARCHAR | Auth method: Local, Windows, External | `Local` |
 | status | BOOLEAN | Active/inactive flag | `true` |
-| last_access | TIMESTAMPTZ | Last login timestamp | `2024-06-01T08:15:00Z` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| last_access | TIMESTAMP | Last login timestamp | `2024-06-01T08:15:00Z` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -151,17 +159,17 @@ CREATE TABLE user_session (
   -- Business fields
   session_id      UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID        NOT NULL,
-  start_date      TIMESTAMPTZ NOT NULL,
-  end_date        TIMESTAMPTZ,
+  start_date      TIMESTAMP NOT NULL,
+  end_date        TIMESTAMP,
   source_ip       VARCHAR,
 
   -- Status fields
   session_status  identity.user_session_status NOT NULL,
 
   -- Audit (in all tables)
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at      TIMESTAMPTZ,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at      TIMESTAMP,
   created_by      UUID,
   updated_by      UUID,
   deleted_by      UUID,
@@ -178,13 +186,13 @@ CREATE INDEX idx_session_status ON user_session (session_status);
 |--------|------|-------------|---------|
 | session_id | UUID | Auto-generated unique session identifier | `550e8400-...` |
 | user_id | UUID | Session owner (FK → app_user) | `550e8400-...` |
-| start_date | TIMESTAMPTZ | Session start time | `2024-06-01T08:15:00Z` |
-| end_date | TIMESTAMPTZ | Session end time (NULL if active) | `NULL` |
+| start_date | TIMESTAMP | Session start time | `2024-06-01T08:15:00Z` |
+| end_date | TIMESTAMP | Session end time (NULL if active) | `NULL` |
 | source_ip | VARCHAR | Client IP address | `192.168.1.100` |
 | session_status | VARCHAR | State: Active or Closed | `Active` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T08:15:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T08:15:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-06-01T08:15:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-06-01T08:15:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -208,9 +216,9 @@ CREATE TABLE password_policy (
   expiration_days     INT         NOT NULL DEFAULT 90,
 
   -- Audit (in all tables)
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at          TIMESTAMPTZ,
+  created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at          TIMESTAMP,
   created_by          UUID,
   updated_by          UUID,
   deleted_by          UUID,
@@ -229,9 +237,9 @@ CREATE TABLE password_policy (
 | requires_numbers | BOOLEAN | Requires at least one number | `true` |
 | requires_symbols | BOOLEAN | Requires at least one symbol | `true` |
 | expiration_days | INT | Days before password expires | `90` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -282,7 +290,7 @@ erDiagram
     APP_USER ||--o{ USER_SESSION : "generates"
 ```
 
-> `CITY` removed — cities come from the external `countriesnow.space` API. Uniqueness on person is `uq_person_document (document_type, document_number)`.
+> `CITY` is legacy in the deployed DB (deprecated in the DBML — cities come from the external `countriesnow.space` API). Uniqueness on person is `uq_person_document (document_type, document_number)` plus the partial unique `uq_person_email (email) WHERE deleted_at IS NULL`.
 
 ---
 

@@ -3,6 +3,7 @@
 - **ID:** ADR-002
 - **Date:** 2026-09-03
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** the *data* half of this decision is live — one `faceattend_db`, schema-per-context, no cross-schema FK, per-schema roles. The *packaging* half is not: `docker compose` runs **9 independent service containers** + Kong + frontend-web, each with its own image, port and healthcheck (see `FULL/COMPOSE.md`). The module boundaries this ADR protects are unchanged; treat "one deployable" as historical context.
 - **Authors:** [Diego Andrés Gutiérrez Nuñez, Juan David Arboleda Perdomo, Jonattan Steven Rizo Solano]
 
 ---

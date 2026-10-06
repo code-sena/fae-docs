@@ -3,6 +3,7 @@
 - **ID:** ADR-006
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** Kafka is **live**, not just "ready" — a KRaft broker runs in compose (`:9092`) and producers are wired in the Java (`spring-boot-starter-kafka` / `KafkaTemplate`) and TS (`kafkajs`) services. What is still missing: consumers with retry/DLQ topics (none exist) and a documented topic inventory in the deployment.
 - **Authors:** FaceAttend EDU Team
 
 ---

@@ -3,6 +3,7 @@
 - **ID:** ADR-005
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** the per-service stack matches the implementation — Java 21 + **Spring Boot 4.1** (01/02/04/05), TypeScript + Fastify + Zod (03/07/**09**), Python 3.12 + FastAPI (06), Go 1.22 + Gin (08), Kong OSS 3.6, PostgreSQL 17, MongoDB 7, Redis 7, Kafka (KRaft). Two deltas: a ninth service **`ms-quality` :8089** (TS, ISO 25010 tooling, not a bounded context) exists, and the modules are separate containers rather than one process (see ADR-002 note).
 - **Authors:** FaceAttend EDU Team
 
 ---

@@ -3,6 +3,7 @@
 - **ID:** ADR-010
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** Liquibase is the only migration tool — image `liquibase/liquibase:4.29.0`, **8 chained jobs** (`identity → authorization → academic → scheduling → attendance → biometric → configuration → notification`) run as containers from `database/docker-compose.yml`, sequenced with `service_completed_successfully`. Changelogs are **YAML changesets embedding SQL** under `database/<NN>-ms-*-db/changelog/` (not standalone `.sql` files), and there is **no Flyway** anywhere in the repo.
 - **Authors:** FaceAttend EDU Team
 
 ---

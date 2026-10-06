@@ -1,4 +1,4 @@
-﻿# Runbook — Academic Service
+# Runbook — Academic Service
 
 > A runbook is for someone on-call at 3am. Each section must be executable without needing additional context.
 
@@ -13,7 +13,7 @@
 
 | Field | Value |
 |-------|-------|
-| Local port | 8084 |
+| Local port | 8083 |
 | Production URL | https://api.domain.com/03-academic-service |
 | Staging URL | https://staging.api.domain.com/03-academic-service |
 | Dashboard | [Grafana URL] |
@@ -28,7 +28,7 @@
 
 ```bash
 # Health check
-curl http://localhost:8084/health
+curl http://localhost:8083/health
 ```
 
 

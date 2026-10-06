@@ -28,7 +28,7 @@ According to SRS + `03-product/vision.md` roadmap (validated in `02-domain` 8 co
 - Integration with external enrollment/grading/IdP systems (future candidate).
 - Advanced internal messaging beyond in-app alerts (SMS/WhatsApp — future).
 - Predictive dropout analytics / AI risk models.
-- IoT device failure alerts — external supporting context (`06-iot-service`) kept as **future hardware** integration, not in core 8 contexts (see `02-domain/domain-map.md` IoT note).
+- IoT device failure alerts — external supporting context (`_future-iot-service`) kept as **future hardware** integration, not in core 8 contexts (see `02-domain/domain-map.md` IoT note).
 - Audit bounded context (removed 2026-09; now infra logging).
 - Separate native mobile apps — MVP is **responsive web + mobile web** (React Native considered in Horizon 3, ADR-013).
 

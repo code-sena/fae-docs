@@ -393,7 +393,7 @@ graph LR
     Configuration -.-> Attendance
 ```
 
-> **IoT note:** `IoT_Device` / `Device_Assignment` (see `09-microservices/services/06-iot-service`) is an **external supporting context** for classroom hardware. It is intentionally excluded from the 02-domain core map — attendance can operate without it, and it integrates via `attendance-service` only when hardware is present.
+> **IoT note:** `IoT_Device` / `Device_Assignment` (see `09-microservices/services/_future-iot-service`) is an **external supporting context** for classroom hardware. It is intentionally excluded from the 02-domain core map — attendance can operate without it, and it integrates via `attendance-service` only when hardware is present.
 
 ## Ubiquitous Language — Consolidated
 

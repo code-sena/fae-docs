@@ -1,4 +1,4 @@
-﻿# Attendance Service
+# Attendance Service
 
 > Owns class sessions, daily attendance, and justification workflows for academic operations.
 
@@ -50,5 +50,5 @@
 - [events.md](./events.md) — event contracts for class start, attendance, and justification updates
 - [decisions.md](./decisions.md) — service decisions that shape attendance operations
 - [runbook.md](./runbook.md) — incident handling and operational playbooks
-- [API Contract](../../../07-api/contracts/openapi/04-attendance-service.yaml)
+- [API Contract](../../../07-api/contracts/openapi/05-attendance-service.yaml)
 

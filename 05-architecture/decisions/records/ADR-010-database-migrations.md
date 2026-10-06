@@ -115,7 +115,7 @@ db/
 |------|------------|--------|-----------|
 | Java runtime dependency complicates CI/CD | Low | Low | Jenkins agents typically have Java installed; document requirement in `10-devops/` |
 | Liquibase changelog conflicts between modules | Medium | Medium | Each module owns its changelog directory; no shared tables across schemas (ADR-002) prevents conflicts |
-| MongoDB schema changes are not managed by Liquibase | Low | Low | MongoDB is schemaless; document migration patterns for biometric collections in `09-microservices/services/05-biometric-service/` |
+| MongoDB schema changes are not managed by Liquibase | Low | Low | MongoDB is schemaless; document migration patterns for biometric collections in `09-microservices/services/06-biometric-service/` |
 
 ---
 

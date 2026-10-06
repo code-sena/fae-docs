@@ -1,4 +1,4 @@
-﻿# Data Model — Attendance Service
+# Data Model — Attendance Service
 
 > This service is the authoritative owner of class sessions and attendance outcomes.
 > It captures the real attendance events during classes and the associated justification flow.
@@ -139,7 +139,7 @@
 
 ## Schema migration
 
-**Tool:** Flyway
+**Tool:** Liquibase 4.29 (chained containers, ADR-010)
 **Script location:** src/migrations/
 **Naming convention:** V[NNN]__[description].sql
 

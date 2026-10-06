@@ -48,7 +48,7 @@ The product definition is based on:
 ## Product decision log
 
 - **Audit as domain removed (2026-09):** Audit is now infra concern, not product pillar — removed from 02-domain/06-data/09-microservices.
-- **IoT out-of-scope for MVP:** Kept as external supporting context in `09-microservices/06-iot-service` for future hardware, not in core domain map.
+- **IoT out-of-scope for MVP:** Kept as external supporting context in `09-microservices/services/_future-iot-service` for future hardware, not in core domain map.
 - **Biometric choice:** FACIAL primary, FINGERPRINT optional per `Biometric_Update_Case` workflow (see `02-domain`).
 
 ## How to use this section in a sprint

@@ -1,4 +1,4 @@
-﻿# Data Model — IoT Service
+# Data Model — IoT Service
 
 > This service is the authoritative owner of the device lifecycle and classroom assignment metadata.
 > It manages hardware identity and current assignment state without owning academic business rules.
@@ -79,7 +79,7 @@
 
 ## Schema migration
 
-**Tool:** Flyway
+**Tool:** Liquibase 4.29 (chained containers, ADR-010)
 **Script location:** src/migrations/
 **Naming convention:** V[NNN]__[description].sql
 

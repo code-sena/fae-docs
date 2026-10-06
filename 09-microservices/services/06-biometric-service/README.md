@@ -1,4 +1,4 @@
-﻿# Biometric Service
+# Biometric Service
 
 > Owns facial and fingerprint embeddings, plus the workflow for updating those templates and validating identities.
 
@@ -48,5 +48,5 @@
 - [events.md](./events.md) — recognition and approval events between services
 - [decisions.md](./decisions.md) — design decisions for vector storage and identity boundaries
 - [runbook.md](./runbook.md) — operational procedures for model updates and incident handling
-- [API Contract](../../../07-api/contracts/openapi/05-biometric-service.yaml)
+- [API Contract](../../../07-api/contracts/openapi/06-biometric-service.yaml)
 

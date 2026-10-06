@@ -1,4 +1,4 @@
-﻿# Configuration Service
+# Configuration Service
 
 > Owns platform and academic configuration values that control behavior without being part of the core business entities.
 
@@ -25,7 +25,7 @@
 | Field | Value |
 |-------|-------|
 | Number in catalog | 08 |
-| Local port | 8089 |
+| Local port | 8087 |
 | Repository | [Service repo URL] |
 | DB engine | PostgreSQL |
 | Communicates with | academic-service, attendance-service, identity-service |
@@ -48,5 +48,5 @@
 - [events.md](./events.md) — change events for configuration propagation
 - [decisions.md](./decisions.md) — service governance and policy decisions
 - [runbook.md](./runbook.md) — configuration rollout and rollback procedures
-- [API Contract](../../../07-api/contracts/openapi/08-configuration-service.yaml)
+- [API Contract](../../../07-api/contracts/openapi/07-configuration-service.yaml)
 

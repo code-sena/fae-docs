@@ -132,7 +132,7 @@ in the DBML model are conceptual representations; the actual MongoDB implementat
 - Affected services: `Biometric` module only (`facial_embeddings`, `fingerprint_embeddings`,
   `biometric_update_case` SQL hosted in `configuration`).
 - Documents that must be updated:
-  - `09-microservices/services/05-biometric-service/data-model.md` — document the MongoDB
+  - `09-microservices/services/06-biometric-service/data-model.md` — document the MongoDB
     database, collections, and vector search index configuration.
   - `09-microservices/service-catalog.md` — ensure biometric-service correctly reflects
     MongoDB as its data store.

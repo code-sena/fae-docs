@@ -127,7 +127,7 @@ graph TB
 > Full detail per service in `09-microservices/service-catalog.md`; ports and routes are frozen
 > from `FULL/COMPOSE.md` + `FULL/back-end/99-api-gateway/kong/kong.yml`.
 
-> **Note:** `06-iot-service` (IoT_Device, Device_Assignment) exists as a *future* external supporting module for classroom hardware; it is not part of the 8 core business contexts in `02-domain` and is excluded from the v1.1 scope.
+> **Note:** `_future-iot-service` (IoT_Device, Device_Assignment) exists as a *future* external supporting module for classroom hardware; it is not part of the 8 core business contexts in `02-domain` and is excluded from the v1.1 scope.
 
 ---
 

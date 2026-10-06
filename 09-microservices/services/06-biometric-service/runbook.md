@@ -1,8 +1,8 @@
-﻿# Runbook — Biometric Service
+# Runbook — Biometric Service
 
 > A runbook is for someone on-call at 3am. Each section must be executable without needing additional context.
 
-**Service:** 05-biometric-service
+**Service:** 06-biometric-service
 **Repository:** [Service repo URL]
 **Version:** 1.0
 **Last updated:** YYYY-MM-DD
@@ -14,8 +14,8 @@
 | Field | Value |
 |-------|-------|
 | Local port | 8086 |
-| Production URL | https://api.domain.com/05-biometric-service |
-| Staging URL | https://staging.api.domain.com/05-biometric-service |
+| Production URL | https://api.domain.com/06-biometric-service |
+| Staging URL | https://staging.api.domain.com/06-biometric-service |
 | Dashboard | [Grafana URL] |
 | Alert channel | [#alerts / PagerDuty] |
 | Escalation | [On-call owner] |
@@ -41,8 +41,8 @@ curl http://localhost:8086/health
 **Symptom:** Error rate > 2% for 5 minutes.
 
 ```bash
-kubectl logs -n [namespace] -l app=05-biometric-service --tail=100 | grep ERROR
-kubectl get pods -n [namespace] -l app=05-biometric-service
+kubectl logs -n [namespace] -l app=06-biometric-service --tail=100 | grep ERROR
+kubectl get pods -n [namespace] -l app=06-biometric-service
 ```
 
 **Decision tree:**
@@ -55,7 +55,7 @@ kubectl get pods -n [namespace] -l app=05-biometric-service
 ### Alert: High latency (p95 > SLO)
 
 ```bash
-kubectl top pods -n [namespace] -l app=05-biometric-service
+kubectl top pods -n [namespace] -l app=06-biometric-service
 ```
 ---
 
@@ -80,13 +80,13 @@ kubectl exec -n [namespace] [postgres-pod] -- pg_isready -U [user]
 ### 5.1 Scale the service
 
 ```bash
-kubectl scale deployment/05-biometric-service -n [namespace] --replicas=[N]
+kubectl scale deployment/06-biometric-service -n [namespace] --replicas=[N]
 ```
 ### 5.2 Rollback
 
 ```bash
-kubectl rollout history deployment/05-biometric-service -n [namespace]
-kubectl rollout undo deployment/05-biometric-service -n [namespace]
+kubectl rollout history deployment/06-biometric-service -n [namespace]
+kubectl rollout undo deployment/06-biometric-service -n [namespace]
 ```
 ---
 

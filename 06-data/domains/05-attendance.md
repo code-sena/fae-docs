@@ -30,7 +30,7 @@ CREATE TABLE attendance_record (
   attendance_record_id  BIGSERIAL   PRIMARY KEY,
   class_session_id      BIGINT      NOT NULL,
   academic_actor_id     BIGINT      NOT NULL,
-  captured_at           TIMESTAMPTZ,
+  captured_at           TIMESTAMP,
 
   -- Status fields
   attendance_status     attendance.attendance_status NOT NULL,
@@ -38,9 +38,9 @@ CREATE TABLE attendance_record (
   match_score           DECIMAL(5,4),
 
   -- Audit (in all tables)
-  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at            TIMESTAMPTZ,
+  created_at            TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at            TIMESTAMP,
   created_by            UUID,
   updated_by            UUID,
   deleted_by            UUID,
@@ -60,13 +60,13 @@ CREATE INDEX idx_attendance_deleted ON attendance_record (deleted_at) WHERE dele
 | attendance_record_id | BIGSERIAL | Auto-incremental record identifier | `1` |
 | class_session_id | BIGINT | Class session (external ID → Scheduling.class_session) | `1` |
 | academic_actor_id | BIGINT | Actor being tracked (external ID → Academic.academic_actor) | `1` |
-| captured_at | TIMESTAMPTZ | When attendance was captured | `2024-06-01T08:05:00Z` |
+| captured_at | TIMESTAMP | When attendance was captured | `2024-06-01T08:05:00Z` |
 | attendance_status | ENUM | Status: Present, Absent, Late, Justified | `Present` |
 | capture_method | ENUM | Method: FACIAL, MANUAL, IOT, IMPORT | `FACIAL` |
 | match_score | DECIMAL(5,4) | Biometric match score (0.0000..1.0000) | `0.9876` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T08:05:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T08:05:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-06-01T08:05:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-06-01T08:05:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -97,9 +97,9 @@ CREATE TABLE justification_type (
   status                 BOOLEAN     NOT NULL DEFAULT true,
 
   -- Audit (in all tables)
-  created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at             TIMESTAMPTZ,
+  created_at             TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at             TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at             TIMESTAMP,
   created_by             UUID,
   updated_by             UUID,
   deleted_by             UUID,
@@ -122,9 +122,9 @@ CREATE INDEX idx_justification_type_school ON justification_type (school_id);
 | description | VARCHAR | Type description | `Validated medical incapacity` |
 | requires_attachment | BOOLEAN | Whether supporting document is required | `true` |
 | status | BOOLEAN | Active/inactive flag | `true` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -144,16 +144,16 @@ CREATE TABLE justification (
   attendance_record_id    BIGINT      NOT NULL UNIQUE,
   justification_type_id   INT         NOT NULL,
   reason                  TEXT        NOT NULL,
-  submitted_at            TIMESTAMPTZ NOT NULL,
+  submitted_at            TIMESTAMP NOT NULL,
 
   -- Status fields
   review_status           attendance.review_status NOT NULL,
   resolution_notes        TEXT        NULL,
 
   -- Audit (in all tables)
-  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at              TIMESTAMPTZ,
+  created_at              TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at              TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at              TIMESTAMP,
   created_by              UUID,
   updated_by              UUID,
   deleted_by              UUID,
@@ -161,7 +161,7 @@ CREATE TABLE justification (
 
   -- Extra
   reviewed_by             UUID,
-  reviewed_at             TIMESTAMPTZ
+  reviewed_at             TIMESTAMP
 );
 
 CREATE INDEX idx_justification_type ON justification (justification_type_id);
@@ -176,18 +176,18 @@ CREATE INDEX idx_justification_reviewer ON justification (reviewed_by);
 | attendance_record_id | BIGINT | Attendance record (FK → attendance_record, UNIQUE) | `1` |
 | justification_type_id | INT | Type of justification (FK → justification_type) | `1` |
 | reason | TEXT | Detailed justification reason | `Medical appointment` |
-| submitted_at | TIMESTAMPTZ | When the justification was submitted | `2024-06-01T10:00:00Z` |
+| submitted_at | TIMESTAMP | When the justification was submitted | `2024-06-01T10:00:00Z` |
 | review_status | ENUM | Status: Pending, Approved, Rejected | `Pending` |
 | resolution_notes | TEXT | Review resolution notes | `Approved — certificate verified` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T10:00:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T10:00:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-06-01T10:00:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-06-01T10:00:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
 | row_version | BIGINT | Optimistic lock version counter | `1` |
 | reviewed_by | UUID | Reviewing user (external ID → Identity.app_user) | `550e8400-...` |
-| reviewed_at | TIMESTAMPTZ | When the justification was reviewed | `2024-06-02T14:00:00Z` |
+| reviewed_at | TIMESTAMP | When the justification was reviewed | `2024-06-02T14:00:00Z` |
 
 ---
 
@@ -206,9 +206,9 @@ CREATE TABLE supporting_document (
   size_bytes              BIGINT      NOT NULL,
 
   -- Audit (in all tables)
-  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at              TIMESTAMPTZ,
+  created_at              TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at              TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at              TIMESTAMP,
   created_by              UUID,
   updated_by              UUID,
   deleted_by              UUID,
@@ -232,12 +232,12 @@ CREATE TABLE attendance_report (
   report_type   VARCHAR     NOT NULL,
   filters       JSONB       NULL,
   result        JSONB       NULL,
-  generated_at  TIMESTAMPTZ NOT NULL,
+  generated_at  TIMESTAMP NOT NULL,
 
   -- Audit (in all tables)
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at    TIMESTAMPTZ,
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at    TIMESTAMP,
   created_by    UUID,
   updated_by    UUID,
   deleted_by    UUID,
@@ -259,7 +259,7 @@ CREATE INDEX idx_report_cohort ON attendance_report (cohort_id);
 | report_type | VARCHAR | Report type | `cohort-summary` |
 | filters | JSONB | Input filters | `{"cohort_id":1}` |
 | result | JSONB | Computed result | `{"present":25}` |
-| generated_at | TIMESTAMPTZ | Generation time | `2024-06-02T14:00:00Z` |
+| generated_at | TIMESTAMP | Generation time | `2024-06-02T14:00:00Z` |
 
 ---
 
@@ -273,9 +273,9 @@ CREATE INDEX idx_report_cohort ON attendance_report (cohort_id);
 | storage_uri | VARCHAR | Storage path or URL | `/docs/justifications/001/medical_cert.pdf` |
 | mime_type | VARCHAR | MIME type of the file | `application/pdf` |
 | size_bytes | BIGINT | File size in bytes | `245760` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T10:00:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T10:00:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-06-01T10:00:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-06-01T10:00:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |

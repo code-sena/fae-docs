@@ -34,9 +34,9 @@ CREATE TABLE environment (
   status          BOOLEAN     NOT NULL DEFAULT true,
 
   -- Audit (in all tables)
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at      TIMESTAMPTZ,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at      TIMESTAMP,
   created_by      UUID,
   updated_by      UUID,
   deleted_by      UUID,
@@ -56,9 +56,9 @@ CREATE UNIQUE INDEX uq_environment_code_school ON environment (school_id, code);
 | name | VARCHAR | Environment name | `Room 101` |
 | capacity | SMALLINT | Maximum occupancy | `30` |
 | status | BOOLEAN | Active/inactive flag | `true` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -83,9 +83,9 @@ CREATE TABLE schedule_block (
   ends_at             TIME        NOT NULL CHECK (ends_at > starts_at),
 
   -- Audit (in all tables)
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at          TIMESTAMPTZ,
+  created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at          TIMESTAMP,
   created_by          UUID,
   updated_by          UUID,
   deleted_by          UUID,
@@ -115,9 +115,9 @@ CREATE INDEX idx_block_course ON schedule_block (course_id);
 | day_of_week | SMALLINT | Day of week (1..7) | `1` |
 | starts_at | TIME | Block start time | `08:00` |
 | ends_at | TIME | Block end time | `09:30` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -142,17 +142,17 @@ CREATE TABLE class_session (
   schedule_block_id BIGINT      NOT NULL,
   session_date      DATE        NOT NULL,
   opened_by         BIGINT,
-  opened_at         TIMESTAMPTZ,
+  opened_at         TIMESTAMP,
   closed_by         BIGINT,
-  closed_at         TIMESTAMPTZ,
+  closed_at         TIMESTAMP,
 
   -- Status fields
   session_status    scheduling.class_session_status NOT NULL,
 
   -- Audit (in all tables)
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at        TIMESTAMPTZ,
+  created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMP,
   created_by        UUID,
   updated_by        UUID,
   deleted_by        UUID,
@@ -171,13 +171,13 @@ CREATE INDEX idx_session_date ON class_session (session_date);
 | schedule_block_id | BIGINT | Parent schedule block (FK → schedule_block) | `1` |
 | session_date | DATE | Date of this session | `2024-06-01` |
 | opened_by | BIGINT | Instructor who opened the class (external ID → Academic.academic_actor) | `1` |
-| opened_at | TIMESTAMPTZ | When the instructor opened the class | `2024-06-01T08:00:00Z` |
+| opened_at | TIMESTAMP | When the instructor opened the class | `2024-06-01T08:00:00Z` |
 | closed_by | BIGINT | Instructor who closed the class (external ID) | `1` |
-| closed_at | TIMESTAMPTZ | When the instructor closed the class | `2024-06-01T09:30:00Z` |
+| closed_at | TIMESTAMP | When the instructor closed the class | `2024-06-01T09:30:00Z` |
 | session_status | VARCHAR | State: Open, Closed, Cancelled | `Open` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T08:00:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T08:00:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-06-01T08:00:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-06-01T08:00:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |

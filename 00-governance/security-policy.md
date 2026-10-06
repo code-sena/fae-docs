@@ -20,7 +20,14 @@
 
 ### JWT (JSON Web Tokens)
 
-| Property | Required value |
+> **Status (2026-10-05):** this table is the **target state**, not the current one. Today the
+> platform issues **opaque session ids** (`identity.user_session`) sent as
+> `Authorization: Bearer <sessionId>`; Kong has **no `jwt` plugin** and no refresh tokens exist.
+> Each Java service validates the bearer with `AuthTokenFilter` (TS/Python/Go services do not
+> yet — tech debt `AT-004`). Edge JWT with RS256 is the ADR-007 goal (`AT-007`).
+> Current behavior: `07-api/authentication.md`.
+
+| Property | Required value (target state) |
 |----------|---------------|
 | Signing algorithm | RS256 (asymmetric) or HS256 with 256+ bit secret |
 | Access token expiration | 1 hour (`exp`) |
@@ -34,6 +41,9 @@
 - Full PII (only the user ID)
 
 ### Refresh Token
+
+> **Not implemented today** — there are no refresh tokens to store or rotate; sessions are rows
+> in `identity.user_session`. The rules below are the target state once ADR-007 lands.
 
 - Stored in the database (with bcrypt hash)
 - Mandatory rotation on each use (one refresh token = one use)
@@ -52,7 +62,11 @@
 | `Instructor` / `Teacher` | Manages cohort attendance and reviews justifications | `attendance:record`, `justification:review`, `reports:read`, `schedule:manage` |
 | `Student` / `Learner` | Records own attendance and submits justifications | `attendance:self-record`, `justification:create`, `history:self-read` |
 
-> **Mapping:** `SUPER_ADMIN` technical role is reserved for DevOps (Kong/Jenkins) and is not a business role in `02-domain` Authorization. Roles are assigned per School via `User_Role` and embedded in JWT as `roles: ["Administrator"]` per `security-policy.md` §Validation.
+> **Mapping:** effective role catalog in the database is `Administrador | Instructor | Aprendiz`
+> (changeset `auth-004-unify-mobile-roles`; legacy `SUPER_ADMIN`/`SCHOOL_ADMIN`/`INSTRUCTOR`/
+> `STUDENT` are merged). Roles are **global** — `authorization.role` has no `school_id` and
+> `User_Role` maps `user_id → role_id` only. Permissions are resolved per request through
+> `GET /api/v1/auth/evaluate`, not through JWT claims (no tokens are issued today).
 
 **Permission model:**
 
@@ -68,10 +82,12 @@ Examples:
   reports:export
 ```
 
-**Validation:**
-- The API Gateway validates the JWT (signature and expiration)
+**Validation (current vs target):**
+- Today: the API Gateway does **not** authenticate — Kong runs only `cors` + `rate-limiting`;
+  each Java service validates the opaque bearer with `AuthTokenFilter`
+- Target (ADR-007): the API Gateway validates the JWT (signature and expiration)
 - Each service validates the role permissions for the specific operation
-- Roles are included in the JWT as claim `roles: ["OPERATOR", "VIEWER"]`
+- Target (ADR-007): roles travel as claim `roles: ["Administrador"]`
 
 ---
 

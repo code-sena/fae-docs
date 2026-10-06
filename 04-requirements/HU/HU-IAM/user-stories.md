@@ -12,36 +12,40 @@
 
 > Format: “Given [context/initial state], when [user action], then [expected and verifiable result].”
 
-- [ ] **AC1:** Given that a user is registered and active in the system, when the user submits valid credentials, then the system authenticates the user, creates a secure session or token, and grants access according to the assigned role.
+- [ ] **AC1:** Given that a user is registered and active in the system, when the user submits valid credentials (`identifier` = email or username, plus password), then the system authenticates the user, creates an **opaque session** (`identity.user_session` row returning a `sessionId` used as `Authorization: Bearer`), and grants access according to the assigned role.
 
-- [ ] **AC2:** Given that a user submits invalid credentials, when the login request is processed, then the system denies access, shows a generic authentication error, and does not reveal whether the username exists.
+- [ ] **AC2:** Given that a user submits invalid credentials, when the login request is processed, then the system denies access with `401` and the generic message **`Invalid email or password`**, without revealing whether the identifier exists.
 
-- [ ] **AC3:** Given that a user account is inactive or deactivated, when the user attempts to log in, then the system denies access and shows a clear message indicating that the account is not active.
+- [ ] **AC3:** Given that a user account is inactive or deactivated, when the user attempts to log in, then the system denies access with the same generic `401 Invalid email or password` (implementation note: a dedicated "account not active" message is **not** returned — deliberate, to avoid account enumeration; `AuthenticateUserUseCaseImpl`).
 
 - [ ] **AC4:** Given that a user repeatedly submits invalid credentials, when the configured failed-attempt threshold is reached, then the system temporarily blocks or delays further attempts and records the event for auditing.
+  > **Status:** not implemented — `configuration.security_configuration` seeds `max_login_attempts=5`
+  > and `lockout_duration_minutes=30`, but no service reads them yet. Recorded as pending work.
 
 - [ ] **AC5:** Given that the system is running in a production or pilot environment, when the user submits login credentials, then the communication is protected using HTTPS.
 
 - [ ] **AC6:** Given normal network conditions, when the user submits valid credentials, then the login process responds in less than 5 seconds, according to RNF 1.
 
 - [ ] **AC7:** Given that the login is successful, when the user accesses the system, then the system records a login audit event with date, time, user identifier, and result.
+  > Implemented as platform logging + `last_access` update on `app_user` (the Audit bounded
+  > context was removed, 2026-09).
 
 ---
 
 ## Technical notes
 
-- The SRS RF 1.3 presents an inconsistency: the input is described as “Registro en FaceAttend EDU”, but the correct input should be user credentials such as username/email and password.
-- Passwords must not be stored or transmitted in plain text.
-- The system should implement secure password hashing, for example bcrypt or Argon2id.
-- Failed login attempts should be logged without exposing sensitive data.
-- Session or token expiration must be defined by the team. Proposed values: access token 1 hour, refresh token 7 days.
-- The login flow must consider role-based redirection after successful authentication.
+- The SRS RF 1.3 presents an inconsistency: the input is described as “Registro en FaceAttend EDU”, but the correct input is the **`identifier` field** (email **or** username — `@JsonAlias({"username","email"})`) plus password.
+- Passwords must not be stored or transmitted in plain text; hashing is **bcrypt cost 12, `$2b`** (ADR-008, `SecurityConfig`).
+- Failed login attempts are logged without exposing sensitive data (generic 401 always).
+- There are **no access/refresh tokens**: sessions are rows in `identity.user_session` (`session_status` Active/Closed) and are closed by `DELETE /api/v1/auth/logout`. Kong has no `jwt` plugin; each Java service validates the bearer with `AuthTokenFilter`.
+- The login flow must consider role-based redirection after successful authentication (Web maps roles via `backendRoles.js`: `Administrador|Instructor|Aprendiz`, legacy names accepted).
 - Sensitive authentication data must not be written to logs or shown in the user interface.
 
-**Responsible service(s):** IAM service / Authentication service, proposed.  
+**Responsible service(s):** `ms-identity` (authentication is merged into Identity; there is no separate IAM service).  
 **Endpoint(s) implemented:**  
-- `POST /api/v1/auth/login` — proposed.  
-- `POST /api/v1/auth/logout` — proposed.  
+- `POST /api/v1/auth/login` — implemented (`AuthController`).  
+- `POST /api/v1/auth/logout` — implemented.  
+- `GET /api/v1/auth/me` — implemented (returns the full `UserDto`).  
 
 **Events generated:**  
 - `UserLoggedIn`  
@@ -126,14 +130,20 @@
   - Teacher / Instructor.
   - Student.
   - Parent or guardian, if applicable.
+- **Effective role catalog in the database:** `Administrador | Instructor | Aprendiz`
+  (changeset `auth-004-unify-mobile-roles`); the legacy `SUPER_ADMIN / SCHOOL_ADMIN / INSTRUCTOR /
+  STUDENT` names are merged into those three and are still accepted by the Web client
+  (`backendRoles.js`) for unmigrated databases.
 - Password handling must follow security requirements. If registration generates an initial password or invitation flow, this must be defined by the team.
 - Sensitive data must be stored securely and must not appear in logs.
 - Registration should be auditable for traceability.
 
-**Responsible service(s):** IAM service / User management service, proposed.  
+**Responsible service(s):** `ms-identity` (person + user) and `ms-authorization` (role assignment).  
 **Endpoint(s) implemented:**  
-- `POST /api/v1/users` — proposed.  
-- `POST /api/v1/users/{userId}/role` — proposed, if role assignment is separated from user creation.  
+- `POST /api/v1/persons` — implemented (`PersonController`).  
+- `POST /api/v1/users` — implemented (`UserController`).  
+- `POST /api/v1/users/{userId}/roles` — implemented in `ms-authorization` (`UserRoleController`), called after user creation.  
+- `POST /api/v1/users/{id}/activate` · `PATCH /api/v1/users/{id}/status` — implemented (`UserController`).  
 
 **Events generated:**  
 - `UserRegistered`  
@@ -197,7 +207,7 @@
 
 - [ ] **AC3:** Given that a user attempts to access a module, view, or action not allowed by their role, when the request is processed, then the system denies access and records the unauthorized attempt.
 
-- [ ] **AC4:** Given that an administrator updates the permissions of a role, when the changes are saved, then the new permissions are applied to subsequent sessions or token validations and an audit event is generated.
+- [ ] **AC4:** Given that an administrator updates the permissions of a role, when the changes are saved, then the new permissions are applied to subsequent permission evaluations (`GET /api/v1/auth/evaluate`) and an audit event is generated.
 
 - [ ] **AC5:** Given that the administrator tries to assign an invalid module, view, or action, when the permission assignment is submitted, then the system rejects the operation and shows a validation error.
 
@@ -218,17 +228,19 @@
   - Teacher / Instructor.
   - Student.
   - Parent or guardian, if applicable.
+  > Effective catalog in the database: `Administrador | Instructor | Aprendiz`
+  > (`auth-004-unify-mobile-roles`); roles are **global** — `authorization.role` has no `school_id`.
 - The permission model should consider modules, views, and actions if the system requires fine-grained access control.
 - Unauthorized access attempts should be logged for auditing purposes.
 - Permission changes must be traceable and should appear in user-change history or audit logs.
 - The system must avoid privilege escalation, meaning users should not be able to grant themselves permissions.
 
-**Responsible service(s):** IAM service / Authorization service, proposed.  
+**Responsible service(s):** `ms-authorization`.  
 **Endpoint(s) implemented:**  
-- `GET /api/v1/roles` — proposed.  
-- `GET /api/v1/roles/{roleId}/permissions` — proposed.  
-- `POST /api/v1/roles/{roleId}/permissions` — proposed.  
-- `GET /api/v1/users/me/permissions` — proposed.  
+- `GET /api/v1/roles` · `POST /api/v1/roles` · `GET/PUT/DELETE /api/v1/roles/{roleId}` — implemented (`RoleController`).  
+- `GET /api/v1/roles/{roleId}/permissions` · `POST /api/v1/roles/{roleId}/permissions` · `DELETE /api/v1/roles/{roleId}/permissions/{permissionId}` — implemented.  
+- `GET /api/v1/permissions` — implemented (`PermissionController`).  
+- `GET /api/v1/users/{userId}/roles` · `GET /api/v1/auth/evaluate?userId=&permission=` — implemented (`UserRoleController`); there is **no** `/users/me/permissions` endpoint (clients derive UI permissions from `/users/{id}/roles`).  
 
 **Events generated:**  
 - `RolePermissionsUpdated`  

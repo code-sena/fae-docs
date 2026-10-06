@@ -103,7 +103,7 @@ Cross-cutting supporting subdomain.
 - User_Role.
 
 ### Responsibilities
-- Define global roles (`SUPER_ADMIN`, `SCHOOL_ADMIN`, `INSTRUCTOR`, `STUDENT`).
+- Define global roles (`Administrador`, `Instructor`, `Aprendiz` — legacy `SUPER_ADMIN`, `SCHOOL_ADMIN`, `INSTRUCTOR`, `STUDENT` are merged by changeset `auth-004-unify-mobile-roles`).
 - Define permissions per action (`context.resource:action`).
 - Associate roles with permissions.
 - Assign roles to users (PK `(user_id, role_id)`, no `school_id`).

@@ -41,4 +41,4 @@
 - Data model → [`06-data/domains/07-notification.md`](../../../06-data/domains/07-notification.md)
 - Catalog entry → [`../service-catalog.md`](../service-catalog.md)
 - Per-service pages (`data-model.md`, `events.md`, `decisions.md`, `runbook.md`) are **pending** —
-  follow `../_template/service/` when writing them.
+  follow `../../_template/service/` when writing them.

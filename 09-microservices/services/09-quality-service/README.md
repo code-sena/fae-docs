@@ -31,6 +31,6 @@
 ## Related documents
 
 - [API Contract](../../../07-api/contracts/openapi/09-quality-service.yaml)
-- Port matrix → [`../../07-api/README.md`](../../07-api/README.md)
+- Port matrix → [`../../../07-api/README.md`](../../../07-api/README.md)
 - Per-service pages (`data-model.md`, `events.md`, `decisions.md`, `runbook.md`) are **pending** —
-  follow `../_template/service/` when writing them.
+  follow `../../_template/service/` when writing them.

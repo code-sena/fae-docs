@@ -51,7 +51,7 @@ service_name/
 │   │   ├── sqlalchemy_appointment_repository.py
 │   │   └── models/
 │   │       └── appointment_orm.py   # ORM model (separate from domain entity)
-│   ├── messaging/                   # Secondary adapter: Kafka / RabbitMQ
+│   ├── messaging/                   # Secondary adapter: Kafka producer
 │   │   └── kafka_event_publisher.py
 │   └── config/                      # DI container and configuration
 │       ├── dependencies.py          # FastAPI Depends() — wiring

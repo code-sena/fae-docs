@@ -91,7 +91,7 @@ const user = await userRepository.findOne({ where: { id: userId } });
 
 - Verify Docker image checksum before using in production
 - Third-party webhooks must verify cryptographic signature
-- Validate that messages from the broker (Kafka/RabbitMQ) have the expected schema
+- Validate that messages from the broker (Kafka) have the expected schema
 
 ### A09 — Security Logging and Monitoring Failures
 

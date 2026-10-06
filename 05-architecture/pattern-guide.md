@@ -309,7 +309,7 @@ Phase 3:  Client → API Gateway → New Service (100%) — monolith retired
 
 ---
 
-#### Asynchronous: Message Broker (Kafka / RabbitMQ)
+#### Asynchronous: Message Broker (Kafka)
 
 ```
 [Service A] ──publishes──▶ [Topic/Queue] ──consumes──▶ [Service B]

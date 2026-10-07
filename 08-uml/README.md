@@ -15,10 +15,17 @@
 ## Chosen format and workflow (decision)
 
 > **Format: Mermaid only.** Every diagram lives as a `.mmd` file in `diagrams/source/`, one diagram
-> per file, and is registered in `diagram-index.md`. GitHub, GitLab and VS Code render them natively,
-> so no binary exports are committed — `diagrams/exports/` stays optional (SVG generated with
-> `mmdc` only when a slide/doc needs an image). PlantUML and draw.io below are kept as reference
-> for the day a diagram outgrows Mermaid; new diagrams should not start in those tools.
+> per file, and is registered in `diagram-index.md`.
+>
+> **How they are viewed (accurate):** GitHub/GitLab do **not** render standalone `.mmd` files — they
+> only render ` ```mermaid ` blocks inside Markdown. So preview the sources in **VS Code** (Markdown
+> Preview Mermaid Support / Mermaid extension) or paste them into [mermaid.live](https://mermaid.live).
+> When a diagram must be visible *on GitHub* (PR review, README), export it once with `mmdc` to
+> `diagrams/exports/*.svg` and link the SVG — never duplicate the diagram in a Markdown file, because
+> two copies are two things to keep updated.
+>
+> PlantUML and draw.io below are kept as reference for the day a diagram outgrows Mermaid; new
+> diagrams should not start in those tools.
 
 ---
 

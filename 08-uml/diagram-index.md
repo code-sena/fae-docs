@@ -2,8 +2,9 @@
 
 > **What to fill in here:** The registry of all system diagrams.
 > **Chosen format: Mermaid** (decision recorded in `README.md`) — sources are `.mmd` files in
-> `08-uml/diagrams/source/`, one diagram per file, rendered natively by GitHub, VS Code and GitLab.
-> Optional image exports go in `08-uml/diagrams/exports/`.
+> `08-uml/diagrams/source/`, one diagram per file. View them in VS Code or mermaid.live; GitHub only
+> renders ` ```mermaid ` blocks inside Markdown, so export to `08-uml/diagrams/exports/*.svg`
+> when a diagram must be visible there.
 
 ---
 
@@ -24,15 +25,15 @@
 ## File naming
 
 ```
-[c4-level]-[descriptive-name].mmd
+[type]-[descriptive-name].mmd
 
-Examples:
+Examples (match the registry below):
   c1-system-context.mmd
   c2-container-diagram.mmd
-  c3-identity-service.mmd
-  seq-create-attendance.mmd
+  c3-attendance-service.mmd
+  seq-facial-attendance.mmd
+  state-class-session.mmd
   erd-attendance.mmd
-  state-justification-lifecycle.mmd
 ```
 
 ---
@@ -51,17 +52,17 @@ Examples:
 
 | ID | Name | Tool | Source file | Status | Description |
 |----|------|------|-------------|--------|-------------|
-| SEQ-01 | Facial attendance capture | Mermaid | `source/seq-facial-attendance.mmd` | ⬜ Planned | Mobile scan → gateway → biometric match → attendance record → alert |
-| SEQ-02 | Login flow | Mermaid | `source/seq-login.mmd` | ⬜ Planned | Login → opaque `sessionId` → per-service validation |
-| SEQ-03 | Justification approval | Mermaid | `source/seq-justification-approval.mmd` | ⬜ Planned | Submit → attachments → review → Approved/Rejected |
+| SEQ-01 | Facial attendance capture | Mermaid | `source/seq-facial-attendance.mmd` | ✅ Done | Mobile scan → gateway → biometric match → attendance record (event publish, with the unwired gaps called out) |
+| SEQ-02 | Login flow | Mermaid | `source/seq-login.mmd` | ✅ Done | Login → opaque `sessionId` → per-service validation |
+| SEQ-03 | Justification approval | Mermaid | `source/seq-justification-approval.mmd` | ✅ Done | Submit → attachments → review → Approved/Rejected |
 
 ### State diagrams
 
 | ID | Name | Tool | Source file | Status | Description |
 |----|------|------|-------------|--------|-------------|
-| ST-01 | Class session lifecycle | Mermaid | `source/state-class-session.mmd` | ⬜ Planned | Open → Closed / Cancelled |
-| ST-02 | Justification review | Mermaid | `source/state-justification.mmd` | ⬜ Planned | Pending → Approved / Rejected |
-| ST-03 | Biometric update case | Mermaid | `source/state-biometric-update.mmd` | ⬜ Planned | Pending → In_Review → Approved / Rejected |
+| ST-01 | Class session lifecycle | Mermaid | `source/state-class-session.mmd` | ✅ Done | Open → Closed / Cancelled (incl. the unreachable `open()` guard) |
+| ST-02 | Justification review | Mermaid | `source/state-justification.mmd` | ✅ Done | Pending → Approved / Rejected |
+| ST-03 | Biometric update case | Mermaid | `source/state-biometric-update.mmd` | ✅ Done | Pending → In_Review → Approved / Rejected |
 
 ### ER diagrams (data)
 
@@ -157,10 +158,13 @@ erDiagram
 
 | Tool | For what | How to use |
 |------|---------|------------|
-| Mermaid (adopted) | C4, sequence, state, ER | Native rendering on GitHub, GitLab and VS Code (extension) — open the `.mmd` file or preview it |
-| Mermaid CLI (`mmdc`) | Optional SVG/PNG export | `npx -y @mermaid-js/mermaid-cli -i file.mmd -o ../exports/file.svg` |
+| Mermaid (adopted) | C4, sequence, state, ER | VS Code (Mermaid extension) or [mermaid.live](https://mermaid.live) — GitHub does **not** render standalone `.mmd` files |
+| Mermaid CLI (`mmdc`) | SVG/PNG export for GitHub or slides | `npx -y @mermaid-js/mermaid-cli -i file.mmd -o ../exports/file.svg` |
 | PlantUML | Fallback only (rejected format) | Keep the README section for reference; do not add new `.puml` files |
 | draw.io (diagrams.net) | Only if free placement is truly needed | Export as XML to `diagrams/source/` + SVG to `diagrams/exports/` |
+
+> **Windows / PowerShell note:** if `npx` fails with an execution-policy error, call `npx.cmd` instead
+> (`npx.cmd -y @mermaid-js/mermaid-cli …`), or use `docker run`.
 
 **Optional rendering pipeline (exports only, never required):**
 ```bash
@@ -168,9 +172,9 @@ erDiagram
 npx -y @mermaid-js/mermaid-cli -i 08-uml/diagrams/source/c1-system-context.mmd \
   -o 08-uml/diagrams/exports/c1-system-context.svg
 
-# All sources
+# All sources (PowerShell)
 Get-ChildItem 08-uml/diagrams/source/*.mmd | ForEach-Object {
-  npx -y @mermaid-js/mermaid-cli -i $_.FullName -o "08-uml/diagrams/exports/$($_.BaseName).svg"
+  npx.cmd -y @mermaid-js/mermaid-cli -i $_.FullName -o "08-uml/diagrams/exports/$($_.BaseName).svg"
 }
 ```
 

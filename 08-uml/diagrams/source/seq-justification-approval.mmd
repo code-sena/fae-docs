@@ -1,0 +1,42 @@
+﻿sequenceDiagram
+    autonumber
+    actor S as Student (Mobile)
+    actor R as Reviewer (instructor/admin)
+    participant GW as Kong :8080
+    participant ATT as ms-attendance :8085
+    participant K as Kafka topic justification-events
+
+    rect rgb(238, 245, 238)
+    Note over S,ATT: 1. Submit â€” Add Justify screen
+    S->>GW: GET /api/v1/attendance-records?academicActorId=...
+    GW->>ATT: forward
+    ATT-->>S: records (pick the Absent/Late one)
+    S->>GW: GET /api/v1/justification-types
+    ATT-->>S: types with requires_attachment flag
+    S->>S: reason + date + file â€” the file is only required when requires_attachment = true (client-side check)
+    S->>GW: POST /api/v1/justifications {attendanceRecordId, justificationTypeId, reason}
+    GW->>ATT: forward
+    ATT->>ATT: validate required fields — duplicate check (1 justification per attendance_record)
+    ATT->>ATT: touchCreated -> reviewStatus = Pending, submittedAt = now
+    ATT->>K: publish justification-events (best-effort, failures only logged)
+    ATT-->>S: 201 {reviewStatus: Pending}
+    end
+
+    rect rgb(255, 246, 236)
+    Note over S,ATT: 2. Attachment â€” designed but not wired
+    S--xATT: POST /api/v1/supporting-documents {justificationId, fileName, storageUri, mime_type, sizeBytes}
+    Note right of S: Mobile create() discards the attachment field and createDocument() has no caller, so no supporting_document row is ever created from a client — the server never enforces requires_attachment either
+    end
+
+    rect rgb(240, 245, 255)
+    Note over R,ATT: 3. Review â€” PATCH /justifications/{id}/review
+    R->>GW: GET /api/v1/justifications?reviewStatus=Pending
+    ATT-->>R: pending queue
+    R->>GW: PATCH /api/v1/justifications/{id}/review {reviewStatus: Approved|Rejected, reviewedBy, resolutionNotes}
+    GW->>ATT: forward
+    ATT->>ATT: only "Cannot review to Pending" is guarded â€” no ordering check, no re-review guard
+    ATT->>ATT: reviewedBy, reviewedAt, resolutionNotes, touchUpdated -> save
+    ATT-->>R: 200 {reviewStatus: Approved}
+    end
+
+    Note over ATT: No event is published on review (only create publishes), and attendance_record.attendance_status is never set to Justified â€” approval does not cascade to attendance

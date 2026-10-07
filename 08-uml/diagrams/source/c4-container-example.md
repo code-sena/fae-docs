@@ -1,97 +1,70 @@
-# Example: C4 Container Diagram
+# Template: C4 Container diagram
 
-> This file shows how to document the system with a C4 Level 2 (Container) diagram.
-> The diagram uses Mermaid, which renders natively on GitHub, GitLab and most
-> modern editors (VS Code with extension, Obsidian, etc.).
->
-> **Instruction:** Copy this structure, replace the example services (api-gateway,
-> identity-service) with your project's real services, and move it to `diagrams/source/c4-container.md`.
+> **Status:** template only — the real diagram for this project already exists at
+> [`c2-container-diagram.mmd`](./c2-container-diagram.mmd) (registered as C4-02 in
+> [`../../diagram-index.md`](../../diagram-index.md)). **Do not copy this file to create a new
+> diagram**: create a new `.mmd` file in `diagrams/source/` and add a row to the registry.
 
 ---
 
-## Example system: [X] management platform
+## How to add a new C4 diagram
+
+1. Create `diagrams/source/<name>.mmd` (see the naming rules in `../../diagram-index.md`).
+2. Start from the skeleton below — one diagram, one file, Mermaid only.
+3. Preview it in VS Code (Mermaid extension) or on [mermaid.live](https://mermaid.live).
+   GitHub does **not** render standalone `.mmd` files; export to SVG (step 5) if it must be visible there.
+4. Register it in `../../diagram-index.md` with ID, type and status.
+5. Only if needed: `npx.cmd -y @mermaid-js/mermaid-cli -i diagrams/source/<name>.mmd -o diagrams/exports/<name>.svg`
+
+## Skeleton (C4 Level 2)
 
 ```mermaid
 C4Container
     title Container Diagram — [System Name]
 
-    Person(user, "User / Client", "Accesses the system from browser or mobile app")
-    Person(admin, "Administrator", "Manages system configuration and users")
+    Person(user, "User", "Who uses the system and from which client")
 
     System_Boundary(system, "[System Name]") {
 
-        Container(frontend, "Web Frontend", "React / Vue / Angular", "User interface. SPA served as static files.")
+        Container(web, "Web App", "[stack]", "Browser client")
+        Container(gateway, "API Gateway", "[gateway]", "Single entry point: routing, CORS, rate limiting")
 
-        Container(gateway, "API Gateway", "[Your framework]", "Single entry point. Authenticates JWT tokens, routes to the right service, applies rate limiting.")
+        Container(service_a, "[Service A]", "[stack]", "[Responsibility. Owns [Entity A].]")
+        Container(service_b, "[Service B]", "[stack]", "[Responsibility. Owns [Entity B].]")
 
-        Container(auth, "Identity Service", "[Your stack]", "Manages people, users, authentication (login/register/refresh). Owns Person and User entities.")
-
-        Container(service_a, "[Service A]", "[Your stack]", "[Main responsibility of Service A. Owns [Entity A].]")
-
-        Container(service_b, "[Service B]", "[Your stack]", "[Main responsibility of Service B. Owns [Entity B].]")
-
-        ContainerDb(db_auth, "Identity DB", "PostgreSQL", "People, users, sessions, tokens.")
-        ContainerDb(db_a, "[Service A] DB", "[Chosen engine]", "[Service A] domain data.")
-        ContainerDb(db_b, "[Service B] DB", "[Chosen engine]", "[Service B] domain data.")
-        ContainerDb(redis, "Redis", "Redis", "Token blacklist, rate limiting, shared cache.")
-        ContainerDb(broker, "Message Broker", "Kafka (KRaft)", "Domain events between services.")
+        ContainerDb(db_a, "[Service A] DB", "[engine]", "[Data owned by A]")
+        ContainerDb(db_b, "[Service B] DB", "[engine]", "[Data owned by B]")
+        ContainerDb(broker, "Message Broker", "[broker]", "Domain events")
     }
 
-    System_Ext(ext_email, "Email Service", "Sendgrid / SES / SMTP")
-    System_Ext(ext_payment, "Payment Gateway", "[If it applies to the project]")
+    System_Ext(ext, "[External system]", "[What it does and how you call it]")
 
-    %% User → System relationships
-    Rel(user, frontend, "Uses", "HTTPS")
-    Rel(admin, frontend, "Manages", "HTTPS")
-    Rel(frontend, gateway, "API calls", "HTTPS / REST")
-
-    %% Gateway → Services
-    Rel(gateway, auth, "Verifies tokens / routes", "Internal HTTP")
-    Rel(gateway, service_a, "Routes requests", "Internal HTTP")
-    Rel(gateway, service_b, "Routes requests", "Internal HTTP")
-
-    %% Services → DB (each service owns its DB)
-    Rel(auth, db_auth, "Reads / writes", "SQL")
-    Rel(auth, redis, "Token blacklist", "Redis protocol")
-    Rel(gateway, redis, "Rate limiting", "Redis protocol")
-    Rel(service_a, db_a, "Reads / writes", "SQL / NoSQL")
-    Rel(service_b, db_b, "Reads / writes", "SQL / NoSQL")
-
-    %% Async communication
-    Rel(auth, broker, "Publishes events (user.registered)", "Async")
-    Rel(service_a, broker, "Publishes / consumes events", "Async")
-    Rel(service_b, broker, "Consumes [Service A] events", "Async")
-
-    %% External systems
-    Rel(service_b, ext_email, "Sends notifications", "HTTPS / SMTP")
-    Rel(service_a, ext_payment, "Processes payments", "HTTPS")
+    Rel(user, web, "Uses", "HTTPS")
+    Rel(web, gateway, "API calls", "HTTPS / REST")
+    Rel(gateway, service_a, "Routes", "HTTP / REST")
+    Rel(gateway, service_b, "Routes", "HTTP / REST")
+    Rel(service_a, db_a, "Reads / writes", "SQL")
+    Rel(service_b, db_b, "Reads / writes", "SQL")
+    Rel(service_a, broker, "Publishes events", "Async")
+    Rel(service_b, broker, "Consumes events", "Async")
+    Rel(service_a, ext, "Calls", "HTTPS")
 ```
-
----
-
-## How to use this diagram
-
-1. **Render on GitHub:** The diagram renders automatically on push. No extra tooling needed.
-
-2. **Render in VS Code:** Install the "Markdown Preview Mermaid Support" extension or use the official Mermaid extension.
-
-3. **Export as image:** Use the [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli):
-```bash
-mmdc -i c4-container-example.md -o ../exports/c4-container.svg
-```
-
-4. **Update the diagram:** The diagram lives in Git with the code. When you change the architecture (new service, new DB engine), update the diagram in the same PR.
-
----
 
 ## Conventions for this project
 
-| Element | Color / Style | When to use it |
-|----------|---------------|----------------|
-| `Container` | Blue | Deployable microservice or app |
-| `ContainerDb` | Blue cylinder | Database, cache, broker |
-| `Person` | Person icon | Human actor |
-| `System_Ext` | Gray | Third-party system you do not control |
+| Element | When to use it |
+|---------|----------------|
+| `Container` | Deployable microservice or app (one per service — see `09-microservices/service-catalog.md`) |
+| `ContainerDb` | Database, cache or broker |
+| `Person` | Human actor (student, instructor, administrator) |
+| `System_Ext` | Third-party system you do not control (e.g. `countriesnow.space`, SMTP) |
+
+**Accuracy rules (this repo):**
+- Kong does **not** authenticate: only `cors` + `rate-limiting` plugins, no `jwt`, no Redis token
+  blacklist (Redis holds rate-limit counters only). Auth is a per-service check over an opaque
+  `sessionId` — see `07-api/authentication.md`.
+- No payment gateway exists in this system; do not add one to a diagram.
+- Ports, stacks and DB engines must match `09-microservices/service-catalog.md`.
 
 ---
 

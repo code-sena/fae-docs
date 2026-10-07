@@ -1,0 +1,27 @@
+stateDiagram-v2
+    direction LR
+
+    [*] --> Open : create() — status defaults to "Open" (DB DEFAULT 'Open')
+
+    Open --> Closed : close(closedBy) — sets closedBy / closedAt
+    Open --> Cancelled : cancel()
+
+    Closed --> Open : PUT /class-sessions/{id} with session_status=Open (update allows a direct status swap, bypassing open())
+    Cancelled --> Open : PUT /class-sessions/{id} with session_status=Open
+
+    note right of Open
+        open() can never succeed: it rejects "already Open" and also
+        rejects Closed/Cancelled, which are the only other allowed values.
+        Reopening happens exclusively through PUT update.
+    end note
+
+    note right of Closed
+        close() and cancel() guard against their own state and against
+        each other, so Closed --> Cancelled and Cancelled --> Closed
+        are rejected with 400. DELETE removes the row physically
+        (no @SQLDelete soft delete despite deleted_at existing).
+    end note
+
+    Open --> [*] : DELETE (physical delete)
+    Closed --> [*] : DELETE (physical delete)
+    Cancelled --> [*] : DELETE (physical delete)

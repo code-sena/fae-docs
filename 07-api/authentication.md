@@ -74,17 +74,23 @@
 
 ## 3. Identity flows (real)
 
-### 3.1 Login / logout / me (`01-ms-identity/.../AuthController.java`)
+### 3.1 Login / logout / me / refresh / recovery (`AuthController`, `PasswordRecoveryController`)
 
 ```
 POST /api/v1/auth/login  {identifier|email|username, password}
       → 200 {sessionId,userId,sessionStatus,startDate,endDate,sourceIp}
       → 401 {"status":401,"error":"Unauthorized","message":"Invalid email or password"}
+POST /api/v1/auth/refresh {sessionId}  → 200 UserSessionDto (new sessionId, old one closed)
+      → 401 if the session expired or was already rotated (single use)
 POST /api/v1/auth/logout?sessionId → 204
 GET  /api/v1/auth/me?username|email  → UserDto   (one of the two is required → 400 otherwise)
+POST /api/v1/auth/forgot-password {email}      → 202 {status:"accepted",message:"Request accepted"}
+POST /api/v1/auth/verify-code {email,code}     → 200 {status:"verified",message:"Code verified"}
+POST /api/v1/auth/reset-password {email,password} → 200 {status:"updated",message:"Password updated"}
 POST /api/v1/sessions?userId&sourceIp → 201 UserSessionDto
 GET  /api/v1/sessions?page&limit      → {data,meta{page,limit,total,totalPages}}
-GET  /api/v1/sessions/{id}            → UserSessionDto (public: used by every AuthTokenFilter)
+GET  /api/v1/sessions/{id}            → UserSessionDto (MS-public: used by every AuthTokenFilter
+                                         and by the Kong pre-function — the edge still requires a bearer)
 GET  /api/v1/sessions/user/{userId}   → [UserSessionDto]
 DELETE /api/v1/sessions/{id}          → 204
 ```
@@ -94,7 +100,15 @@ DELETE /api/v1/sessions/{id}          → 204
 - `UserDto{userId,personId,username,authenticationType:Local|Windows|External,status,lastAccess,createdAt,updatedAt}`,
   `PersonDto{personId,documentType,documentNumber,name,lastName,email,phone,bloodType,birthDate,address,…}`,
   `UserSessionDto{sessionId,userId,sessionStatus:Active|Closed,startDate,endDate,sourceIp}`.
-- The session `sessionId` **is** the bearer token; there is no refresh/rotation endpoint.
+- The session `sessionId` **is** the bearer token. `POST /api/v1/auth/refresh` rotates it: the
+  body carries the current `sessionId`, the answer carries a new one and the previous row is
+  closed. There is **no** separate refresh-token entity — the token is still an opaque session.
+- Recovery is a 3-step, all-public flow: `forgot-password` answers **202 regardless of whether
+  the account exists** (anti-enumeration) and emails a 6-digit code through the internal
+  `POST ms-notification:8088/api/v1/emails` (no Kong route); the code is stored **hashed
+  (SHA-256)** in memory with a **10 min TTL, 5 attempts and a 60 s resend cooldown**
+  (`application.yml` → `auth.code-ttl-minutes|max-attempts|resend-cooldown-seconds`), all in
+  constant-time comparison; `reset-password` consumes the verified challenge.
 
 ### 3.2 Users / persons / cities lifecycle
 
@@ -122,6 +136,7 @@ GET/POST /api/v1/roles · GET/PUT/DELETE /api/v1/roles/{id}
 POST /api/v1/roles/{roleId}/permissions {permissionId} · DELETE …/{permId} · GET …/permissions
 GET/POST /api/v1/permissions · GET/PUT/DELETE /api/v1/permissions/{id}
 POST /api/v1/users/{userId}/roles {roleId} · DELETE …/{roleId} · GET …/roles
+GET /api/v1/user-roles?userIds → {userId: RoleResponse[]} (batch, max 300 ids; `{}` without ids)
 GET /api/v1/auth/evaluate?userId&permission → {userId,permission,allowed}
 ```
 
@@ -162,10 +177,13 @@ non-Java services — tech-debt, §10.
   profile (`GET users/{id}` / `persons/{id}`) → `GET api/v1/auth/evaluate?userId&permission=
   attendance.record:read` (fail-closed: no permission, no login) → `AuthResponse{token,user{…roles,person}}`.
 - Logout: `POST api/v1/auth/logout?sessionId` (best-effort) then clear storage.
-- Refresh: **none** — `AuthService.refreshToken()` throws "Sesión no renovable: vuelve a iniciar sesión".
+- Refresh: the backend implements `POST /api/v1/auth/refresh` (session rotation), but
+  `AuthService.refreshToken()` still throws "Sesión no renovable: vuelve a iniciar sesión" —
+  Mobile never calls it (client-side gap, not a backend gap).
 - Recovery (`services/verificationService.js|passwordService.js`): `POST auth/forgot-password`,
-  `POST auth/verify-code`, `POST auth/reset-password` — **no such routes exist in the backend
-  yet** (404 today; client contract retained, see §10).
+  `POST auth/verify-code`, `POST auth/reset-password` — **all three are implemented in the
+  backend** (`01-ms-identity`, verified 2026-10-07): 6-digit code, 10 min TTL, 5 attempts,
+  60 s resend cooldown. Delivery depends on SMTP being configured (`ms-notification`).
 - Face photo: `POST <API_BASE_URL>face/register` (multipart, no auth header) → `{embedding}`
   stored in `SecureStore face_<documento>`.
 
@@ -189,8 +207,8 @@ non-Java services — tech-debt, §10.
 
 | Token | Lifetime (real) | Rotation |
 |-------|-----------------|----------|
-| access = opaque `sessionId` (UUID) | until logout/expiry of the `user_session` row (`sessionStatus: Active`) | **none** — no refresh endpoint |
-| recovery code | client contract 600s / 5 attempts (`constants/auths.js`) | backend routes not implemented |
+| access = opaque `sessionId` (UUID) | until logout/expiry of the `user_session` row (`sessionStatus: Active`) | `POST /api/v1/auth/refresh` (single use): returns a new `sessionId` and closes the previous one; 401 if expired or already rotated. The Mobile client does not call it (§5.1) |
+| recovery code | 600 s / 5 attempts / 60 s resend cooldown (`application.yml`, same values as the client `constants/auths.js`) | one code per challenge, hashed SHA-256 in memory; consumed by `POST /api/v1/auth/reset-password` |
 
 ## 7. Headers
 
@@ -204,9 +222,11 @@ non-Java services — tech-debt, §10.
 
 ## 8. Expiration, refresh, logout (normative)
 
-1. On 401 (missing/invalid/expired session) → clear the stored session and redirect to login;
-   there is **no** refresh endpoint to try.
-2. Re-login issues a brand-new `sessionId`; old sessions stay in `user_session` until closed.
+1. On 401 (missing/invalid/expired session) → the client may try `POST /api/v1/auth/refresh`
+   once (opaque session rotation); if that also answers 401, clear the stored session and
+   redirect to login.
+2. Re-login (or refresh) issues a brand-new `sessionId`; old sessions stay in `user_session`
+   until closed.
 3. Logout MUST call `POST /api/v1/auth/logout?sessionId` best-effort, then clear local storage
    even on failure.
 4. Never store passwords; never log tokens; never accept `?token=` query auth.
@@ -224,9 +244,14 @@ components:
       $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'
 ```
 
-Identity marks the bootstrap routes (`/auth/login`, `/auth/logout`, `/auth/me`,
-`GET /sessions/{id}`, `GET /sessions/user/{userId}`) as `security: []`. The scheme is documented
-as an opaque session id (not a JWT); `kong.yml` carries no consumer and no jwt plugin.
+Identity declares `security: []` at the root, so its contract shows no requirement — its own
+`AuthTokenFilter` still enforces the bearer on every `/api/**` path except the bootstrap routes
+(`/auth/login`, `/auth/logout`, `/auth/refresh`, `/auth/forgot-password`, `/auth/verify-code`,
+`/auth/reset-password`, `GET /auth/me`, `GET /sessions/**`) and health/docs. At the edge only the
+list in §1 is token-free, so `GET /sessions/{id}` needs a bearer when it is called **through
+Kong** (identity accepts it without one so introspection works). The scheme is documented as an
+opaque session id (not a JWT); `kong.yml` carries no consumer and no `jwt` plugin — the edge
+check is the global `pre-function`.
 
 ## 10. Gaps and TODOs (honest)
 
@@ -241,8 +266,11 @@ as an opaque session id (not a JWT); `kong.yml` carries no consumer and no jwt p
   embeddings. Internal ports must stay inside the Docker network (`risks.md` R-003).
 - **Coarse permission only:** `AuthTokenFilter` checks `identity.person:read|write`; a full
   per-route permission map (or Kong/OPA authorizer wired to `/auth/evaluate`) is missing.
-- **Recovery endpoints missing:** Mobile calls `auth/forgot-password|verify-code|reset-password`
-  which the backend does not implement.
+- **Recovery flow is implemented but unverified end to end:** the three routes
+  (`auth/forgot-password|verify-code|reset-password`) exist in `01-ms-identity` (2026-10-07);
+  delivery goes through `POST ms-notification:8088/api/v1/emails`, which answers
+  `202 {status:"skipped"}` when `SMTP_HOST` is empty — verify the SMTP path before calling it
+  done.
 - **Password policy enforcement:** `password_policy` CRUD exists, but login/create-user flows do
   not yet validate against it (Mobile `PasswordService` only for reset).
 - Clients must keep sending `Bearer` on every call; 401 handling (re-login) is client-side.

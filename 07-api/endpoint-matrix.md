@@ -17,13 +17,25 @@
 > evaluated by the Java services (01/02/04/05) with `AuthTokenFilter`. Full rules and public-route
 > list in `authentication.md`; details per contract in `contracts/openapi/`.
 
+> **Legacy alias (not a contract):** the Java services also answer paths **without** the
+> `/api/v1` prefix — `/roles`, `/permissions`, `/user-roles`, `/class-sessions`,
+> `/schedule-blocks`, `/environments`, `/attendance-records` (`+ /bulk`, `+ /summary`),
+> `/justifications`, `/justification-types`, `/supporting-documents`, … — declared as a second
+> value in the same `@RequestMapping`/`@GetMapping`. Kong routes only `/api/v1/...`, so the alias
+> is reachable on the direct port only, and the MS-side `AuthTokenFilter` skips it (it guards
+> paths that start with `/api/`). Treat it as a legacy accident, never as an API surface.
+
 ## 1. Identity 01 (`01-ms-identity`, Java 8081 → `01-identity-service.yaml`)
 
 | METHOD path | Kong | Auth | Description |
 |-------------|------|------|-------------|
 | POST /api/v1/auth/login | ✅ | public | Login (`identifier` = email **or** username) → `{sessionId,userId,sessionStatus}` |
+| POST /api/v1/auth/refresh | ✅ | public | Rotate the opaque session → new `UserSessionDto`, old one closed (401 if expired or already rotated) |
 | POST /api/v1/auth/logout?sessionId | ✅ | public | Logout → 204 |
 | GET /api/v1/auth/me?username\|email | ✅ | public | Current user → `UserDto` (params optional) |
+| POST /api/v1/auth/forgot-password | ✅ | public | Issue + email a 6-digit code → 202 `{status:"accepted"}` (anti-enumeration) |
+| POST /api/v1/auth/verify-code | ✅ | public | Validate `{email,code}` (6 digits, 10 min, 5 attempts, 60 s resend cooldown) → 200 `{status:"verified"}` |
+| POST /api/v1/auth/reset-password | ✅ | public | `{email,password}` after a verified challenge → 200 `{status:"updated"}` |
 | POST /api/v1/users | ✅ | session | Create user → 201 |
 | GET /api/v1/users?page&limit | ✅ | session | List → `{data,meta{page,limit,total,totalPages}}` |
 | GET /api/v1/users/{id} | ✅ | session | Get user |
@@ -68,6 +80,7 @@
 | POST /api/v1/users/{userId}/roles | ✅ nested | session | Assign role → 201 |
 | DELETE /api/v1/users/{userId}/roles/{roleId} | ✅ | session | Remove → 204 |
 | GET /api/v1/users/{userId}/roles | ✅ | session | User roles |
+| GET /api/v1/user-roles?userIds | ✅ | session | Batch roles → `{userId: RoleResponse[]}` (0 or missing ids → `{}`; max 300 ids) |
 | GET /api/v1/auth/evaluate?userId&permission | ✅ | session | RBAC → `{allowed}` |
 
 ## 3. Academic 03 (`03-ms-academic`, TS 8083 → `03-academic-service.yaml`)
@@ -118,6 +131,7 @@
 |-------------|------|------|-------------|
 | GET /api/v1/attendance-records?classSessionId&academicActorId&attendanceStatus | ✅ | session | List filtered |
 | POST /api/v1/attendance-records | ✅ | session | Create → 201 |
+| GET /api/v1/attendance-records/summary?academicActorIds | ✅ | session | Per-actor counts → `{actorId:{present,late,absent,justified,total}}` (missing ids → `{}`; max 300 ids, aggregated in SQL) |
 | POST /api/v1/attendance-records/bulk | ✅ | session | Bulk → 201 |
 | GET/PUT/DELETE /api/v1/attendance-records/{id} | ✅ | session | CRUD |
 | GET /api/v1/justifications?status&attendanceRecordId | ✅ | session | List filtered |
@@ -183,6 +197,7 @@
 | POST /api/v1/alert-types | ✅ | gateway only | Create → 201 (`severity` INFO/WARNING/CRITICAL, `channel` DASHBOARD/EMAIL/PUSH) |
 | GET /api/v1/alert-types?limit=50&offset=0 | ✅ | gateway only | List `{alert_types}` |
 | GET/PUT/DELETE /api/v1/alert-types/{id} | ✅ | gateway only | CRUD |
+| POST /api/v1/emails | ❌ no Kong route | internal only | Send a recovery email (`{to,template,data}`, template-only to avoid an open relay) → 202; optional `X-Internal-Token`; reachable only inside the compose network (called by 01-ms-identity) |
 
 ## 9. Quality 09 (`09-ms-quality`, TS 8089 → `09-quality-service.yaml`)
 

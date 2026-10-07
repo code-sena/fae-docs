@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Identity Service API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     Servicio 01-ms-identity (Java 21 Spring Boot 4.1 :8081, schema `identity`).
     Personas, usuarios, sesiones y políticas de contraseña.
@@ -9,15 +9,22 @@ info:
     `countriesnow.space`), pero `CityController` y su tabla Liquibase siguen servidos.
 
     ## Fuente real
-    - Controllers: `AuthController`, `UserController`, `PersonController`,
-      `PasswordPolicyController`, `SessionController`, `CityController`, `HealthController`
+    - Controllers: `AuthController`, `PasswordRecoveryController`, `UserController`,
+      `PersonController`, `PasswordPolicyController`, `SessionController`, `CityController`,
+      `HealthController`
     - DTOs: `UserDto{userId,personId,username,authenticationType,status,lastAccess,createdAt,updatedAt}`,
       `PersonDto{personId,documentType,documentNumber,name,lastName,email,phone,bloodType,birthDate,address}`,
       `PasswordPolicyDto{policyId,minLength,maxLength,requiresUppercase,requiresNumbers,requiresSymbols,expirationDays}`,
-      `UserSessionDto{sessionId,userId,sessionStatus,startDate,endDate,sourceIp}`
-    - Seguridad local: `SecurityConfig` + `AuthTokenFilter` (Bearer `sessionId` en todo `/api/**`
-      salvo `login/logout/me` y `GET /sessions/*`). Kong solo aplica `cors` + `rate-limiting 60/min`
-      (sin plugin jwt).
+      `UserSessionDto{sessionId,userId,sessionStatus,startDate,endDate,sourceIp}`,
+      `AuthStatusDto{status,message}` (`accepted|verified|updated`, identical whether or not the
+      account exists — anti-enumeration)
+    - Local security: `SecurityConfig` + `AuthTokenFilter` (Bearer `sessionId` on every `/api/**`
+      except `login/logout/refresh/forgot-password/verify-code/reset-password`, `GET /me` and
+      `GET /sessions/*`).
+    - Gateway: Kong authenticates **at the edge** — a global `pre-function` validates the opaque
+      session UUID against `GET /api/v1/sessions/{id}` (`sessionStatus = "Active"`), and only the
+      auth routes listed as public are reachable without a bearer. No `jwt` plugin, no consumers;
+      the token is a session id, not a JWT. See `../authentication.md`.
 
     ## Gateway
     Via Kong `http://localhost:8080/api/v1/persons|users|auth|sessions|cities|password-policies`
@@ -29,6 +36,12 @@ info:
 
     ## Paginación
     Listas paged con `?page&limit` (1-based) → `PageResponse {data,meta{page,limit,total,totalPages}}`.
+
+    ## Cambios 1.2.0 (sync-with-implementation, aditivo)
+    Documenta rutas que ya existen en el código y faltaban en el contrato:
+    `POST /api/v1/auth/refresh` (rotación de la sesión opaca) y el flujo de recuperación
+    `POST /api/v1/auth/{forgot-password,verify-code,reset-password}` — las cuatro son públicas
+    en el gateway. Sin cambios en rutas existentes ni en DTOs.
 
     ## Cambios 1.1.0 (fusión docs/api-implementation, sin rompimientos)
     Documentación aditiva sobre la base 1.0.0 de main: notas de `bcrypt cost 12`
@@ -55,7 +68,7 @@ security: []
 
 tags:
   - name: Auth
-    description: Login, logout, sesión actual
+    description: Login, logout, current session, session rotation and password recovery
   - name: User
     description: Cuentas de acceso
   - name: Person
@@ -138,6 +151,41 @@ paths:
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
 
+  /api/v1/auth/refresh:
+    post:
+      summary: Rotate the opaque session (single use)
+      description: |
+        Session rotation: the client sends the `sessionId` it is currently using as bearer and
+        receives a new one; the previous row is closed. 401 when the session is unknown, closed,
+        expired (`sessionTimeout`) or was already rotated (only one winner).
+      operationId: refreshSession
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                sessionId:
+                  $ref: './_shared.yaml#/components/schemas/UUID'
+            example:
+              sessionId: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Nueva sesión (la anterior queda `Closed`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSessionDto'
+        '401':
+          description: '`Invalid session` | `Session is closed` | `Session expired` | `Session already refreshed`'
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+
   /api/v1/auth/me:
     get:
       summary: Usuario actual por username o email
@@ -167,6 +215,130 @@ paths:
           $ref: './_shared.yaml#/components/responses/BadRequest'
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/auth/forgot-password:
+    post:
+      summary: Start password recovery — email a 6-digit code (public)
+      description: |
+        Always answers `202` with the same body whether or not the account exists
+        (anti-enumeration). The code is stored hashed (SHA-256) in memory with a 10 min TTL,
+        5 attempts and a 60 s resend cooldown, and is delivered through the internal
+        `POST ms-notification:8088/api/v1/emails` (no Kong route). No session is required —
+        this path is public at the gateway.
+      operationId: forgotPassword
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+            example:
+              email: apprentice@example.com
+      responses:
+        '202':
+          description: '`{status:"accepted",message:"Request accepted"}`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatusResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+
+  /api/v1/auth/verify-code:
+    post:
+      summary: Validate the recovery code (public)
+      operationId: verifyCode
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}'
+                  description: 6 digits
+            example:
+              email: apprentice@example.com
+              code: '482913'
+      responses:
+        '200':
+          description: '`{status:"verified",message:"Code verified"}` — the challenge is now verified'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatusResponse'
+        '400':
+          description: '`A valid email is required` | `Code must be 6 digits`'
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '401':
+          description: '`Invalid or expired code` (wrong code, TTL or attempts exhausted — single message on purpose)'
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/reset-password:
+    post:
+      summary: Set the new password after a verified challenge (public)
+      description: |
+        Third step of the recovery flow: the client does not resend the code — the verified
+        challenge is consumed here. Validates the new password against `password_policy`
+        **before** consuming the challenge, re-hashes it with bcrypt, closes every active
+        session of the user and publishes a `PasswordChanged` domain event.
+      operationId: resetPassword
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+            example:
+              email: apprentice@example.com
+              password: Secret123!
+      responses:
+        '200':
+          description: '`{status:"updated",message:"Password updated"}`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatusResponse'
+        '400':
+          description: Policy violation (`Password must be between 8 and 20 characters`, uppercase/number/symbol rules) or malformed body
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '401':
+          description: '`Verification code required` (no verified challenge, or it expired)'
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
 
   /api/v1/users:
     get:
@@ -717,6 +889,20 @@ components:
           type: string
           format: password
           example: Secret123!
+    AuthStatusResponse:
+      type: object
+      description: |
+        Uniform answer for authentication operations that return no entity. `status` never
+        depends on whether the account exists, so the response cannot enumerate users.
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [accepted, verified, updated]
+          example: accepted
+        message:
+          type: string
+          example: Request accepted
     UserDto:
       type: object
       required: [username]

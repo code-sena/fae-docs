@@ -75,6 +75,26 @@ IMPACT
 
 ---
 
+### R-003 — Services without their own authentication (03, 06, 07, 08, 09)
+
+| Field | Value |
+|-------|-------|
+| **ID** | R-003 |
+| **Category** | Technical |
+| **Description** | Only the Java services (01, 02, 04, 05) run an `AuthTokenFilter`. `03-ms-academic`, `06-ms-biometric`, `07-ms-configuration`, `08-ms-notification` and `09-ms-quality` perform **no authentication and no authorization of their own**: behind Kong their session is checked at the edge, but any direct call to their container ports (compose publishes all of them on `127.0.0.1:8083-8089`) or from any other container on the compose network bypasses the gateway entirely and validates nothing. `ms-biometric` (8086) makes this concrete: its `GET` endpoints return the raw facial/fingerprint embeddings. |
+| **Probability** | Medium |
+| **Impact** | High |
+| **Risk level** | High |
+| **Strategy** | Mitigate |
+| **Mitigation plan** | Keep every internal port inside the Docker network: never publish 8083/8086/8087/8088/8089 outside it (compose already binds them to `BIND_IP=127.0.0.1`), route all external traffic through Kong `:8080`, and add a shared validation middleware to the TS/Python/Go services (tech debt `AT-004`). |
+| **Contingency plan** | If a port is found exposed, or a request reaches a service without passing Kong, take the stack down, close all sessions (`DELETE /api/v1/sessions/{id}`), review logs and patch the service before restarting. |
+| **Trigger** | A request log on 8083/8086/8087/8088/8089 without a Kong correlation id; `BIND_IP` changed to `0.0.0.0`; `GET /api/v1/biometric/facial/{personId}` succeeding without a bearer. |
+| **Owner** | Tech Lead |
+| **Review date** | 2026-10-14 |
+| **Status** | Active |
+
+---
+
 ## Common technical risks in microservices
 
 These risks apply to almost all microservices projects. Evaluate which ones apply:

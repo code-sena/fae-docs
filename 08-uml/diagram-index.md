@@ -68,11 +68,16 @@ Examples (match the registry below):
 
 | ID | Name | Tool | Source file | Status | Service |
 |----|------|------|-------------|--------|---------|
-| ERD-01 | Identity DB | Mermaid | `source/erd-identity.mmd` | ⬜ Planned | ms-identity |
-| ERD-02 | Attendance DB | Mermaid | `source/erd-attendance.mmd` | ⬜ Planned | ms-attendance |
+| ERD-01 | Identity DB | Mermaid | `06-data/domains/01-identity.md` (erDiagram block) | ☑️ Covered elsewhere | ms-identity |
+| ERD-02 | Attendance DB | Mermaid | `06-data/domains/05-attendance.md` (erDiagram block) | ☑️ Covered elsewhere | ms-attendance |
 
 > ER diagrams exist per domain inside `06-data/domains/*.md` — create a standalone file here only
-> when the ER view crosses more than one schema.
+> when the ER view crosses more than one schema. ERD-01 and ERD-02 are single-schema views, so they
+> live in `06-data` and are deliberately **not** duplicated here (an extra copy is an extra thing to
+> keep updated). Checked: 7 of the 8 domain files carry one `erDiagram`; `06-biometric.md` has none
+> because its only SQL table (`biometric_update_case`) is physically hosted in `configuration` and
+> is already drawn in `08-configuration.md`, while the two embedding collections are MongoDB
+> documents with no FKs to render.
 
 ---
 

@@ -1,0 +1,64 @@
+﻿sequenceDiagram
+    autonumber
+    actor U as User (Web / Mobile)
+    participant GW as Kong :8080
+    participant ID as ms-identity :8081
+    participant AZ as ms-authorization :8082
+    participant SVC as Java service 01/02/04/05
+
+    Note over GW: Kong runs cors + rate-limiting (60/min per consumer, Redis) only â€” there is no jwt plugin, the opaque sessionId is checked per service
+
+    rect rgb(238, 245, 238)
+    Note over U,ID: 1. Sign in
+    U->>GW: POST /api/v1/auth/login {identifier, password}
+    GW->>ID: forward (no token validation at the edge)
+    ID->>ID: BCrypt match against app_user.password_hash
+    alt credentials valid
+        ID->>ID: INSERT user_session (session_status = Active, start_date, source_ip)
+        ID-->>U: 200 {sessionId, userId, sessionStatus: Active, startDate, sourceIp}
+        U->>U: store sessionId (SecureStore on Mobile, storage on Web)
+    else unknown user or wrong password
+        ID-->>U: 401 "Invalid email or password" (same message for both cases)
+    end
+    end
+
+    rect rgb(240, 245, 255)
+    Note over U,AZ: 2. Client-side context (fail-closed on Mobile)
+    U->>AZ: GET /api/v1/users/{id}/roles
+    AZ-->>U: [roleName...]
+    U->>AZ: GET /api/v1/auth/evaluate?userId&permission=attendance.record:read
+    AZ-->>U: {allowed: true|false}
+    U->>ID: GET /api/v1/users/{id} + GET /api/v1/persons/{id}
+    ID-->>U: profile
+    end
+
+    rect rgb(255, 246, 236)
+    Note over U,SVC: 3. Every authenticated call â€” AuthTokenFilter (only in Java services)
+    U->>GW: GET/PATCH/POST ... header: Authorization Bearer sessionId
+    GW->>SVC: forward (gateway does not authenticate)
+    SVC->>ID: GET /api/v1/sessions/{sessionId}
+    ID-->>SVC: session (must be Active)
+    SVC->>AZ: GET /api/v1/users/{id}/roles
+    AZ-->>SVC: roles
+    SVC->>AZ: GET /api/v1/auth/evaluate (only when the endpoint declares a permission)
+    AZ-->>SVC: allowed?
+    SVC->>SVC: set request attributes X-User-Id / X-User-Roles
+    alt session Active and permission granted
+        SVC-->>U: 2xx response
+    else no session / not Active
+        SVC-->>U: 401 invalid or expired session
+    else permission denied
+        SVC-->>U: 403 forbidden
+    end
+    end
+
+    rect rgb(245, 240, 255)
+    Note over U,ID: 4. Logout and refresh (rotation)
+    U->>GW: POST /api/v1/auth/logout?sessionId=...
+    GW->>ID: forward
+    ID->>ID: session_status = Closed (end_date set)
+    ID-->>U: 204 No Content
+    Note over U,ID: refresh is single-use: POST /api/v1/auth/refresh {sessionId} closes the old session and returns a new one — a replayed or expired sessionId gets 401
+    end
+
+    Note over SVC: Gap AT-004: TypeScript/Python/Go services (03, 06, 07, 08, 09) do not run AuthTokenFilter â€” behind Kong they are reachable without a session check

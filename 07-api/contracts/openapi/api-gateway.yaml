@@ -3,25 +3,40 @@ info:
   title: API Gateway
   version: 1.0.0
   description: |
-    Punto único de entrada al sistema. El gateway enruta las peticiones a los
-    microservicios correspondientes según el path.
+    Punto único de entrada (Kong OSS 3.6 DB-less + Redis 7).
+    Fuente real: `back-end/99-api-gateway/kong/kong.yml` (`_format_version 3.0`, `strip_path:false`).
+
+    ## Puertos
+    - Proxy `:8080` (contenedor `8000`), Admin `:8001`.
+    - Frontends MUST usar `:8080/api/v1/...`. Acceso directo a `8081-8089` solo para dev/debug.
 
     ## Autenticación
-    La mayoría de los endpoints requieren un JWT válido:
     ```
-    Authorization: Bearer <access_token>
+    Authorization: Bearer <sessionId>
     ```
-    El token se obtiene en `POST /api/v1/auth/login` (ver `auth-service.yaml`).
+    `sessionId` opaco (UUID) de `POST /api/v1/auth/login` (identity 8081; `identifier` = email o
+    username). Ver `../authentication.md`.
+    **Kong NO tiene plugin `jwt` ni consumers** (solo `cors` + `rate-limiting`): la validación de
+    la sesión la hace cada MS Java (`01/02/04/05`, `AuthTokenFilter`). Los servicios TS/Python/Go
+    (`03/06/07/08/09`) no validan el bearer hoy (tech-debt). Objetivo: `jwt` RS256 de identity (ADR-007).
 
-    ## Headers internos (solo entre servicios)
-    El gateway agrega estos headers antes de reenviar la petición al upstream:
-    - `X-User-Id`: UUID del usuario autenticado
-    - `X-User-Role`: Rol del usuario (ADMIN, USER, VIEWER)
-    - `X-Correlation-Id`: ID de traza para correlacionar logs
+    ## Rate limits (Redis)
+    Global 300/min; identity 60/min; authorization 100/min; attendance 200/min; quality 100/min.
+
+    ## CORS
+    Global `http://localhost:3000,http://localhost:5173,http://localhost:8090` (`Authorization,Content-Type,X-Requested-With`, `credentials:true`, `max_age:3600`).
+    Identity route `*` para dev.
+
+    ## Headers internos (convención Kong→upstream)
+    - `X-User-Id`, `X-User-Roles` (fijados por el `AuthTokenFilter` Java), `X-Correlation-Id` / `X-Request-Id`.
+
+    ## Health
+    El gateway NO expone `GET /health`; solo rutea `GET /health/quality` → `ms-academic:8083`.
+    Las saludades se prueban directo contra cada puerto.
 
 servers:
   - url: http://localhost:8080
-    description: Local development
+    description: Via Kong (dev, preferred)
   - url: https://api.dev.{domain}
     description: Development
     variables:
@@ -35,51 +50,501 @@ servers:
 
 tags:
   - name: Health
-    description: Estado del gateway y sus upstreams
+    description: Estado de los upstreams (solo `/health/quality` está ruteado)
+  - name: Identity
+    description: Proxied → ms-identity:8081 (rutas de bootstrap públicas; el resto exige bearer)
+  - name: Authorization
+    description: Proxied → ms-authorization:8082 (bearer validado en el MS)
+  - name: Academic
+    description: Proxied → ms-academic:8083 (sin validación en el MS hoy)
+  - name: Scheduling
+    description: Proxied → ms-scheduling:8084 (bearer validado en el MS)
+  - name: Attendance
+    description: Proxied → ms-attendance:8085 (bearer validado en el MS)
+  - name: Biometric
+    description: Proxied → ms-biometric:8086 (sin validación en el MS hoy)
+  - name: Configuration
+    description: Proxied → ms-configuration:8087 (sin validación en el MS hoy)
+  - name: Notification
+    description: Proxied → ms-notification:8088 (sin validación en el MS hoy)
+  - name: Quality
+    description: Proxied → ms-quality:8089 (sin validación en el MS hoy)
 
 paths:
-  /health:
+  /health/quality:
     get:
-      summary: Health check del gateway
-      description: |
-        Verifica que el gateway esté funcionando y que todos los servicios upstream
-        estén respondiendo. No requiere autenticación.
-      tags:
-        - Health
+      summary: Health de calidad (proxied a ms-academic:8083, solo CORS GET; única ruta de health en el gateway)
+      tags: [Health]
       security: []
       responses:
         '200':
-          description: Gateway y upstreams saludables
+          description: Reporte de calidad
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/QualityReport'
+
+  /api/v1/persons:
+    get:
+      summary: Proxy → identity (ver 01-identity-service.yaml)
+      tags: [Identity]
+      security: []
+      responses:
+        '200':
+          description: Proxied
           content:
             application/json:
               schema:
                 type: object
-                required: [status, timestamp]
-                properties:
-                  status:
-                    type: string
-                    enum: [ok, degraded]
-                  timestamp:
-                    type: string
-                    format: date-time
-                  upstreams:
-                    type: object
-                    description: Estado de cada microservicio
-                    additionalProperties:
-                      type: string
-                      enum: [ok, degraded, down]
-              example:
-                status: ok
-                timestamp: '2024-01-15T10:30:00Z'
-                upstreams:
-                  auth-service: ok
-                  nombre-servicio: ok
-        '503':
-          description: El gateway está iniciando o un upstream crítico está caído
+  /api/v1/users:
+    get:
+      summary: Proxy → identity
+      tags: [Identity]
+      security: []
+      responses:
+        '200':
+          description: Proxied
           content:
             application/json:
               schema:
-                $ref: './auth-service.yaml#/components/schemas/ErrorResponse'
+                type: object
+  /api/v1/auth/login:
+    post:
+      summary: Proxy → identity login (público, obtiene `sessionId` opaco)
+      tags: [Identity]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                identifier:
+                  type: string
+                  description: Email o username (alias aceptados: `email`, `username`)
+                email:
+                  type: string
+                  description: Alias de `identifier`
+                username:
+                  type: string
+                  description: Alias de `identifier`
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Sesión creada
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+  /api/v1/sessions:
+    post:
+      summary: Proxy → identity sessions (público)
+      tags: [Identity]
+      security: []
+      responses:
+        '201':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/password-policies:
+    get:
+      summary: Proxy → identity password-policies (público)
+      tags: [Identity]
+      security: []
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /api/v1/roles:
+    get:
+      summary: Proxy → authorization (401 sin bearer en el MS, 100/min)
+      tags: [Authorization]
+      responses:
+        '200':
+          description: Proxied (ver 02-authorization-service.yaml)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+  /api/v1/permissions:
+    get:
+      summary: Proxy → authorization (401 sin bearer en el MS)
+      tags: [Authorization]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/auth/evaluate:
+    get:
+      summary: Proxy → authorization RBAC check (401 sin bearer en el MS)
+      tags: [Authorization]
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            $ref: './_shared.yaml#/components/schemas/UUID'
+        - name: permission
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{userId,permission,allowed}'
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/schools:
+    get:
+      summary: Proxy → academic (sin auth en el MS hoy)
+      tags: [Academic]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Proxied (ver 03-academic-service.yaml)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/programs:
+    get:
+      summary: Proxy → academic (sin auth en el MS hoy)
+      tags: [Academic]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/academic-periods:
+    get:
+      summary: Proxy → academic (sin auth en el MS hoy, alias /periods)
+      tags: [Academic]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/cohorts:
+    get:
+      summary: Proxy → academic (sin auth en el MS hoy)
+      tags: [Academic]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/courses:
+    get:
+      summary: Proxy → academic (sin auth en el MS hoy)
+      tags: [Academic]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/academic-actors:
+    get:
+      summary: Proxy → academic (sin auth en el MS hoy)
+      tags: [Academic]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/enrollments:
+    get:
+      summary: Proxy → academic (sin auth en el MS hoy)
+      tags: [Academic]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /api/v1/environments:
+    get:
+      summary: Proxy → scheduling (401 sin bearer en el MS)
+      tags: [Scheduling]
+      responses:
+        '200':
+          description: Proxied (ver 04-scheduling-service.yaml)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/schedule-blocks:
+    get:
+      summary: Proxy → scheduling (401 sin bearer en el MS)
+      tags: [Scheduling]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/class-sessions:
+    get:
+      summary: Proxy → scheduling (401 sin bearer en el MS)
+      tags: [Scheduling]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /api/v1/attendance-records:
+    get:
+      summary: Proxy → attendance (401 sin bearer en el MS, 200/min)
+      tags: [Attendance]
+      responses:
+        '200':
+          description: Proxied (ver 05-attendance-service.yaml)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/justifications:
+    get:
+      summary: Proxy → attendance (401 sin bearer en el MS)
+      tags: [Attendance]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/justification-types:
+    get:
+      summary: Proxy → attendance (401 sin bearer en el MS)
+      tags: [Attendance]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/supporting-documents:
+    get:
+      summary: Proxy → attendance (401 sin bearer en el MS)
+      tags: [Attendance]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /api/v1/biometric/facial/verify:
+    post:
+      summary: Proxy → biometric verify (sin auth en el MS hoy)
+      tags: [Biometric]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Proxied (ver 06-biometric-service.yaml)
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/biometric/facial/identify:
+    post:
+      summary: Proxy → biometric identify (sin auth en el MS hoy)
+      tags: [Biometric]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/academic-configurations:
+    get:
+      summary: Proxy → configuration (sin auth en el MS hoy)
+      tags: [Configuration]
+      responses:
+        '200':
+          description: Proxied (ver 07-configuration-service.yaml)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/security-configurations:
+    get:
+      summary: Proxy → configuration (sin auth en el MS hoy)
+      tags: [Configuration]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/biometric-update-cases:
+    get:
+      summary: Proxy → configuration cases (sin auth en el MS hoy)
+      tags: [Configuration]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/configurations:
+    get:
+      summary: Proxy → configuration base (sin auth en el MS hoy)
+      tags: [Configuration]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /api/v1/alerts:
+    get:
+      summary: Proxy → notification (sin auth en el MS hoy)
+      tags: [Notification]
+      responses:
+        '200':
+          description: Proxied (ver 08-notification-service.yaml)
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/alert-types:
+    get:
+      summary: Proxy → notification types (sin auth en el MS hoy)
+      tags: [Notification]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/quality/characteristics:
+    get:
+      summary: Proxy → quality 25010 instrument (sin auth en el MS hoy, 100/min)
+      tags: [Quality]
+      responses:
+        '200':
+          description: Proxied (ver 09-quality-service.yaml)
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/quality/evaluations:
+    get:
+      summary: Proxy → quality evaluations (sin auth en el MS hoy)
+      tags: [Quality]
+      responses:
+        '200':
+          description: Proxied
+          content:
+            application/json:
+              schema:
+                type: object
 
 components:
   securitySchemes:

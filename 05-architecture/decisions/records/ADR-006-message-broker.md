@@ -3,13 +3,14 @@
 - **ID:** ADR-006
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** Kafka is **live**, not just "ready" — a KRaft broker runs in compose (`:9092`) and producers are wired in the Java (`spring-boot-starter-kafka` / `KafkaTemplate`) and TS (`kafkajs`) services. What is still missing: consumers with retry/DLQ topics (none exist) and a documented topic inventory in the deployment.
 - **Authors:** FaceAttend EDU Team
 
 ---
 
 ## Context
 
-The system requires asynchronous communication between bounded contexts for cross-context state propagation (per `09-microservices/communication-patterns.md`). The event catalog (`09-microservices/event-catalog.md`) defines ~30 business events across 9 services. The broker must support:
+The system requires asynchronous communication between bounded contexts for cross-context state propagation (per `09-microservices/communication-patterns.md`). The event catalog (`09-microservices/event-catalog.md`) defines ~30 business events across 8 services. The broker must support:
 
 1. Publish-subscribe pattern for multi-consumer events.
 2. Dead Letter Queue (DLQ) per service for failed event handling.
@@ -32,7 +33,7 @@ The system requires asynchronous communication between bounded contexts for cros
 
 1. **Event catalog alignment:** The event catalog already defines topic-per-context naming (`identity.user.events`, `attendance.attendance.events`), which maps directly to Kafka topics.
 2. **Schema Registry integration:** Confluent Schema Registry provides formal schema evolution, backward/forward compatibility checks, and a registry that services can query at runtime — critical for a system with ~30 event types that will evolve.
-3. **Durability:** Kafka persists events on disk by default, providing natural audit trail and replay capability — valuable for the audit-service.
+3. **Durability:** Kafka persists events on disk by default, providing natural traceability and replay capability.
 4. **Future extraction path:** When a module is extracted from the monolith (ADR-002), Kafka topics become the natural inter-service communication channel without changing event schemas.
 5. **Industry standard:** Kafka is the de facto standard for event-driven architectures; team members' learning investment has long-term career value.
 
@@ -58,7 +59,7 @@ The system requires asynchronous communication between bounded contexts for cros
 
 **Positive:**
 - Formal schema evolution via Confluent Schema Registry prevents breaking changes in event payloads.
-- Durable event log enables audit-service to replay events and rebuild state.
+- Durable event log enables services to replay events and rebuild state.
 - Natural extraction path: when a module becomes a separate service, Kafka topics are already the communication channel.
 - `kafkajs` (TypeScript) and `confluent-kafka-python` are mature clients for the chosen stacks.
 
@@ -69,7 +70,7 @@ The system requires asynchronous communication between bounded contexts for cros
 - Schema Registry is an additional service to operate.
 
 **Impact on the system:**
-- Affected modules: all nine bounded contexts (producers and consumers).
+- Affected modules: all eight bounded contexts (producers and consumers).
 - Documents that must be updated:
   - `09-microservices/communication-patterns.md` — specify Kafka as the broker; remove "Kafka / RabbitMQ" ambiguity
   - `09-microservices/service-catalog.md` — update communication type column

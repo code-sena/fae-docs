@@ -309,7 +309,7 @@ Phase 3:  Client → API Gateway → New Service (100%) — monolith retired
 
 ---
 
-#### Asynchronous: Message Broker (Kafka / RabbitMQ)
+#### Asynchronous: Message Broker (Kafka)
 
 ```
 [Service A] ──publishes──▶ [Topic/Queue] ──consumes──▶ [Service B]
@@ -479,8 +479,8 @@ CREATE TABLE outbox (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_type  VARCHAR(100) NOT NULL,
   payload     JSONB NOT NULL,
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  published_at TIMESTAMPTZ,
+  created_at  TIMESTAMP DEFAULT NOW(),
+  published_at TIMESTAMP,
   published   BOOLEAN DEFAULT false
 );
 
@@ -538,20 +538,20 @@ Kubernetes Pod:
 
 ## Patterns adopted in this project
 
-> **Fill in with your specific project's decisions.**
-> For each pattern: decide whether it is adopted, document the ADR that justifies the decision,
-> and link to the section in this document where you learned when to use it.
+> Concrete decisions for FaceAttend EDU — links to ADRs and sections above.
 
-| Pattern | Adopted? | Justification / ADR |
-|---------|---------|---------------------|
-| API Gateway | [Yes / No — see ADR-NNN] | [Brief reason] |
-| Database per Service | [Yes / No — see ADR-NNN] | [Brief reason] |
-| Circuit Breaker | [Yes / No — see ADR-NNN] | [Brief reason] |
-| Saga (choreographed) | [Yes / No — see ADR-NNN] | [Brief reason] |
-| Outbox Pattern | [Yes / No — see ADR-NNN] | [Brief reason] |
-| CQRS | [Yes / No — see ADR-NNN] | [Brief reason] |
-| Event Sourcing | [Yes / No — see ADR-NNN] | [Brief reason] |
-| BFF | [Yes / No — see ADR-NNN] | [Brief reason] |
+| Pattern | Adopted? | Justification / ADR | Where used |
+|---------|---------|---------------------|------------|
+| API Gateway (Kong OSS, DB-less) | **Yes** | ADR-007 | `overview.md` §3, `_shared.yaml` rate limiting |
+| Database per Service — variant schema-per-context in single PG | **Yes (schema)** | ADR-002, ADR-003 (MongoDB exception) | `overview.md` §5 P2, `06-data/models.md` |
+| Hexagonal Architecture (Ports & Adapters) | **Yes** | Standard `hexagonal-architecture.md` | All modules `domain/` → `ports/` |
+| Circuit Breaker (Resilience4j/opossum) | **Yes** | ADR-002 | Gateway→Monolith, Biometric→MongoDB |
+| Saga (choreographed, events) | **Yes** | ADR-004 | Attendance + Biometric + Notification |
+| Outbox Pattern (transactional) | **Yes** | ADR-004 | `attendance-service`, `academic-service` |
+| CQRS | **No** — single model suffices at current scale | — | Re-evaluate at 10k rps |
+| Event Sourcing | **No** — events for integration, not source of truth | — | — |
+| BFF | **No** — Web/Mobile share Gateway; one BFF would add ops cost | ADR-007 | — |
+| Retry + Exponential Backoff + DLQ | **Yes** | ADR-006 | `02-domain/domain-events.md` resilience |
 
 ---
 

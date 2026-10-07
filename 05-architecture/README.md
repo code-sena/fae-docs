@@ -77,7 +77,7 @@ were evaluated, and what the consequences are. They are **short documents** (1-2
 ```
 ADR-001-documentation-language.md  → Why English for all documentation
 ADR-002-auth-strategy.md           → Why JWT and not sessions
-ADR-003-database-per-service.md    → Why separate DB per service
+ADR-003-database-per-service.md    → Why separate schema per service (schema-per-context variant here)
 ADR-004-api-gateway.md             → Why Kong and not custom NGINX
 ```
 
@@ -97,7 +97,7 @@ ADR-004-api-gateway.md             → Why Kong and not custom NGINX
 ## The 5 most common architecture mistakes
 
 1. **Microservices too small** — If a "service" cannot exist independently, it is not a microservice.
-2. **Shared database** — Destroys service independence. Each service, its own DB.
+2. **Shared database without boundaries** — Destroys service independence. Each service needs its own schema/boundary (this project uses schema-per-context in a single `faceattend_db`, see ADR-002).
 3. **Only synchronous communication** — For non-urgent operations, async events scale better.
 4. **No API Gateway** — Exposing microservices directly to the frontend creates coupling.
 5. **No documented decisions** — In 6 months nobody remembers why X was chosen.

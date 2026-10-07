@@ -64,15 +64,39 @@ They should be few and consistent over time.
 
 ## High-level roadmap
 
-> The roadmap shows how the product evolves over time.  
-> Horizon 1: high certainty, core product validation.  
-> Horizon 2: medium certainty, traceability, adoption, and reporting improvements.  
-> Horizon 3: low certainty, expansion, analytics, and scalability.
+> Horizon 1: high certainty, core product validation. Horizon 2: traceability and adoption. Horizon 3: expansion and analytics.
 
 ```text
 Phase 1 (0-3 months) ──── Phase 2 (3-6 months) ──── Phase 3 (6-12 months)
         │                         │                          │
       [MVP]                [Traceability]              [Scale / Expansion]
- Validate core             Justifications,             Advanced analytics,
- attendance                dashboards, alerts,         fingerprint biometrics,
- hypothesis                and configuration           and scalability
+ Validate core             Justifications,             Fingerprint,
+ attendance                dashboards, alerts,         advanced analytics,
+ hypothesis                and config                  and multi-school
+```
+
+### MVP scope (Horizon 1) — what we ship first
+
+| In scope | Out of scope (explicitly) |
+|---|---|
+| Identity + Authorization, Academic cohorts, Scheduling sessions, Attendance FACIAL/MANUAL/IMPORT, Justifications with docs, Biometric FACIAL enroll, Alerts (in-app), Reports by cohort/date | Fingerprint, IoT devices, Audit domain (now infra), payment/grading, external IdP, SMS/WhatsApp |
+
+### Horizon 2 — Traceability
+
+- Justification workflow end-to-end with approval SLAs, dashboards for instructors/admins, alert thresholds, configuration per school, mobile hardening.
+
+### Horizon 3 — Scale
+
+- Fingerprint biometrics via `Biometric_Update_Case`, advanced analytics, multi-school tenancy, Kafka replay for ops.
+
+## Product principles (trade-offs)
+
+1. **Accuracy over speed** — a missed attendance is worse than a 2s delay.
+2. **Offline-first for capture** — queue and sync when connectivity returns (future).
+3. **Privacy by design** — Law 1581 consent, encryption at rest, minimal PII in logs.
+
+## Success criteria for next evaluation
+
+- No placeholder text remains; all metrics have baseline + 6-month target + instrument.
+- Domain product traces to SRS: RF 1-8 covered in pillars and roadmap.
+- No language mixing (docs in English per `00-governance/documentation-rules.md`).

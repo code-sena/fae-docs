@@ -12,16 +12,16 @@
 - [ ] No technical debt introduced without registering it in `15-project-control/technical-backlog.md`
 
 ### Tests
-- [ ] Unit tests written for new business logic
-- [ ] Test coverage does not decrease from the project baseline
+- [ ] Unit tests written for new business logic (domain invariants + use cases)
+- [ ] Test coverage ≥70% and does not decrease from baseline
 - [ ] All tests pass locally and in CI
-- [ ] Acceptance criteria verified (manual or automated)
+- [ ] Acceptance criteria verified (manual or automated, Given/When/Then)
 
 ### Integration
-- [ ] Changes do not break other services (integration tests pass)
-- [ ] If API changes: OpenAPI contract updated in `07-api/contracts/`
-- [ ] If data model changes: service `data-model.md` updated
-- [ ] If new/modified events: `event-catalog.md` updated
+- [ ] Changes do not break other modules (integration tests pass)
+- [ ] If API changes: OpenAPI contract updated in `07-api/contracts/openapi/` + `_shared.yaml` if needed
+- [ ] If data model changes: service `data-model.md` + `06-data/domains/` updated, migration via Liquibase (ADR-010)
+- [ ] If new/modified events: `02-domain/domain-events.md` + `09-microservices/event-catalog.md` + per-service `events.md` updated
 
 ### Deployment
 - [ ] Code is mergeable to `dev` (no conflicts)

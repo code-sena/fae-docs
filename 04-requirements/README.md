@@ -87,12 +87,12 @@ Non-functional requirements are often harder to verify and are frequently ignore
 
 | File | Description | Key question answered | Status |
 |---|---|---|---|
-| [functional.md](./functional.md) | Complete list of functional requirements derived from the SRS. | What must FaceAttend EDU do for each user role? | 🟡 Pending completion |
-| [non-functional.md](./non-functional.md) | Performance, availability, security, compatibility, scalability, and portability requirements. | How well must the system perform and protect data? | 🟡 Pending completion |
-| [user-stories.md](./user-stories.md) | Formalized user stories derived from the product backlog or SRS requirements. | What user needs must be satisfied and how will they be accepted? | 🔴 Pending |
+| `functional.md` | Complete list of functional requirements derived from the SRS. | What must FaceAttend EDU do for each user role? | 🟡 Not written yet — meanwhile see the RF list in `README.md` above and `traceability-matrix.md` |
+| [non-functional.md](./non-functional.md) | Performance, availability, security, compatibility, scalability, and portability requirements. | How well must the system perform and protect data? | 🟢 Complete |
+| [HU/](./HU/) — one `user-stories.md` per HU group (HU-IAM, HU-ATT, HU-ACAD, HU-JUS, HU-CONF, HU-HIST, HU-REP) | Formalized user stories derived from the product backlog or SRS requirements. | What user needs must be satisfied and how will they be accepted? | 🟢 Written |
 | [traceability-matrix.md](./traceability-matrix.md) | Matrix connecting requirements, user stories, and test cases. | Is every requirement covered by tests? | 🔴 Pending |
 | `_template-hu.md` | Template for user stories with acceptance criteria. | How should user stories be written? | 🔴 Optional |
-| `_template-nfr.md` | Template for non-functional requirements with metrics and verification methods. | How should NFRs be specified and verified? | 🔴 Optional |
+| `_template-nfr.md` | Template for non-functional requirements with metrics and verification methods. | How should NFRs be specified and verified? | 🟡 Does not exist — use `non-functional.md` as the reference |
 
 ---
 

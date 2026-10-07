@@ -613,7 +613,7 @@
 
 ## Technical notes
 
-- ⚠️ **SRS Inconsistency Note:** The SRS index lists RF 4.5 as "Gestión de alertas de fallos de dispositivos IoT", but the detailed RF 4.5 section describes "Desactivar y reactivar usuarios". This story is documented based on the **index description** (IoT device failure alerts). The user activation/deactivation functionality is covered in HU-IAM-007 (RF 1.6). This inconsistency should be validated with the instructor.
+- ⚠️ **SRS Inconsistency Note:** The SRS index lists RF 4.5 as "Gestión de alertas de fallos de dispositivos IoT" [IoT device failure alert management], but the detailed RF 4.5 section describes "Desactivar y reactivar usuarios" [Deactivate and reactivate users]. This story is documented based on the **index description** (IoT device failure alerts). The user activation/deactivation functionality is covered in HU-IAM-007 (RF 1.6). This inconsistency should be validated with the instructor.
 - The IoT device failure alerts management should consider:
   - Device types: cameras, sensors, or other hardware used for attendance registration.
   - Failure types: connectivity loss, hardware malfunction, camera failure, low battery (if applicable).

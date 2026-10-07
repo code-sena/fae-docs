@@ -174,15 +174,15 @@ Proposed strategy:
 
 - All private endpoints must require an authenticated user.
 - Authentication must be performed before accessing protected functionality.
-- Proposed mechanism: JWT or secure session-based authentication.
-- Access token expiration: **1 hour**, proposed.
-- Refresh token expiration: **15 days**, proposed.
+- **Adopted mechanism:** opaque session ids (`identity.user_session`) sent as `Authorization: Bearer <sessionId>` and validated per Java service by `AuthTokenFilter`; Kong carries no `jwt` plugin (edge JWT is the ADR-007 target state).
+- Session lifetime: closed by logout (`session_status = Closed`); `password_policy.expiration_days` = 90 for passwords. There are no access/refresh tokens today — see `07-api/authentication.md`.
 - Role-Based Access Control (RBAC) must be implemented.
 - Roles considered in the SRS:
   - SuperAdministrator.
   - Administrator.
   - Teacher / Instructor.
   - Student.
+  > Effective catalog in the database: `Administrador | Instructor | Aprendiz` (roles are global, no `school_id`).
 
 ### Authorization rules
 
@@ -194,9 +194,11 @@ Proposed strategy:
 ### Password management
 
 - Passwords must never be stored in plain text.
-- Proposed hashing algorithms: bcrypt with cost factor ≥ 12, or Argon2id.
+- **Adopted:** bcrypt with cost factor **12** and the `$2b` prefix (ADR-008, `SecurityConfig`).
 - Password change must verify the user identity.
 - Password recovery must use a secure, time-limited mechanism.
+  > **Gap:** the Web/Mobile clients call `auth/forgot-password`, `auth/verify-code` and
+  > `auth/reset-password`, but those endpoints are **not implemented server-side** (AT-005).
 
 ### Data transmission
 
@@ -380,7 +382,7 @@ The system should follow accessibility best practices. Proposed target:
 | Metrics | RED metrics: Rate, Errors, Duration per endpoint | Prometheus + Grafana, or equivalent |
 | Traces | End-to-end request tracing for critical flows | OpenTelemetry + Jaeger, or equivalent |
 | Alerts | Alert in less than 5 minutes when a critical SLI violates its SLO | Alertmanager, email, or notification service |
-| Audit | Business-level audit events for sensitive actions | Database audit table or audit service |
+| Audit | Business-level audit events for sensitive actions | Platform observability (centralized logging, no audit table) |
 
 ### Correlation ID
 

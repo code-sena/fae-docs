@@ -119,10 +119,11 @@ adapters implement them.
 Defines what the domain can do — its public API from the outside's perspective.
 
 ```typescript
-// src/domain/order/ports/in/CreateOrderPort.ts
-export interface CreateOrderPort {
-  execute(request: CreateOrderRequest): Promise<CreateOrderResponse>;
+// src/domain/attendance/ports/in/RecordAttendancePort.ts
+export interface RecordAttendancePort {
+  execute(request: RecordAttendanceRequest): Promise<RecordAttendanceResponse>;
 }
+// Example FaceAttend aggregate: Attendance_Record enforces RN-22 (one per actor per session) and RN-23 (Open session)
 ```
 
 ### Driven Port (Output Port)
@@ -130,11 +131,10 @@ export interface CreateOrderPort {
 Defines what the domain needs from the outside world — without knowing how it is implemented.
 
 ```typescript
-// src/domain/order/ports/out/OrderRepositoryPort.ts
-export interface OrderRepositoryPort {
-  save(order: Order): Promise<void>;
-  findById(id: OrderId): Promise<Order | null>;
-  findByCustomer(customerId: CustomerId): Promise<Order[]>;
+// src/domain/attendance/ports/out/AttendanceRepositoryPort.ts
+export interface AttendanceRepositoryPort {
+  save(record: AttendanceRecord): Promise<void>;
+  findBySessionAndActor(sessionId: ClassSessionId, actorId: AcademicActorId): Promise<AttendanceRecord | null>;
 }
 
 // src/domain/order/ports/out/EventPublisherPort.ts
@@ -208,30 +208,30 @@ export class OrderRepositoryImpl implements OrderRepositoryPort {
 The use case orchestrates the domain. It uses driving and driven ports. It contains no business logic — that lives in the Aggregate.
 
 ```typescript
-// src/application/order/CreateOrderUseCase.ts
-import { CreateOrderPort } from '@domain/order/ports/in/CreateOrderPort';
-import { OrderRepositoryPort } from '@domain/order/ports/out/OrderRepositoryPort';
+// src/application/attendance/RecordAttendanceUseCase.ts
+import { RecordAttendancePort } from '@domain/attendance/ports/in/RecordAttendancePort';
+import { AttendanceRepositoryPort } from '@domain/attendance/ports/out/AttendanceRepositoryPort';
 import { EventPublisherPort } from '@domain/order/ports/out/EventPublisherPort';
 
-export class CreateOrderUseCase implements CreateOrderPort {
+export class RecordAttendanceUseCase implements RecordAttendancePort {
   constructor(
-    private readonly orderRepo: OrderRepositoryPort,
+    private readonly attendanceRepo: AttendanceRepositoryPort,
     private readonly eventPublisher: EventPublisherPort,
   ) {}
 
-  async execute(request: CreateOrderRequest): Promise<CreateOrderResponse> {
-    // 1. Create the aggregate (business logic lives HERE, in the domain)
-    const order = Order.create(request.customerId, request.items);
+  async execute(request: RecordAttendanceRequest): Promise<RecordAttendanceResponse> {
+    // 1. Create aggregate — enforces RN-22/RN-23 in domain
+    const record = AttendanceRecord.create(request.sessionId, request.actorId, request.captureMethod);
 
-    // 2. Persist (through the port — the use case does not know which DB is used)
-    await this.orderRepo.save(order);
+    // 2. Persist via port (domain unaware of PG)
+    await this.attendanceRepo.save(record);
 
-    // 3. Publish domain events (through the port)
-    for (const event of order.domainEvents) {
+    // 3. Publish AttendanceRecorded
+    for (const event of record.domainEvents) {
       await this.eventPublisher.publish(event);
     }
 
-    return new CreateOrderResponse(order.id.value);
+    return new RecordAttendanceResponse(record.id.value);
   }
 }
 ```

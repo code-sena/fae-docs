@@ -11,12 +11,16 @@
 
 ## Available guides
 
-| Stack | File | When to use it |
-|-------|------|----------------|
-| Node.js + TypeScript | [node-typescript.md](./node-typescript.md) | Backend in Express/Fastify/NestJS with TypeScript |
-| Java + Spring Boot | [java-spring.md](./java-spring.md) | Backend in Spring Boot 3.x with Maven or Gradle |
-| Python + FastAPI | [python-fastapi.md](./python-fastapi.md) | Backend in FastAPI/Django with Python 3.10+ |
-| Go | [go.md](./go.md) | Backend in Go with net/http or Gin/Echo |
+| Stack | File | FaceAttend service using it | When to use it |
+|-------|------|-----------------------------|----------------|
+| Node.js + TypeScript | [node-typescript.md](./node-typescript.md) | `ms-academic` :8083 · `ms-configuration` :8087 · `ms-quality` :8089 | Backend in Fastify with TypeScript |
+| Java + Spring Boot | [java-spring.md](./java-spring.md) | `ms-identity` :8081 · `ms-authorization` :8082 · `ms-scheduling` :8084 · `ms-attendance` :8085 | Backend in Spring Boot 4.1 (Java 21) with Maven |
+| Python + FastAPI | [python-fastapi.md](./python-fastapi.md) | `ms-biometric` :8086 | Backend in FastAPI with Python 3.12 |
+| Go | [go.md](./go.md) | `ms-notification` :8088 | Backend in Go with Gin |
+
+> **Migrations are not owned by the service folders:** every schema is migrated by the 8 chained
+> **Liquibase** jobs under `database/<NN>-ms-*-db/` (ADR-010), started by the root
+> `docker compose up`. See `FULL/COMPOSE.md`.
 
 ---
 

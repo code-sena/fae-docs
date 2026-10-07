@@ -31,7 +31,7 @@ The service keeps authoritative records for `School`, `Person`, `User`, and `Use
 **Status:** Active
 
 **Context:**
-Academic, authorization, audit, and biometric contexts need to reference identity data, but direct FK joins would create hidden dependencies and break context autonomy.
+Academic, authorization, and biometric contexts need to reference identity data, but direct FK joins would create hidden dependencies and break context autonomy.
 
 **Decision:**
 Identity exposes stable public IDs such as `school_id`, `person_id`, and `user_id`, and downstream services resolve the relationship via API calls or domain events instead of DB-level foreign keys.

@@ -3,13 +3,14 @@
 - **ID:** ADR-005
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** the per-service stack matches the implementation — Java 21 + **Spring Boot 4.1** (01/02/04/05), TypeScript + Fastify + Zod (03/07/**09**), Python 3.12 + FastAPI (06), Go 1.22 + Gin (08), Kong OSS 3.6, PostgreSQL 17, MongoDB 7, Redis 7, Kafka (KRaft). Two deltas: a ninth service **`ms-quality` :8089** (TS, ISO 25010 tooling, not a bounded context) exists, and the modules are separate containers rather than one process (see ADR-002 note). Where the tables below still read `Spring Boot 3` or port `8090` for notifications, read **Spring Boot 4.1** and **8088** (`ms-notification`); the deployed port block is `8081`-`8089`.
 - **Authors:** FaceAttend EDU Team
 
 ---
 
 ## Context
 
-The system consists of 9 bounded-context modules running inside a single modular monolith (per ADR-002), plus an API Gateway. Each module has distinct workload characteristics — from trivial CRUD (configuration-service) to CPU-intensive biometric matching (biometric-service) to ACID transactional attendance recording (attendance-service).
+The system consists of 8 bounded-context modules running inside a single modular monolith (per ADR-002), plus an API Gateway. Each module has distinct workload characteristics — from trivial CRUD (configuration-service) to CPU-intensive biometric matching (biometric-service) to ACID transactional attendance recording (attendance-service).
 
 The team must select a concrete technology stack that:
 1. Matches the workload profile of each module.
@@ -34,13 +35,12 @@ We decided on a **polyglot modular monolith** with the following technology stac
 |---|---------|-----------|-----------|
 | 01 | `identity-service` (+ auth) | **Java 21 + Spring Boot 3** | Best ORM (Hibernate/JPA) for the 4 entities. Authentication merged into this service (no separate auth-service). Spring Security handles JWT + session management. |
 | 02 | `authorization-service` | **Java 21 + Spring Boot 3** | Spring Security is the gold standard for RBAC. Permission checks embedded in JWT claims reduce cross-service calls. |
-| 03 | `academic-service` | **TypeScript + Fastify + Drizzle ORM** | Drizzle generates efficient SQL for 7-table JOINs (TypeORM generates bad SQL). Fastify's speed handles complex reporting queries. |
+| 03 | `academic-service` | **TypeScript + Fastify + Drizzle ORM** | Drizzle generates efficient SQL for 8-table JOINs (TypeORM generates bad SQL). Fastify's speed handles complex reporting queries. |
 | 04 | `scheduling-service` | **Java 21 + Spring Boot 3** | Unique constraints for anti-double-booking are critical. Hibernate's `@UniqueConstraint` + ACID transactions ensure room/instructor conflict prevention. |
-| 05 | `attendance-service` | **Java 21 + Spring Boot 3** | Most critical business path. `@Transactional` ensures ACID for Attendance + Audit writes. Spring microservice transport ready for future extraction. |
+| 05 | `attendance-service` | **Java 21 + Spring Boot 3** | Most critical business path. `@Transactional` ensures ACID for Attendance writes. Spring microservice transport ready for future extraction. |
 | 06 | `biometric-service` | **Python 3.12 + FastAPI** | OpenCV canonical binding. face_recognition is Python-first. pymongo vector search. **Non-negotiable — only correct choice for CV workloads.** |
 | 07 | `notification-service` | **Go 1.22 + Gin** | Lightweight service for alert lifecycle (2 tables). Go's simplicity and small binary size are ideal for a focused, low-complexity microservice. |
-| 08 | `audit-service` | **TypeScript + Fastify + pg** | Append-only writes. `pg` pool with batch INSERT is 50 lines. Kafka consumer for event ingestion. Simple and effective. |
-| 09 | `configuration-service` | **TypeScript + Fastify** | Trivial CRUD (3 tables). Fastest to implement. 20 minutes of coding. Minimal dependencies. |
+| 08 | `configuration-service` | **TypeScript + Fastify** | Trivial CRUD (3 tables). Fastest to implement. 20 minutes of coding. Minimal dependencies. |
 | 99 | `api-gateway` | **Kong OSS** | Battle-tested. Built-in plugins for JWT, rate limiting, CORS. DB-less mode. Already in architecture. |
 
 ---
@@ -65,7 +65,7 @@ Each option is scored on 5 dimensions (1 = worst, 5 = best):
 
 **Port 8081 | PostgreSQL | Core domain**
 
-Workload: Standard CRUD with bulk CSV imports. 4 entities (School, Person, User, Session). Authentication (JWT issuance, refresh token rotation, Redis session management) is merged into this service. **Every authenticated request touches this service.**
+Workload: Standard CRUD with bulk CSV imports. 4 entities (Person, App_User, User_Session, Password_Policy). Authentication (JWT issuance, refresh token rotation, Redis session management) is merged into this service. **Every authenticated request touches this service.**
 
 | # | Option | Performance | Ecosystem | Learning | Lib Fit | Ops | **Total** | Notes |
 |---|--------|:-----------:|:---------:|:--------:|:-------:|:---:|:---------:|-------|
@@ -101,17 +101,17 @@ Workload: Permission checks on **every request**. 4 entities (Role, Permission, 
 
 **Port 8084 | PostgreSQL | Core domain**
 
-Workload: 7 entities with relationships. Complex JOIN queries for reports (enrollment lists, schedule conflicts). Reporting is read-heavy. Writes are periodic (semester setup).
+Workload: 8 entities with relationships. Complex JOIN queries for reports (enrollment lists, schedule conflicts). Reporting is read-heavy. Writes are periodic (semester setup).
 
 | # | Option | Performance | Ecosystem | Learning | Lib Fit | Ops | **Total** | Notes |
 |---|--------|:-----------:|:---------:|:--------:|:-------:|:---:|:---------:|-------|
 | 1 | **TS + Fastify + Drizzle** | 4 | 4 | 5 | 4 | 5 | **22** | Drizzle generates efficient SQL for complex JOINs. TypeORM generates bad SQL. |
-| 2 | Java + Spring Boot | 4 | 5 | 2 | 5 | 3 | **19** | Hibernate handles 7-entity models perfectly. JVM overhead + team learning. |
+| 2 | Java + Spring Boot | 4 | 5 | 2 | 5 | 3 | **19** | Hibernate handles 8-entity models perfectly. JVM overhead + team learning. |
 | 3 | Python + FastAPI + SQLAlchemy | 3 | 4 | 4 | 4 | 4 | **19** | SQLAlchemy excellent for complex queries. GIL limits concurrent report generation. |
 | 4 | TS + NestJS + TypeORM | 3 | 5 | 4 | 4 | 4 | **20** | NestJS modules map to entities. But TypeORM generates inefficient JOINs. |
 | 5 | Go + Gin + sqlx | 5 | 3 | 2 | 3 | 4 | **17** | Fastest raw queries. But ORM story is weak — manual SQL for everything. |
 
-**Critical analysis:** This is the service where ORM choice matters most. TypeORM's QueryBuilder generates verbose, sometimes incorrect SQL for 7-table JOINs. Drizzle ORM uses a SQL-like API that produces efficient queries without the Hibernate-style overhead. TypeScript + Fastify is the right choice here because Drizzle's type-safety catches schema mismatches at compile time.
+**Critical analysis:** This is the service where ORM choice matters most. TypeORM's QueryBuilder generates verbose, sometimes incorrect SQL for 8-table JOINs. Drizzle ORM uses a SQL-like API that produces efficient queries without the Hibernate-style overhead. TypeScript + Fastify is the right choice here because Drizzle's type-safety catches schema mismatches at compile time.
 
 ---
 
@@ -137,7 +137,7 @@ Workload: 3 entities (Environment, Schedule_Block, Class_Session). **Unique cons
 
 **Port 8085 | PostgreSQL | Core domain (critical path)**
 
-Workload: ACID transaction for Attendance + Audit write. Biometric match is a precondition (read from MongoDB). This is the most critical business operation. Must be **reliable**, not necessarily the fastest.
+Workload: ACID transaction for Attendance write. Biometric match is a precondition (read from MongoDB). This is the most critical business operation. Must be **reliable**, not necessarily the fastest.
 
 | # | Option | Performance | Ecosystem | Learning | Lib Fit | Ops | **Total** | Notes |
 |---|--------|:-----------:|:---------:|:--------:|:-------:|:---:|:---------:|-------|
@@ -187,29 +187,11 @@ Workload: 2 entities (Alert_Type, Alert). Simple CRUD with alert lifecycle (rais
 
 ---
 
-## 8. `audit-service` — Append-Only Logging, High Write Throughput
-
-**Port 8088 | PostgreSQL | Support domain**
-
-Workload: Consumes Kafka events, batch-inserts into PostgreSQL. Append-only. No reads except operational queries. **Write throughput** is the key metric.
-
-| # | Option | Performance | Ecosystem | Learning | Lib Fit | Ops | **Total** | Notes |
-|---|--------|:-----------:|:---------:|:--------:|:-------:|:---:|:---------:|-------|
-| 1 | **TS + Fastify + pg** | 4 | 4 | 5 | 4 | 5 | **22** | `pg` pool with batch INSERT. Fastify handles Kafka consumer. Simple and effective. |
-| 2 | Go + Gin + pgx | 5 | 4 | 2 | 4 | 4 | **19** | `pgx` is the fastest Postgres driver. Goroutines for batch writes. But audit writes are I/O-bound. |
-| 3 | TS + NestJS + Bull | 3 | 5 | 4 | 5 | 4 | **21** | Bull queue batches writes. More structured. But queue adds complexity for append-only. |
-| 4 | Python + FastAPI + psycopg | 3 | 4 | 4 | 4 | 4 | **19** | psycopg3 excellent for batch COPY. But Python GIL limits concurrent batch processing. |
-| 5 | Rust + Actix + sqlx | 5 | 3 | 1 | 3 | 3 | **15** | Fastest possible. 6+ month ramp-up. Audit writes are not the bottleneck. |
-
-**Critical analysis:** Audit-service is the simplest module: consume event → batch insert → done. The bottleneck is PostgreSQL write speed, not application language. Fastify + `pg` pool with batch INSERT is 50 lines of code. Go's goroutines don't help because the limiting factor is disk I/O, not CPU. Bull queue (NestJS) adds unnecessary complexity for append-only writes — there's no failure handling needed because Kafka provides at-least-once delivery.
-
----
-
-## 9. `configuration-service` — Simple CRUD, Config Values
+## 8. `configuration-service` — Simple CRUD, Config Values
 
 **Port 8089 | PostgreSQL | Support domain**
 
-Workload: 3 tables (Academic_Configuration, Security_Configuration, Password_Policy). Basic CRUD. Published config changes to Kafka. **Trivial service.**
+Workload: 2 tables (Academic_Configuration, Security_Configuration). Basic CRUD. Published config changes to Kafka. **Trivial service.**
 
 | # | Option | Performance | Ecosystem | Learning | Lib Fit | Ops | **Total** | Notes |
 |---|--------|:-----------:|:---------:|:--------:|:-------:|:---:|:---------:|-------|
@@ -219,7 +201,7 @@ Workload: 3 tables (Academic_Configuration, Security_Configuration, Password_Pol
 | 4 | Go + Gin | 5 | 3 | 2 | 3 | 4 | **17** | Fastest. But we're talking about 3 config tables. |
 | 5 | Express (TS) | 3 | 4 | 5 | 3 | 5 | **20** | Simplest possible. No structure needed. But no OpenAPI generation. |
 
-**Critical analysis:** This service has no domain logic. It's 3 Postgres tables with CRUD endpoints. Fastify is the lightest framework that still gives good performance. NestJS's decorators for auto-generated OpenAPI are nice but not worth the overhead for a service that will never change.
+**Critical analysis:** This service has no domain logic. It's 2 Postgres tables with CRUD endpoints. Fastify is the lightest framework that still gives good performance. NestJS's decorators for auto-generated OpenAPI are nice but not worth the overhead for a service that will never change.
 
 ---
 
@@ -265,12 +247,12 @@ Workload: Routes external requests to the single monolith application. JWT valid
 │  └─────────────────┘                                           │
 ├─────────────────────────────────────────────────────────────────┤
 │                    Modular Monolith (Node.js)                    │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
-│  │ academic-service │  │ audit-service   │  │ configuration-  │ │
-│  │ TS + Fastify     │  │ TS + Fastify    │  │ service         │ │
-│  │ + Drizzle        │  │ + pg            │  │ TS + Fastify    │ │
-│  │ Port 8084        │  │ Port 8088       │  │ Port 8089       │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
+│  ┌─────────────────┐  ┌─────────────────┐                       │
+│  │ academic-service │  │ configuration-  │                       │
+│  │ TS + Fastify     │  │ service         │                       │
+│  │ + Drizzle        │  │ TS + Fastify    │                       │
+│  │ Port 8084        │  │ Port 8089       │                       │
+│  └─────────────────┘  └─────────────────┘                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                    Modular Monolith (Python)                     │
 │  ┌─────────────────┐                                           │
@@ -296,7 +278,7 @@ Workload: Routes external requests to the single monolith application. JWT valid
 
 1. **Java Spring Boot dominates core business** (4 services: identity, authorization, scheduling, attendance). The learning curve (2/5) is justified by the best ORM (Hibernate), transaction management (`@Transactional`), and Spring Security for RBAC. Consistency across core services reduces cognitive load.
 
-2. **TypeScript + Fastify for reporting and support** (3 services: academic, audit, configuration). Drizzle ORM's SQL-like API produces better queries than TypeORM for complex JOINs. Fastify's speed handles reporting workloads.
+2. **TypeScript + Fastify for reporting and support** (2 services: academic, configuration). Drizzle ORM's SQL-like API produces better queries than TypeORM for complex JOINs. Fastify's speed handles reporting workloads.
 
 3. **Python for CV only** (1 service: biometric). OpenCV is non-negotiable in Python. FastAPI's async handles concurrent face-matching.
 
@@ -318,7 +300,7 @@ Workload: Routes external requests to the single monolith application. JWT valid
 
 5. **Go + Gin is validated** for lightweight, focused services. Not recommended for complex business logic.
 
-6. **Modular monolith extraction path**: The 4 Java services can be extracted together (same runtime, same Spring patterns). The 3 TypeScript services can be extracted together. Python and Go services are standalone.
+6. **Modular monolith extraction path**: The 4 Java services can be extracted together (same runtime, same Spring patterns). The 2 TypeScript services can be extracted together. Python and Go services are standalone.
 
 ---
 

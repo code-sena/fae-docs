@@ -76,7 +76,7 @@ The system must store:
 - Documents that must be updated:
   - `10-devops/local-setup.md` — add MinIO container to Docker Compose
   - `.env.example` — add MinIO endpoint, access key, and secret key variables
-  - `09-microservices/services/04-attendance-service/data-model.md` — document file reference storage pattern
+  - `09-microservices/services/05-attendance-service/data-model.md` — document file reference storage pattern
   - `06-data/models.md` — document `Supporting_Document` entity's file reference pattern
   - `10-devops/environments.md` — add MinIO to environment configuration matrix
 

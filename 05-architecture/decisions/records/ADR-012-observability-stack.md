@@ -3,6 +3,7 @@
 - **ID:** ADR-012
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** **only partially implemented.** Structured logging is real (`pino` in TS services, `structlog` in ms-biometric, `go.uber.org/zap` in ms-notification, Spring Boot JSON logs in Java) and health endpoints are wired into the compose healthchecks. **No Prometheus, Grafana, Jaeger, Alertmanager or OTel collector is deployed** — compose runs only the 9 services, Kong, frontend and the data tier; OpenTelemetry SDKs appear only as transitive dependencies in `package-lock.json`.
 - **Authors:** FaceAttend EDU Team
 
 ---
@@ -14,7 +15,7 @@ NFR-007 requires structured logging, RED metrics, distributed tracing, and alert
 The observability stack must:
 1. Collect structured JSON logs from all modules (TypeScript and Python).
 2. Expose RED metrics (Rate, Errors, Duration) per endpoint.
-3. Provide distributed tracing across the attendance registration flow (Biometric → Attendance → Audit).
+3. Provide distributed tracing across the attendance registration flow (Biometric → Attendance → Notification).
 4. Support alerting when SLIs violate SLOs.
 5. Be operationally manageable by a 3-person team.
 

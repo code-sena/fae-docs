@@ -25,16 +25,16 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 
 | FR ID | FR Description | HU(s) | Tests that verify it | Service | Status |
 |-------|---------------|-------|---------------------|---------|--------|
-| FR 1.1 | Register users with role assignment | HU-IAM-002 | `iam.user.register.spec.ts` *(proposed)* | iam-service | 🔴 Pending |
-| FR 1.1.1 | Role assignment (user-person relationship) | HU-IAM-002 | `iam.role.assign.spec.ts` *(proposed)* | iam-service | 🔴 Pending |
-| FR 1.1.2 | Permission assignment by role on web platform | HU-IAM-003 | `iam.permissions.assign.spec.ts` *(proposed)* | iam-service | 🔴 Pending |
-| FR 1.2 | Register users via CSV files | HU-IAM-004 | `iam.user.csv-import.spec.ts` *(proposed)* | iam-service | 🔴 Pending |
-| FR 1.3 | Login | HU-IAM-001 | `iam.auth.login.spec.ts` *(proposed)* | iam-service | 🔴 Pending |
-| FR 1.4 | Password recovery | HU-IAM-005 | `iam.auth.recovery.spec.ts` *(proposed)* | iam-service | 🔴 Pending |
-| FR 1.5 | Password change | HU-IAM-006 | `iam.auth.password-change.spec.ts` *(proposed)* | iam-service | 🔴 Pending |
-| FR 1.6 | Activate/Deactivate users | HU-IAM-007 | `iam.user.toggle-status.spec.ts` *(proposed)* | iam-service | 🔴 Pending |
-| FR 1.7 | Delete users | HU-IAM-008 | `iam.user.delete.spec.ts` *(proposed)* | iam-service | 🔴 Pending |
-| FR 1.8 | User information query | HU-IAM-009 | `iam.user.query.spec.ts` *(proposed)* | iam-service | 🔴 Pending |
+| FR 1.1 | Register users with role assignment | HU-IAM-002 | `iam.user.register.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
+| FR 1.1.1 | Role assignment (user-person relationship) | HU-IAM-002 | `iam.role.assign.spec.ts` *(proposed)* | authorization-service | 🔴 Pending |
+| FR 1.1.2 | Permission assignment by role on web platform | HU-IAM-003 | `iam.permissions.assign.spec.ts` *(proposed)* | authorization-service | 🔴 Pending |
+| FR 1.2 | Register users via CSV files | HU-IAM-004 | `iam.user.csv-import.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
+| FR 1.3 | Login | HU-IAM-001 | `iam.auth.login.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
+| FR 1.4 | Password recovery | HU-IAM-005 | `iam.auth.recovery.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
+| FR 1.5 | Password change | HU-IAM-006 | `iam.auth.password-change.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
+| FR 1.6 | Activate/Deactivate users | HU-IAM-007 | `iam.user.toggle-status.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
+| FR 1.7 | Delete users | HU-IAM-008 | `iam.user.delete.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
+| FR 1.8 | User information query | HU-IAM-009 | `iam.user.query.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
 
 ### FR 2 — Environment Management
 
@@ -68,39 +68,39 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 | FR 4.3 | Update color palettes | HU-CONF-005 | `conf.color-palette.update.spec.ts` *(proposed)* | configuration-service | 🔴 Pending |
 | FR 4.4 | Update user facial parameters | HU-CONF-006 | `conf.facial-param.update.spec.ts` *(proposed)* | biometric-service | 🔴 Pending |
 | FR 4.5 | IoT device failure alerts management | HU-CONF-007 | `conf.iot-alerts.manage.spec.ts` *(proposed)* | configuration-service | 🔴 Pending |
-| FR 4.6 | Change user role | HU-IAM-010 | `iam.role.change.spec.ts` *(proposed)* | iam-service | 🔴 Pending |
+| FR 4.6 | Change user role | HU-IAM-010 | `iam.role.change.spec.ts` *(proposed)* | authorization-service | 🔴 Pending |
 | FR 4.7 | Delays and justifications (Parameterization) | HU-CONF-008 | `conf.justification.parametrize.spec.ts` *(proposed)* | configuration-service | 🔴 Pending |
 
 ### FR 5 — Generate Historical Records
 
 | FR ID | FR Description | HU(s) | Tests that verify it | Service | Status |
 |-------|---------------|-------|---------------------|---------|--------|
-| FR 5.1 | Attendance and absence query by parameters | HU-HIST-001 | `hist.attendance.query.spec.ts` *(proposed)* | history-service | 🔴 Pending |
-| FR 5.2 | User change history | HU-HIST-002 | `hist.user-changes.query.spec.ts` *(proposed)* | history-service | 🔴 Pending |
+| FR 5.1 | Attendance and absence query by parameters | HU-HIST-001 | `hist.attendance.query.spec.ts` *(proposed)* | attendance-service | 🔴 Pending |
+| FR 5.2 | User change history | HU-HIST-002 | `hist.user-changes.query.spec.ts` *(proposed)* | identity-service (via platform logging) | 🔴 Pending |
 
 ### FR 6 — Justification Management
 
 | FR ID | FR Description | HU(s) | Tests that verify it | Service | Status |
 |-------|---------------|-------|---------------------|---------|--------|
-| FR 6.1 | Justification support upload | HU-JUS-001 | `jus.support.upload.spec.ts` *(proposed)* | justification-service | 🔴 Pending |
-| FR 6.2 | Justification approval and rejection | HU-JUS-002 | `jus.evaluation.approve-reject.spec.ts` *(proposed)* | justification-service | 🔴 Pending |
-| FR 6.3 | Automatic notification of result (A/R) | HU-JUS-003 | `jus.notification.result.spec.ts` *(proposed)* | justification-service / notification-service | 🔴 Pending |
+| FR 6.1 | Justification support upload | HU-JUS-001 | `jus.support.upload.spec.ts` *(proposed)* | attendance-service | 🔴 Pending |
+| FR 6.2 | Justification approval and rejection | HU-JUS-002 | `jus.evaluation.approve-reject.spec.ts` *(proposed)* | attendance-service | 🔴 Pending |
+| FR 6.3 | Automatic notification of result (A/R) | HU-JUS-003 | `jus.notification.result.spec.ts` *(proposed)* | attendance-service / notification-service | 🔴 Pending |
 
 ### FR 7 — Visualization and Advanced Reports
 
 | FR ID | FR Description | HU(s) | Tests that verify it | Service | Status |
 |-------|---------------|-------|---------------------|---------|--------|
-| FR 7.1 | Export report | HU-REP-001 | `rep.export.report.spec.ts` *(proposed)* | report-service | 🔴 Pending |
-| FR 7.2 | Role-based analytical dashboard | HU-REP-002 | `rep.dashboard.role-based.spec.ts` *(proposed)* | report-service | 🔴 Pending |
-| FR 7.3 | Date-range reports | HU-REP-003 | `rep.export.date-range.spec.ts` *(proposed)* | report-service | 🔴 Pending |
-| FR 7.4 | Delay and absence query by parameters | HU-REP-004 | `rep.delays-absences.query.spec.ts` *(proposed)* | report-service | 🔴 Pending |
+| FR 7.1 | Export report | HU-REP-001 | `rep.export.report.spec.ts` *(proposed)* | attendance-service (derived projection) | 🔴 Pending |
+| FR 7.2 | Role-based analytical dashboard | HU-REP-002 | `rep.dashboard.role-based.spec.ts` *(proposed)* | attendance-service (derived projection) | 🔴 Pending |
+| FR 7.3 | Date-range reports | HU-REP-003 | `rep.export.date-range.spec.ts` *(proposed)* | attendance-service (derived projection) | 🔴 Pending |
+| FR 7.4 | Delay and absence query by parameters | HU-REP-004 | `rep.delays-absences.query.spec.ts` *(proposed)* | attendance-service (derived projection) | 🔴 Pending |
 
 ### FR 8 — School Management
 
 | FR ID | FR Description | HU(s) | Tests that verify it | Service | Status |
 |-------|---------------|-------|---------------------|---------|--------|
-| FR 8.1 | Add/Remove courses | HU-SCH-001 | `sch.course.add-remove.spec.ts` *(proposed)* | school-management-service | 🔴 Pending |
-| FR 8.2 | Subject study plan | HU-SCH-002 | `sch.study-plan.visualize.spec.ts` *(proposed)* | school-management-service | 🔴 Pending |
+| FR 8.1 | Add/Remove courses | HU-SCH-001 | `sch.course.add-remove.spec.ts` *(proposed)* | academic-service | 🔴 Pending |
+| FR 8.2 | Subject study plan | HU-SCH-002 | `sch.study-plan.visualize.spec.ts` *(proposed)* | academic-service | 🔴 Pending |
 
 ---
 
@@ -137,7 +137,7 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 | HU-ACAD-004 | Assign cohorts to responsible users | FR 2.3.1 | Sprint 1 |
 | HU-ACAD-005 | Assign jornadas/time blocks | FR 2.3.2 | Sprint 1 |
 | HU-ATT-001 | Facial attendance registration | FR 3.1, FR 3.1.1 | Sprint 1 |
-| HU-ATT-002 | Initial facial parameter enrollment | CU 4, FR 4.4 *(related)* | Sprint 1 |
+| HU-ATT-002 | Initial facial parameter enrollment | FR 4.4 *(related)* | Sprint 1 |
 | HU-ATT-003 | Alternative registration for registered users | FR 3.1.2 | Sprint 1 |
 | HU-ATT-004 | Entry control for unregistered/NN users | FR 3.2 | Sprint 2 |
 | HU-ATT-005 | Alternative registration for NN users | FR 3.2.1 | Sprint 2 |

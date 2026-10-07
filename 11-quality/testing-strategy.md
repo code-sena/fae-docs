@@ -142,7 +142,7 @@ app.use(createOpenAPIValidatorMiddleware({
 it('POST /orders returns 201 with the correct schema', async () => {
   const response = await request(app)
     .post('/orders')
-    .set('Authorization', `Bearer ${testJWT}`)
+    .set('Authorization', `Bearer ${testSessionId}`)
     .send(validOrderPayload);
 
   expect(response.status).toBe(201);
@@ -279,7 +279,7 @@ tests/
 │   └── db-seeds/
 │       └── test-data.sql       # Base data for integration tests
 ├── helpers/
-│   ├── auth.helper.ts          # Generate test JWT
+│   ├── auth.helper.ts          # Login and return the opaque session bearer
 │   └── database.helper.ts      # Reset DB between tests
 ```
 

@@ -3,6 +3,7 @@
 - **ID:** ADR-002
 - **Date:** 2026-09-03
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** the *data* half of this decision is live — one `faceattend_db`, schema-per-context, no cross-schema FK, per-schema roles. The *packaging* half is not: `docker compose` runs **9 independent service containers** + Kong + frontend-web, each with its own image, port and healthcheck (see `FULL/COMPOSE.md`). The module boundaries this ADR protects are unchanged; treat "one deployable" as historical context.
 - **Authors:** [Diego Andrés Gutiérrez Nuñez, Juan David Arboleda Perdomo, Jonattan Steven Rizo Solano]
 
 ---
@@ -10,11 +11,12 @@
 ## Context
 
 The system's relational data model already defines eight explicit bounded contexts — Identity,
-Authorization, Academic, Attendance, Biometric, IoT, Audit, and Configuration — each grouped
+Authorization, Academic, Scheduling, Attendance, Biometric, Notification, and Configuration — each grouped
 with `TableGroup` and governed by an explicit rule stated in the model's documentation header:
 
-> "FK solamente dentro del mismo bounded context. Entre contextos: IDs públicos sin FK.
-> La consistencia cross-context se resuelve mediante API/eventos."
+> "FK only inside the same bounded context. Between contexts: public IDs with no FK.
+> Cross-context consistency is resolved via API/events."
+> (Translated from the original Spanish data-model header.)
 
 Two project-level decisions must be reconciled against this model:
 
@@ -49,16 +51,16 @@ load (one institution, not a multi-tenant platform at scale).
 ## Decision
 
 **We decided:** The system is built as a **Modular Monolith**. Each bounded context already
-identified in the relational data model (Identity, Authorization, Academic, Attendance,
-Biometric, IoT, Audit, Configuration) is implemented as an internal **module** — a folder with its own
+identified in the relational data model (Identity, Authorization, Academic, Scheduling, Attendance,
+Biometric, Notification, Configuration) is implemented as an internal **module** — a folder with its own
 `domain/`, `application/`, and `infrastructure/` layers per the project's Hexagonal
 Architecture standard (`05-architecture/hexagonal-architecture.md`) — rather than as a
 separately deployed process.
 
 All modules run inside a **single deployable application** connected to a **single
 PostgreSQL instance**. Each bounded context owns **its own schema** inside that instance
-(`identity`, `authorization`, `academic`, `attendance`, `iot`, `audit`, `configuration`;
-`biometric` is addressed separately in ADR-003). Each schema has its own database role with
+(`identity`, `authorization`, `academic`, `scheduling`, `attendance`, `notification`, `configuration`;
+`biometric` is logical — embeddings in MongoDB plus `biometric_update_case` hosted in `configuration`). Each schema has its own database role with
 privileges restricted to that schema only — enforcing isolation at the database-permission
 level, not only by team convention.
 

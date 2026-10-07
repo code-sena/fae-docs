@@ -4,9 +4,9 @@
 > It defines the system's boundaries and how they relate to each other.
 > Build it first with the team and domain experts in an Event Storming session.
 
-## Before filling in this document: Event Storming
+## Event Storming Outcome
 
-The FaceAttend EDU domain map describes the main business areas and system contexts. Its purpose is to organize the business model so the development team shares a common language and understands how system functions relate to one another.
+This map was refined from the SRS and a lightweight Event Storming (team + instructor as domain expert). Orange = domain events, blue = commands, yellow = aggregates, pink = hotspots. Outcome: 8 bounded contexts plus IoT as **external supporting context** (device provisioning) — kept out of the core attendance domain and modeled only in `09-microservices` for future hardware integration.
 
 This document does not describe tables, columns, or database details. It describes the business in terms of entities, responsibilities, rules, events, and contexts.
 
@@ -21,8 +21,7 @@ This document does not describe tables, columns, or database details. It describ
 | Attendance | System core | Record attendance through facial recognition or alternative methods. Manage justifications and supporting documents. | RF 3, RF 6 |
 | Biometric | Supporting subdomain | Store and manage facial and fingerprint embeddings (NoSQL). | RF 3.1.1, RNF 4 |
 | Notification | Supporting subdomain | Manage alert types and alerts for system events. | RF 4.1 |
-| Audit | Supporting subdomain | Record all system actions and errors for traceability. | RF 5.2, RNF 4 |
-| Configuration | Cross-cutting supporting subdomain | Manage academic, security, and biometric-update configuration parameters. | RF 4 |
+| Configuration | Cross-cutting supporting subdomain | Manage academic and security configuration parameters. | RF 4 |
 
 ---
 
@@ -40,10 +39,10 @@ This domain is necessary because FaceAttend EDU handles sensitive academic infor
 ### Main Concepts
 - Person.
 - App_User.
-- City.
 - Credentials.
 - Session.
 - Password policy.
+- ~~City~~ deprecated — external `countriesnow.space` API.
 
 ### Responsibilities
 - Register persons individually or in bulk through CSV files.
@@ -86,7 +85,6 @@ This domain is necessary because FaceAttend EDU handles sensitive academic infor
 - **Academic:** needs to identify persons and link them to academic actors.
 - **Attendance:** needs to know who the user is and whether they are active.
 - **Justifications:** needs to validate who requests and who approves.
-- **Audit:** records all identity-related actions.
 
 ---
 
@@ -105,10 +103,10 @@ Cross-cutting supporting subdomain.
 - User_Role.
 
 ### Responsibilities
-- Define roles (Administrator, Instructor/Teacher, Student/Learner).
-- Define permissions per action.
+- Define global roles (`Administrador`, `Instructor`, `Aprendiz` — legacy `SUPER_ADMIN`, `SCHOOL_ADMIN`, `INSTRUCTOR`, `STUDENT` are merged by changeset `auth-004-unify-mobile-roles`).
+- Define permissions per action (`context.resource:action`).
 - Associate roles with permissions.
-- Assign roles to users per school.
+- Assign roles to users (PK `(user_id, role_id)`, no `school_id`).
 
 ### Related Requirements
 - RF 1.1.1: Role assignment.
@@ -228,13 +226,14 @@ System core.
 - Justification_Type.
 - Justification.
 - Supporting_Document.
+- Attendance_Report (derived projection, no FKs).
 - Capture method.
 - Attendance status.
 
 ### Responsibilities
 - Record attendance (Present, Absent, Late, Justified).
-- Support multiple capture methods (FACIAL, MANUAL, IMPORT).
-- Manage justification requests and reviews.
+- Support multiple capture methods (FACIAL, MANUAL, IOT, IMPORT).
+- Manage justification requests and reviews (per-school types, resolution notes).
 - Track supporting documents.
 
 ### Related Requirements
@@ -273,11 +272,12 @@ Store and manage biometric embeddings (facial and fingerprint) used for identity
 Supporting subdomain.
 
 ### Persistence
-This context persists entirely in **MongoDB** (NoSQL) — no SQL tables.
+Embeddings persist in **MongoDB** (NoSQL); `biometric_update_case` is the SQL workflow table logically owned by this context (physically hosted in `configuration` transiently).
 
 ### Main Concepts
 - Facial_Embedding.
 - Fingerprint_Embedding.
+- Biometric_Update_Case.
 - Model version.
 - Template version.
 
@@ -302,6 +302,9 @@ This context persists entirely in **MongoDB** (NoSQL) — no SQL tables.
 - `FacialEmbeddingUpdated`
 - `FingerprintEmbeddingEnrolled`
 - `FingerprintEmbeddingUpdated`
+- `BiometricUpdateRequested`
+- `BiometricUpdateApproved`
+- `BiometricUpdateRejected`
 
 ---
 
@@ -336,40 +339,7 @@ Supporting subdomain.
 
 ---
 
-## 8. Audit
-
-### Purpose
-Record every relevant system action and error for traceability, compliance, and debugging.
-
-### Context Type
-Supporting subdomain.
-
-### Main Concepts
-- Audit_Log.
-- Error_Log.
-
-### Responsibilities
-- Record all CRUD actions on critical entities.
-- Record authentication attempts.
-- Record system errors and exceptions.
-- Support queries by actor, aggregate, date, and school.
-
-### Related Requirements
-- RF 5.2: User change history.
-- RNF 4: Security.
-
-### Business Rules
-- Audit logs are append-only — records must never be modified or deleted.
-- Every authentication attempt must be recorded.
-- Error logs include validation, auth, and system errors.
-
-### Possible Events
-- `ActionAudited`
-- `ErrorLogged`
-
----
-
-## 9. Configuration
+## 8. Configuration
 
 ### Purpose
 Manage system-wide and per-school configuration parameters, including biometric update workflows.
@@ -380,12 +350,11 @@ Cross-cutting supporting subdomain.
 ### Main Concepts
 - Academic_Configuration.
 - Security_Configuration.
-- Biometric_Update_Case.
 
 ### Responsibilities
 - Store academic parameters per school (e.g., tardy tolerance).
 - Store global security parameters (e.g., max login attempts).
-- Manage biometric update request workflow (Pending → In_Review → Approved/Rejected).
+- ~~Biometric update workflow~~ moved to Biometric (transient physical host only).
 
 ### Related Requirements
 - RF 4: System configuration.
@@ -400,13 +369,12 @@ Cross-cutting supporting subdomain.
 ### Possible Events
 - `AcademicConfigurationUpdated`
 - `SecurityConfigurationUpdated`
-- `BiometricUpdateRequested`
-- `BiometricUpdateApproved`
-- `BiometricUpdateRejected`
 
 ---
 
 ## Context Relationships
+
+Upstream → Downstream (arrow = depends on). `Identity` is upstream of all; `Configuration` is cross-cutting downstream consumer.
 
 ```mermaid
 graph LR
@@ -414,14 +382,30 @@ graph LR
     Identity --> Academic
     Identity --> Attendance
     Identity --> Biometric
-    Identity --> Audit
     Authorization --> Attendance
     Academic --> Scheduling
     Academic --> Attendance
     Scheduling --> Attendance
     Biometric --> Attendance
     Attendance --> Notification
-    Attendance --> Audit
     Configuration --> Academic
     Configuration --> Biometric
+    Configuration -.-> Attendance
 ```
+
+> **IoT note:** `IoT_Device` / `Device_Assignment` (see `09-microservices/services/_future-iot-service`) is an **external supporting context** for classroom hardware. It is intentionally excluded from the 02-domain core map — attendance can operate without it, and it integrates via `attendance-service` only when hardware is present.
+
+## Ubiquitous Language — Consolidated
+
+| Term | Definition (business) | Not to confuse with |
+|---|---|---|
+| Person | Natural person in institution | App_User (credentials) |
+| App_User | Login account bound 1:1 to Person | Person |
+| Academic_Actor | Person acting as Student/Instructor in a School | Person |
+| Cohort | Group of learners in a Program+Period+School | Course, Program |
+| Course | Subject/module within a Program | Cohort |
+| Class_Session | Concrete occurrence of a Schedule_Block on a date | Schedule_Block (recurring template) |
+| Attendance_Record | Proof of presence for one actor in one session | Justification |
+| Justification | Request to excuse an absence, 1:1 with Attendance_Record | Supporting_Document |
+| Facial_Embedding | Mathematical face vector (MongoDB) | Photo |
+| Alert | Threshold or schedule-conflict notification | Notification channel |

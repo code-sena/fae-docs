@@ -1,0 +1,650 @@
+openapi: 3.0.3
+info:
+  title: Scheduling Service API
+  version: 1.0.0
+  description: |
+    Servicio 04-ms-scheduling (Java 21 Spring Boot 4.1 :8084, schema `scheduling`).
+    Ambientes, bloques de horario y sesiones de clase. Anti-double-booking por
+    unique `(environment,day,starts_at)` y `(instructor,day,starts_at)`.
+
+    ## Fuente real
+    - Controllers: `EnvironmentController`, `ScheduleBlockController`,
+      `ClassSessionController`, `ScheduleRelationsController`, `HealthController`
+    - DTOs: `CreateEnvironmentRequest{schoolId*,code*,name*,capacity* Short,status}`,
+      `EnvironmentResponse{environmentId,schoolId,code,name,capacity,status,createdAt,updatedAt,rowVersion,createdBy}`,
+      `CreateScheduleBlockRequest{cohortId*,courseId*,environmentId*,instructorActorId*,dayOfWeek 1-7,startsAt,endsAt}`,
+      `CreateClassSessionRequest{scheduleBlockId*,sessionDate*,sessionStatus?}`,
+      estados `Open/Closed/Cancelled`
+    - Acciones reales con POST (no PATCH): `/open`, `/close`, `/cancel`.
+    - Gateway sin plugins propios (`kong.yml:57-67`); el MS valida el bearer con `AuthTokenFilter`.
+
+servers:
+  - url: http://localhost:8084
+    description: Direct (dev)
+  - url: http://localhost:8080
+    description: Via Kong gateway (dev, preferred)
+  - url: https://api.dev.{domain}
+    description: Development
+    variables:
+      domain:
+        default: example.com
+  - url: https://api.{domain}
+    description: Production
+    variables:
+      domain:
+        default: example.com
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Environment
+  - name: ScheduleBlock
+  - name: ClassSession
+  - name: Relations
+  - name: Health
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /api/v1/health:
+    get:
+      summary: Health versionado
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+
+  /api/v1/environments:
+    get:
+      summary: Listar ambientes (filtro por escuela)
+      operationId: listEnvironments
+      tags: [Environment]
+      parameters:
+        - name: schoolId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de ambientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnvironmentResponse'
+    post:
+      summary: Crear ambiente
+      operationId: createEnvironment
+      tags: [Environment]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEnvironmentRequest'
+      responses:
+        '201':
+          description: Ambiente creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentResponse'
+
+  /api/v1/environments/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IntIdParam'
+    get:
+      summary: Obtener ambiente
+      operationId: getEnvironment
+      tags: [Environment]
+      responses:
+        '200':
+          description: Ambiente encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentResponse'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar ambiente
+      operationId: updateEnvironment
+      tags: [Environment]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEnvironmentRequest'
+      responses:
+        '200':
+          description: Ambiente actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentResponse'
+    delete:
+      summary: Eliminar ambiente
+      operationId: deleteEnvironment
+      tags: [Environment]
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/schedule-blocks:
+    get:
+      summary: Listar bloques (filtros cohorte/ambiente/instructor/curso)
+      operationId: listScheduleBlocks
+      tags: [ScheduleBlock]
+      parameters:
+        - name: cohortId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: environmentId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: instructorActorId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: courseId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de bloques
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleBlockResponse'
+    post:
+      summary: Crear bloque
+      operationId: createScheduleBlock
+      tags: [ScheduleBlock]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleBlockRequest'
+      responses:
+        '201':
+          description: Bloque creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleBlockResponse'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '409':
+          $ref: './_shared.yaml#/components/responses/Conflict'
+
+  /api/v1/schedule-blocks/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    get:
+      summary: Obtener bloque
+      operationId: getScheduleBlock
+      tags: [ScheduleBlock]
+      responses:
+        '200':
+          description: Bloque encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleBlockResponse'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar bloque
+      operationId: updateScheduleBlock
+      tags: [ScheduleBlock]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduleBlockRequest'
+      responses:
+        '200':
+          description: Bloque actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleBlockResponse'
+    delete:
+      summary: Eliminar bloque
+      operationId: deleteScheduleBlock
+      tags: [ScheduleBlock]
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/class-sessions:
+    get:
+      summary: Listar sesiones (filtro por bloque)
+      operationId: listClassSessions
+      tags: [ClassSession]
+      parameters:
+        - name: scheduleBlockId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Lista de sesiones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassSessionResponse'
+    post:
+      summary: Crear sesión
+      operationId: createClassSession
+      tags: [ClassSession]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClassSessionRequest'
+      responses:
+        '201':
+          description: Sesión creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassSessionResponse'
+
+  /api/v1/class-sessions/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    get:
+      summary: Obtener sesión
+      operationId: getClassSession
+      tags: [ClassSession]
+      responses:
+        '200':
+          description: Sesión encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassSessionResponse'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar sesión
+      operationId: updateClassSession
+      tags: [ClassSession]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClassSessionRequest'
+      responses:
+        '200':
+          description: Sesión actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassSessionResponse'
+    delete:
+      summary: Eliminar sesión
+      operationId: deleteClassSession
+      tags: [ClassSession]
+      responses:
+        '204':
+          description: Eliminada
+
+  /api/v1/class-sessions/{id}/open:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    post:
+      summary: Abrir sesión (POST real, no PATCH)
+      operationId: openClassSession
+      tags: [ClassSession]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                openedBy:
+                  $ref: './_shared.yaml#/components/schemas/UUID'
+      responses:
+        '200':
+          description: Sesión abierta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassSessionResponse'
+
+  /api/v1/class-sessions/{id}/close:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    post:
+      summary: Cerrar sesión
+      operationId: closeClassSession
+      tags: [ClassSession]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                closedBy:
+                  $ref: './_shared.yaml#/components/schemas/UUID'
+      responses:
+        '200':
+          description: Sesión cerrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassSessionResponse'
+
+  /api/v1/class-sessions/{id}/cancel:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    post:
+      summary: Cancelar sesión
+      operationId: cancelClassSession
+      tags: [ClassSession]
+      responses:
+        '200':
+          description: Sesión cancelada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassSessionResponse'
+
+  /api/v1/cohorts/{id}/blocks:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      summary: Bloques por cohorte
+      operationId: listBlocksByCohort
+      tags: [Relations]
+      responses:
+        '200':
+          description: Bloques de la cohorte
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleBlockResponse'
+
+  /api/v1/environments/{id}/blocks:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/IntIdParam'
+    get:
+      summary: Bloques por ambiente
+      operationId: listBlocksByEnvironment
+      tags: [Relations]
+      responses:
+        '200':
+          description: Bloques del ambiente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleBlockResponse'
+
+  /api/v1/actors/{id}/blocks:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      summary: Bloques por instructor
+      operationId: listBlocksByInstructor
+      tags: [Relations]
+      responses:
+        '200':
+          description: Bloques del instructor
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleBlockResponse'
+
+  /api/v1/blocks/{id}/sessions:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    get:
+      summary: Sesiones por bloque
+      operationId: listSessionsByBlock
+      tags: [Relations]
+      responses:
+        '200':
+          description: Sesiones del bloque
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassSessionResponse'
+
+components:
+  schemas:
+    CreateEnvironmentRequest:
+      type: object
+      required: [schoolId, code, name, capacity]
+      properties:
+        schoolId:
+          type: string
+        code:
+          type: string
+          maxLength: 50
+          example: A101
+        name:
+          type: string
+          maxLength: 255
+          example: Aula 101
+        capacity:
+          type: integer
+          minimum: 1
+          example: 40
+        status:
+          type: boolean
+          default: true
+    UpdateEnvironmentRequest:
+      type: object
+      properties:
+        schoolId:
+          type: string
+        code:
+          type: string
+        name:
+          type: string
+        capacity:
+          type: integer
+        status:
+          type: boolean
+    EnvironmentResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [environmentId, schoolId, code, name, capacity]
+          properties:
+            environmentId:
+              type: integer
+            schoolId:
+              type: string
+            code:
+              type: string
+            name:
+              type: string
+            capacity:
+              type: integer
+            status:
+              type: boolean
+    CreateScheduleBlockRequest:
+      type: object
+      required: [cohortId, courseId, environmentId, instructorActorId, dayOfWeek, startsAt, endsAt]
+      properties:
+        cohortId:
+          type: integer
+          format: int64
+        courseId:
+          type: integer
+        environmentId:
+          type: integer
+        instructorActorId:
+          type: integer
+          format: int64
+        dayOfWeek:
+          type: integer
+          minimum: 1
+          maximum: 7
+          example: 1
+        startsAt:
+          $ref: './_shared.yaml#/components/schemas/Time'
+        endsAt:
+          $ref: './_shared.yaml#/components/schemas/Time'
+    UpdateScheduleBlockRequest:
+      type: object
+      properties:
+        cohortId:
+          type: integer
+          format: int64
+        courseId:
+          type: integer
+        environmentId:
+          type: integer
+        instructorActorId:
+          type: integer
+          format: int64
+        dayOfWeek:
+          type: integer
+          minimum: 1
+          maximum: 7
+        startsAt:
+          $ref: './_shared.yaml#/components/schemas/Time'
+        endsAt:
+          $ref: './_shared.yaml#/components/schemas/Time'
+    ScheduleBlockResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [scheduleBlockId, cohortId, courseId, environmentId, instructorActorId, dayOfWeek, startsAt, endsAt]
+          properties:
+            scheduleBlockId:
+              type: integer
+              format: int64
+            cohortId:
+              type: integer
+              format: int64
+            courseId:
+              type: integer
+            environmentId:
+              type: integer
+            instructorActorId:
+              type: integer
+              format: int64
+            dayOfWeek:
+              type: integer
+            startsAt:
+              $ref: './_shared.yaml#/components/schemas/Time'
+            endsAt:
+              $ref: './_shared.yaml#/components/schemas/Time'
+    CreateClassSessionRequest:
+      type: object
+      required: [scheduleBlockId, sessionDate]
+      properties:
+        scheduleBlockId:
+          type: integer
+          format: int64
+        sessionDate:
+          $ref: './_shared.yaml#/components/schemas/Date'
+        sessionStatus:
+          type: string
+          enum: [Open, Closed, Cancelled]
+    UpdateClassSessionRequest:
+      type: object
+      properties:
+        scheduleBlockId:
+          type: integer
+          format: int64
+        sessionDate:
+          $ref: './_shared.yaml#/components/schemas/Date'
+        sessionStatus:
+          type: string
+          enum: [Open, Closed, Cancelled]
+    ClassSessionResponse:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [classSessionId, scheduleBlockId, sessionDate, sessionStatus]
+          properties:
+            classSessionId:
+              type: integer
+              format: int64
+            scheduleBlockId:
+              type: integer
+              format: int64
+            sessionDate:
+              $ref: './_shared.yaml#/components/schemas/Date'
+            sessionStatus:
+              type: string
+              enum: [Open, Closed, Cancelled]
+            openedBy:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+              nullable: true
+            openedAt:
+              $ref: './_shared.yaml#/components/schemas/Timestamp'
+              nullable: true
+            closedBy:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+              nullable: true
+            closedAt:
+              $ref: './_shared.yaml#/components/schemas/Timestamp'
+              nullable: true
+  securitySchemes:
+    bearerAuth:
+      $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

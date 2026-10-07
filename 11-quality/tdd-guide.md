@@ -5,11 +5,16 @@
 > with a test suite that documents system behavior.
 
 > **Stack note:** The TDD principles and cycles described here apply to any language.
-> Concrete code examples (test runner, mock libraries, commands) are in:
-> - Node.js + TypeScript → [`_stacks/node-typescript.md`](../_stacks/node-typescript.md)
-> - Java + Spring Boot → [`_stacks/java-spring.md`](../_stacks/java-spring.md)
-> - Python + FastAPI → [`_stacks/python-fastapi.md`](../_stacks/python-fastapi.md)
-> - Go → [`_stacks/go.md`](../_stacks/go.md)
+> FaceAttend EDU is polyglot; concrete examples below are annotated per stack.
+> - Node.js + TypeScript → [`_stacks/node-typescript.md`](../_stacks/node-typescript.md) (03-academic, 07-configuration, 09-quality — Fastify)
+> - Java + Spring Boot → [`_stacks/java-spring.md`](../_stacks/java-spring.md) (01-identity, 02-authorization, 04-scheduling, 05-attendance)
+> - Python + FastAPI → [`_stacks/python-fastapi.md`](../_stacks/python-fastapi.md) (06-biometric)
+> - Go → [`_stacks/go.md`](../_stacks/go.md) (08-notification — Gin)
+
+**Repo evidence:** every existing test in this project follows the cycle documented here —
+`UserActivationServiceTest` (domain), `ResetPasswordUseCaseImplTest` (application, pure Fakes),
+`email_handler_test.go` (Go fake sender), `test_router_contract.py` (contract tier). IEEE 829
+test IDs (`TC-xx-xxx`) appear in test names so each test traces back to a requirement.
 
 ---
 
@@ -31,10 +36,10 @@
    └────┬────┘                                                     │
         │                                                          │
         ▼                                                          │
-   ┌──────────────┐                                                │
+   ┌──────────────┐                                                 │
    │   REFACTOR   │  Improve code without changing behavior.       │
    │  ♻️          │  Tests must remain green.                      │
-   └──────────────┘                                                │
+   └──────────────┘                                                 │
         │                                                          │
         └──────────────────────────────────────────────────────────┘
 ```
@@ -44,172 +49,171 @@
 2. `GREEN`: The test passes — the code does the bare minimum needed
 3. `REFACTOR`: The code is clean — no duplication, well named
 
+**Commands per stack (repo defaults):**
+
+| Stack | Run one test | Watch mode |
+|-------|--------------|------------|
+| Java (Maven) | `mvn test -Dtest=UserActivationServiceTest#shouldThrowExceptionWhenPersonIsInactive` | `mvn test` after each edit (IDE) |
+| TS/Fastify | `npm run test -- academic.test.ts` (vitest/jest) | `npm run test:watch` |
+| Python/FastAPI | `poetry run pytest tests/unit/web/test_router_contract.py -k enroll` | `pytest-watch` |
+| Go/Gin | `go test ./internal/infrastructure/http/handler/ -run TestEmail` | `go test -count=1 ./...` |
+
 ---
 
 ## The 3 testing principles (FIRST)
 
 Good tests are:
 
-| Letter | Principle | Description |
-|--------|-----------|-------------|
-| **F** | Fast | Run in milliseconds, not seconds |
-| **I** | Isolated | Do not depend on other tests or execution order |
-| **R** | Repeatable | Same result every time, regardless of environment |
-| **S** | Self-validating | Pass / Fail without manual interpretation |
-| **T** | Timely | Written BEFORE the code, not after |
+| Letter | Principle | Description | Repo check |
+|--------|-----------|-------------|------------|
+| **F** | Fast | Run in milliseconds, not seconds | Unit suites (identity, notification) run < 1 s |
+| **I** | Isolated | Do not depend on other tests or execution order | `@BeforeEach` / `beforeEach()` rebuild doubles fresh |
+| **R** | Repeatable | Same result every time, regardless of environment | No network: Mongo disabled in contract tests, SMTP faked in Go |
+| **S** | Self-validating | Pass / Fail without manual interpretation | AssertJ / expect / testify assertions only |
+| **T** | Timely | Written BEFORE the code, not after | Required for new features; retro-applied via IEEE 829 suites |
 
 ---
 
 ## Test Doubles: the complete taxonomy
 
 When the domain needs external collaborators (repositories, APIs), we replace them
-in tests with doubles. Not all doubles are the same:
+in tests with doubles. Not all doubles are the same. In this repo the ports are explicit:
+Java services define `application/port/out/*` interfaces; biometric overrides FastAPI
+dependencies (`get_facial_repository`, …); notification injects an `email.Sender` interface.
 
 ### 1. Dummy
 Does nothing. Passed to satisfy a signature but never called.
 
-```typescript
-const dummyLogger = {} as Logger; // Never called, just fills the constructor
-const useCase = new CreateOrderUseCase(repo, eventPublisher, dummyLogger);
+```java
+// Java (01-ms-identity): the publisher is irrelevant for the reset-password scenario
+new ResetPasswordUseCaseImpl(..., new DomainEventPublisher(null)); // dummy in this test path
 ```
 
 ### 2. Stub
 Returns hardcoded responses. No call verification.
 
-```typescript
-class StubInventoryRepository implements InventoryRepositoryPort {
-  async checkAvailability(productId: ProductId): Promise<boolean> {
-    return true; // Always available — controls the test scenario
-  }
-}
+```python
+# Python (06-ms-biometric): controls the scenario — always returns one template
+class StubFacialRepository:
+    async def find_by_person(self, person_id): return [TEMPLATE_FOR_TEST]
 ```
 
 ### 3. Fake
 Real but simplified implementation. Has state, works correctly but lightweight.
+**This is the dominant double in FaceAttend EDU.**
 
-```typescript
-class InMemoryOrderRepository implements OrderRepositoryPort {
-  private readonly store = new Map<string, Order>();
+```java
+// Real pattern from ResetPasswordUseCaseImplTest (01-ms-identity)
+class FakeRecoveryCodes implements RecoveryCodePort {
+    boolean verified;      // scenario control (stub-like knob)
+    int consumeCalls;      // state observable by the test (spy-like bonus)
 
-  async save(order: Order): Promise<void> {
-    this.store.set(order.id.value, order);
-  }
-
-  async findById(id: OrderId): Promise<Order | null> {
-    return this.store.get(id.value) ?? null;
-  }
-
-  // Useful for assertions in tests
-  get all(): Order[] {
-    return Array.from(this.store.values());
-  }
+    @Override public void consume(String email) { consumeCalls++; }
+    @Override public boolean isVerified(String email) { return verified; }
 }
+```
+
+```python
+# Real pattern from tests/support/in_memory_repositories.py (06-ms-biometric)
+class InMemoryBiometricRepository:
+    def __init__(self, kind: BiometricType): self.store: dict[str, list[Template]] = {}
+    async def save(self, person_id, template): self.store.setdefault(person_id, []).append(template)
+    async def find(self, person_id): return self.store.get(person_id, [])
 ```
 
 ### 4. Spy
 Records the calls it receives. You can verify if it was called and with what arguments.
 
-```typescript
-class SpyEventPublisher implements EventPublisherPort {
-  readonly publishedEvents: DomainEvent[] = [];
-
-  async publish(event: DomainEvent): Promise<void> {
-    this.publishedEvents.push(event);
-  }
+```go
+// Real pattern from email_handler_test.go (08-ms-notification)
+type fakeSender struct {
+    err   error
+    calls int            // ← records how many times Send was invoked
+    last  email.Message  // ← records the argument of the last call
 }
 
-// In the test:
-expect(spyPublisher.publishedEvents).toHaveLength(1);
-expect(spyPublisher.publishedEvents[0]).toBeInstanceOf(OrderCreated);
+func (f *fakeSender) Send(_ context.Context, msg email.Message) error {
+    f.calls++
+    f.last = msg
+    return f.err
+}
 ```
 
 ### 5. Mock
 Has pre-programmed expectations. Fails if not called as expected.
 
 ```typescript
-// Jest mock
+// Jest mock (for 03/07/09 where jest-mock is available)
 const mockRepo = {
   save: jest.fn().mockResolvedValue(undefined),
   findById: jest.fn().mockResolvedValue(null),
 };
-
-// After the test:
 expect(mockRepo.save).toHaveBeenCalledTimes(1);
-expect(mockRepo.save).toHaveBeenCalledWith(expect.objectContaining({
-  customerId: expectedCustomerId,
-}));
 ```
 
 ### When to use each one?
 
-| Double | When to use it |
-|--------|---------------|
-| Dummy | The collaborator does not matter in this test |
-| Stub | You control the input scenario (what a collaborator returns) |
-| Fake | Lightweight integration tests — behavior matters |
-| Spy | You verify that something was called (output effect) |
-| Mock | You verify both input and output behavior |
+| Double | When to use it | Used in repo by |
+|--------|---------------|-----------------|
+| Dummy | The collaborator does not matter in this test | identity use-case tests |
+| Stub | You control the input scenario (what a collaborator returns) | biometric dependency overrides |
+| Fake | Lightweight integration tests — behavior matters | ✅ everywhere (`Fake*`, `InMemory*`) |
+| Spy | You verify that something was called (output effect) | ✅ Go `fakeSender.calls` |
+| Mock | You verify both input and output behavior | sparingly (jest only) |
 
 **Preference:** Fake > Stub/Spy > Mock. Mocks are fragile — they break if you refactor the internal implementation.
+The repo already follows this: `assertThat(recoveryCodes.consumeCalls).isEqualTo(1)` verifies effects on a Fake's state, not interactions on a mock framework.
 
 ---
 
 ## TDD by layer (with Hexagonal Architecture)
+
+Hexagonal architecture makes TDD cheap here: the domain has zero framework imports, and
+every outer concern enters through a port (`application/port/out`). If you cannot instantiate
+a use case without a database, the architecture is wrong — fix the seam, not the test.
 
 ### Layer 1: Domain — Unit tests for aggregates
 
 These are the most valuable tests. They test pure business logic.
 **No infrastructure mocks.** No database. No HTTP.
 
-```typescript
-// tests/unit/domain/Order.spec.ts
-describe('Order — invariants', () => {
-  describe('create()', () => {
-    it('fails if there are no items (INV-001)', () => {
-      expect(() => Order.create(customerId, [])).toThrow('INV-001');
-    });
+```java
+// REAL test in the repo: 01-ms-identity .../domain/service/UserActivationServiceTest.java
+class UserActivationServiceTest {
 
-    it('fails if an item has zero quantity', () => {
-      const invalidItem = new OrderItem(productId, 0, price);
-      expect(() => Order.create(customerId, [invalidItem])).toThrow();
-    });
+    @Test
+    void shouldActivateUserWhenPersonIsActive() {
+        Person person = new Person();
+        person.setStatus(true);
+        User user = new User();
+        user.setPersonId(person);
 
-    it('calculates total correctly', () => {
-      const items = [
-        new OrderItem(product1, 2, new Money(100, 'USD')), // 200
-        new OrderItem(product2, 1, new Money(50, 'USD')),  // 50
-      ];
-      const order = Order.create(customerId, items);
-      expect(order.total).toEqual(new Money(250, 'USD'));
-    });
+        new UserActivationService().activateUser(user);
 
-    it('emits the OrderCreated event on creation', () => {
-      const order = Order.create(customerId, [validItem]);
-      expect(order.domainEvents).toHaveLength(1);
-      expect(order.domainEvents[0]).toBeInstanceOf(OrderCreated);
-    });
-  });
+        assertTrue(user.isActive());
+    }
 
-  describe('confirm()', () => {
-    it('can only be confirmed if in PENDING state (INV-002)', () => {
-      const order = Order.create(customerId, [validItem]);
-      order.confirm();
-      expect(() => order.confirm()).toThrow('INV-002');
-    });
+    @Test
+    void shouldThrowExceptionWhenPersonIsInactive() {   // invariant: inactive person ⇒ no activation
+        Person person = new Person();
+        person.setStatus(false);
+        User user = new User();
+        user.setPersonId(person);
 
-    it('changes status to CONFIRMED', () => {
-      const order = Order.create(customerId, [validItem]);
-      order.confirm();
-      expect(order.status).toBe(OrderStatus.CONFIRMED);
-    });
-  });
-});
+        assertThrows(DomainException.class, () -> new UserActivationService().activateUser(user));
+    }
+}
 ```
 
+Domain rules worth pinning per service (candidates for new RED tests):
+- **01-identity:** password policy validation, recovery-code expiry, session state machine.
+- **05-attendance:** duplicate mark prevention, justification requires pending absence.
+- **06-biometric:** cosine-distance match threshold, template versioning (`faceNet-v1`).
+
 **TDD step:**
-1. 🔴 Write `it('fails if there are no items', ...)` — fails because `Order.create` does not exist
-2. 🟢 Implement `Order.create` with the minimum validation
-3. ♻️ Refactor the error message to be more descriptive
+1. 🔴 Write `shouldThrowExceptionWhenPersonIsInactive` — fails because the rule is not implemented
+2. 🟢 Implement `activateUser` with the minimum validation
+3. ♻️ Refactor: extract exception message, rename for clarity
 
 ---
 
@@ -217,83 +221,89 @@ describe('Order — invariants', () => {
 
 Test orchestration. Use Fakes for repositories and Spies for publishers.
 
-```typescript
-// tests/unit/application/CreateOrderUseCase.spec.ts
-describe('CreateOrderUseCase', () => {
-  let orderRepo: InMemoryOrderRepository;
-  let eventPublisher: SpyEventPublisher;
-  let useCase: CreateOrderUseCase;
+```java
+// REAL test in the repo: 01-ms-identity .../application/usecase/ResetPasswordUseCaseImplTest.java
+@BeforeEach
+void setUp() {
+    userLookup = new FakeUserLookup();
+    recoveryCodes = new FakeRecoveryCodes();
+    userUpdate = new FakeUserUpdate();
+    sessionUpdate = new FakeSessionUpdate();
+    sessions = new FakeSessions();
+    useCase = new ResetPasswordUseCaseImpl(
+            userLookup, recoveryCodes, userUpdate, new FakePasswordHash(),
+            new FakePolicies(), sessions, sessionUpdate, new DomainEventPublisher(null));
+}
 
-  beforeEach(() => {
-    orderRepo = new InMemoryOrderRepository();
-    eventPublisher = new SpyEventPublisher();
-    useCase = new CreateOrderUseCase(orderRepo, eventPublisher);
-  });
+@Test
+void resetsPasswordClosesSessionsAndConsumesTheChallenge() {
+    User user = activeUser();
+    userLookup.user = user;
+    recoveryCodes.verified = true;                 // stub knob: scenario
+    UserSession open = openSession(user);
+    sessions.sessions = List.of(open);
 
-  it('saves the order in the repository', async () => {
-    const request = new CreateOrderRequest(customerId, [validItem]);
-    await useCase.execute(request);
-    expect(orderRepo.all).toHaveLength(1);
-  });
+    useCase.resetPassword(EMAIL, "Secret1!");
 
-  it('publishes the OrderCreated event', async () => {
-    await useCase.execute(new CreateOrderRequest(customerId, [validItem]));
-    expect(eventPublisher.publishedEvents[0]).toBeInstanceOf(OrderCreated);
-  });
+    assertThat(userUpdate.updated.getPasswordHash()).isEqualTo("hash:Secret1!"); // effect (fake state)
+    assertThat(recoveryCodes.consumeCalls).isEqualTo(1);                          // spy-style count
+    assertThat(open.getSessionStatus()).isEqualTo(UserSession.STATUS_CLOSED);     // side effect
+}
 
-  it('returns the ID of the created order', async () => {
-    const response = await useCase.execute(new CreateOrderRequest(customerId, [validItem]));
-    expect(response.orderId).toBeDefined();
-    expect(typeof response.orderId).toBe('string');
-  });
+@Test
+void rejectsWhenThereIsNoVerifiedChallenge() {
+    userLookup.user = activeUser();
+    recoveryCodes.verified = false;
 
-  it('propagates the domain error if items are empty', async () => {
-    await expect(
-      useCase.execute(new CreateOrderRequest(customerId, []))
-    ).rejects.toThrow('INV-001');
-  });
-});
+    assertThatThrownBy(() -> useCase.resetPassword(EMAIL, "Secret1!"))
+            .isInstanceOf(UnauthorizedException.class);
+    assertThat(userUpdate.updated).isNull();       // negative case: nothing was persisted
+}
 ```
+
+Note the AAA structure (`// Arrange / Act / Assert` also used in `academic.test.ts` and
+`test_facial_embedding.py`) — it is the team convention for every new test.
 
 ---
 
 ### Layer 3: Infrastructure — Integration tests
 
 Test that adapters interact correctly with external systems.
-**Use the real database** (in a local Docker container).
+**Use the real database** (PostgreSQL schema of the service in Docker, migrations from `database/0X-ms-*-db` Liquibase).
 
 ```typescript
-// tests/integration/OrderRepositoryImpl.spec.ts
-describe('OrderRepositoryImpl (integration with PostgreSQL)', () => {
+// tests/integration/SchoolRepositoryImpl.spec.ts (03-ms-academic — supertest+testcontainers deps installed)
+describe('SchoolRepositoryImpl (integration with PostgreSQL)', () => {
   let db: DatabaseConnection;
-  let repo: OrderRepositoryImpl;
+  let repo: SchoolRepositoryImpl;
 
   beforeAll(async () => {
-    db = await createTestDatabaseConnection(); // Test database in Docker
-    await db.migrate(); // Apply migrations
-  });
-
-  afterAll(async () => {
-    await db.close();
+    db = await createTestDatabaseConnection(); // Testcontainers postgres:17
+    await db.migrate();                        // same Liquibase changelog as prod
   });
 
   beforeEach(async () => {
-    await db.query('TRUNCATE TABLE orders CASCADE');
-    repo = new OrderRepositoryImpl(db);
+    await db.query('TRUNCATE academic.schools CASCADE');
+    repo = new SchoolRepositoryImpl(db);
   });
 
-  it('saves and retrieves an order correctly', async () => {
-    const originalOrder = Order.create(customerId, [validItem]);
-    await repo.save(originalOrder);
+  it('saves and retrieves a school correctly', async () => {
+    const created = await repo.save(SchoolFixture.createValid());
+    const found = await repo.findById(created.schoolId);
+    expect(found?.code).toBe(created.code);
+  });
 
-    const retrieved = await repo.findById(originalOrder.id);
-
-    expect(retrieved).not.toBeNull();
-    expect(retrieved!.id.value).toBe(originalOrder.id.value);
-    expect(retrieved!.total).toEqual(originalOrder.total);
+  it('soft-deletes instead of removing the row', async () => {
+    const created = await repo.save(SchoolFixture.createValid());
+    await repo.softDelete(created.schoolId);
+    expect(await repo.findById(created.schoolId)).toBeNull();
+    const raw = await db.query('SELECT deleted_at FROM academic.schools WHERE school_id=$1', [created.schoolId]);
+    expect(raw.rows[0].deleted_at).not.toBeNull();
   });
 });
 ```
+
+Fallback when CI has no Docker: H2/in-memory profile (risk mitigation already written in `IEEE829_TEST_PLAN.md`).
 
 ---
 
@@ -301,33 +311,35 @@ describe('OrderRepositoryImpl (integration with PostgreSQL)', () => {
 
 Verify that the OpenAPI contract is fulfilled in the real implementation.
 
-```typescript
-// With Pact or supertest + OpenAPI
-describe('POST /orders — contract', () => {
-  it('responds 201 with the order id', async () => {
-    const response = await request(app)
-      .post('/orders')
-      .set('Authorization', `Bearer ${testToken}`)
-      .send({
-        customerId: 'customer-uuid',
-        items: [{ productId: 'prod-uuid', quantity: 1, price: { amount: 100, currency: 'USD' } }],
-      });
+```python
+# REAL test in the repo: 06-ms-biometric/tests/unit/web/test_router_contract.py
+EXPECTED_ROUTES = {
+    ("POST", "/api/v1/biometric/facial/enroll"),
+    ("GET",  "/api/v1/biometric/facial/{person_id}"),
+    ("POST", "/api/v1/biometric/facial/verify"),
+    ("PATCH","/api/v1/biometric/update-request/{request_id}/review"),
+    ("GET",  "/health/ready"),
+    # ... full pinned route table (21 endpoints)
+}
 
-    expect(response.status).toBe(201);
-    expect(response.body.orderId).toMatch(UUID_REGEX);
-  });
+@pytest.fixture
+def client(stores):
+    app.dependency_overrides[get_facial_repository] = lambda: stores["facial"]  # in-memory fakes
+    # BIOMETRIC_MONGO_ENABLED=false → lifespan never touches the network
+    with TestClient(app) as c:
+        yield c
 
-  it('responds 400 if the body is malformed', async () => {
-    const response = await request(app)
-      .post('/orders')
-      .set('Authorization', `Bearer ${testToken}`)
-      .send({ customerId: 'not-a-uuid' }); // items missing
-
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe('VALIDATION_ERROR');
-  });
-});
+def test_enroll_returns_201_with_the_documented_shape(client):
+    res = client.post("/api/v1/biometric/facial/enroll",
+                      json={"person_id": PERSON, "encoding": UNIT_VECTOR})
+    assert res.status_code == 201
+    assert res.json()["template_version"] == "1.0"
 ```
+
+Key idea already proven in the repo: **the router contract test pins the surface** —
+route table, status codes (201/204), the ISO 9001 error envelope, and degraded-readiness
+behavior — while running the *real* app with fakes behind the ports. Replicate this pattern
+in TS with `app.inject()` + openapi-validator (see `testing-strategy.md`, Tier 3).
 
 ---
 
@@ -341,11 +353,15 @@ Coverage is a signal, not an end in itself.
 | Lines — application | 80%+ | Use cases must be covered |
 | Lines — infrastructure | 60%+ | Integration tests cover the main paths |
 | Branches | 75%+ | if/else must have tests for both paths |
+| Global floor | ≥ 70% | IEEE 829 §1.4 acceptance criterion; > 80% on critical paths (ISTQB exit criteria) |
 
 **What coverage does NOT tell you:**
 - It does not say whether tests are meaningful
 - It does not say whether you cover the right edge cases
 - A test that only executes lines without assertions can give 100% but tests nothing
+
+(Current gap: JaCoCo/coverage gates are not yet wired in CI — see `testing-strategy.md`.
+Until then, reviewers enforce coverage qualitatively via the PR checklist.)
 
 ---
 
@@ -353,44 +369,18 @@ Coverage is a signal, not an end in itself.
 
 VOs are the easiest objects to test with TDD. Start with them.
 
-```typescript
-// 🔴 Test first
-describe('Email', () => {
-  it('creates a valid email', () => {
-    expect(() => new Email('user@example.com')).not.toThrow();
-  });
-
-  it('rejects email without @', () => {
-    expect(() => new Email('notvalid')).toThrow();
-  });
-
-  it('normalizes to lowercase', () => {
-    const email = new Email('USER@EXAMPLE.COM');
-    expect(email.toString()).toBe('user@example.com');
-  });
-
-  it('two emails with the same value are equal', () => {
-    const e1 = new Email('test@test.com');
-    const e2 = new Email('test@test.com');
-    expect(e1.equals(e2)).toBe(true);
-  });
-});
-
-// 🟢 Minimum implementation to pass the tests
-class Email {
-  private readonly value: string;
-
-  constructor(email: string) {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw new DomainException(`Invalid email: ${email}`);
-    }
-    this.value = email.toLowerCase();
-  }
-
-  toString(): string { return this.value; }
-  equals(other: Email): boolean { return this.value === other.value; }
+```java
+// Target example mirroring 01-ms-identity DTO/domain style
+class EmailTest {
+    @Test void createsAValidEmail()        { assertDoesNotThrow(() -> Email.of("user@example.com")); }
+    @Test void rejectsEmailWithoutAt()     { assertThrows(ValidationException.class, () -> Email.of("notvalid")); }
+    @Test void normalizesToLowercase()     { assertEquals("user@example.com", Email.of("USER@EXAMPLE.COM").value()); }
+    @Test void twoEqualEmailsAreEqual()    { assertEquals(Email.of("a@b.co"), Email.of("A@B.CO")); }
 }
 ```
+
+Existing VO-style coverage in the repo: `AuthRequestTest` (JSR-380 constraints on login DTO),
+`BiometricType` enum behavior exercised through `test_router_contract.py` fixtures.
 
 ---
 
@@ -398,47 +388,47 @@ class Email {
 
 1. **Write domain tests first** (Aggregates, VOs, business rules)
 2. **Implement the domain** until the tests pass
-3. **Write use case tests** with Fakes for the ports
+3. **Write use case tests** with Fakes for the ports (`application/port/out` interfaces exist from step 2's design)
 4. **Implement the use case**
 5. **Write integration tests** for the adapters
 6. **Implement the adapters** (repository, publisher, HTTP controller)
-7. **Write the contract test** for the HTTP endpoint
+7. **Write the contract test** for the HTTP endpoint (pin routes/statuses/error envelope)
 8. **Refactor** at any point while the tests are green
+
+Register each test with its IEEE 829 ID (`TC-05-012: …`) so traceability stays intact
+(requirement ↔ case ↔ defect via `projectId`, per ISTQB report).
 
 ---
 
 ## Testing stack configuration
 
 ```json
-// package.json
+// package.json (03/07/09 — Fastify services)
 {
   "scripts": {
-    "test": "jest",
-    "test:unit": "jest --testPathPattern='tests/unit'",
-    "test:integration": "jest --testPathPattern='tests/integration' --runInBand",
-    "test:coverage": "jest --coverage",
-    "test:watch": "jest --watch"
+    "test": "vitest run",
+    "test:unit": "vitest run src/__tests__",
+    "test:integration": "vitest run tests/integration --no-file-parallelism",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
   },
-  "jest": {
-    "testEnvironment": "node",
-    "coverageThreshold": {
-      "global": {
-        "lines": 80,
-        "branches": 75
-      },
-      "./src/domain/": {
-        "lines": 90
-      }
-    }
+  "coverage": {
+    "thresholds": { "lines": 80, "branches": 75 },
+    "./src/domain/": { "lines": 90 }
   }
 }
 ```
+
+Other stacks: Maven Surefire runs JUnit 5 automatically on `mvn test` (add JaCoCo plugin for
+gates); `pyproject.toml` configures `pytest` (`asyncio_mode = auto`, markers `unit`/`contract`);
+Go uses plain `go test ./...` with `testify` assertions (already a dependency in 08).
 
 ---
 
 ## Correlations
 
-- Hexagonal Architecture (facilitates TDD) → `05-architecture/hexagonal-architecture.md`
-- Testing pyramid → `11-quality/README.md`
-- Testing strategy by type → `11-quality/testing-strategy.md`
+- Testing pyramid & thresholds by tier → `11-quality/testing-strategy.md`
 - Definition of Done (required coverage) → `00-governance/definition-of-done.md`
+- Hexagonal Architecture (facilitates TDD) → `05-architecture/hexagonal-architecture.md`
+- Code review checklist (tests as merge gate) → `11-quality/code-review.md`
+- IEEE 829 plans/cases/incidents → `back-end/IEEE829_*.md`

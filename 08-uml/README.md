@@ -12,6 +12,16 @@
 
 ---
 
+## Chosen format and workflow (decision)
+
+> **Format: Mermaid only.** Every diagram lives as a `.mmd` file in `diagrams/source/`, one diagram
+> per file, and is registered in `diagram-index.md`. GitHub, GitLab and VS Code render them natively,
+> so no binary exports are committed — `diagrams/exports/` stays optional (SVG generated with
+> `mmdc` only when a slide/doc needs an image). PlantUML and draw.io below are kept as reference
+> for the day a diagram outgrows Mermaid; new diagrams should not start in those tools.
+
+---
+
 ## Types of diagrams by purpose
 
 ### For architecture (recommended)
@@ -29,9 +39,20 @@
 
 ---
 
-## Recommended tools
+## Reference tools (Mermaid is the adopted one)
 
-### PlantUML (for diagrams in code)
+### Mermaid (supported on GitHub/GitLab)
+```mermaid
+sequenceDiagram
+    User->>Gateway: POST /orders
+    Gateway->>IAM: Validate token
+    IAM-->>Gateway: 200 OK
+    Gateway->>Orders: Create order
+    Orders-->>Gateway: 201 Created
+    Gateway-->>User: 201 Created
+```
+
+### PlantUML (not adopted — reference only)
 ```plantuml
 @startuml
 actor User
@@ -48,17 +69,6 @@ GW --> User: 201 Created
 @enduml
 ```
 
-### Mermaid (supported on GitHub/GitLab)
-```mermaid
-sequenceDiagram
-    User->>Gateway: POST /orders
-    Gateway->>IAM: Validate token
-    IAM-->>Gateway: 200 OK
-    Gateway->>Orders: Create order
-    Orders-->>Gateway: 201 Created
-    Gateway-->>User: 201 Created
-```
-
 ### Draw.io / Lucidchart
 For more complex diagrams requiring free placement. Export as SVG to `diagrams/exports/`.
 
@@ -70,26 +80,27 @@ For more complex diagrams requiring free placement. Export as SVG to `diagrams/e
 08-uml/
 ├── diagram-index.md          ← Registry of all diagrams
 ├── diagrams/
-│   ├── source/               ← Source files (.puml, .drawio, .mmd)
-│   └── exports/              ← Exported images (.svg, .png)
+│   ├── source/               ← Source files (.mmd — Mermaid)
+│   └── exports/              ← Optional exported images (.svg, .png)
 ```
 
 **Naming convention:**
-- `c4-context.puml` — C4 Level 1 diagram
-- `c4-containers.puml` — C4 Level 2 diagram
-- `seq-login.puml` — Sequence diagram for the login flow
-- `er-iam-service.puml` — ER diagram for the IAM service
-- `state-order.puml` — States diagram for an order
+- `c1-system-context.mmd` — C4 Level 1 diagram (✅ done)
+- `c2-container-diagram.mmd` — C4 Level 2 diagram (✅ done)
+- `c3-attendance-service.mmd` — C4 Level 3 diagram of a service
+- `seq-login.mmd` — Sequence diagram for the login flow
+- `erd-attendance.mmd` — ER diagram for the attendance schema
+- `state-justification.mmd` — State diagram for a justification
 
 ### `diagram-index.md`
 Registry of all diagrams with their purpose and location.
 
-**Format:**
+**Format (see `diagram-index.md` for the real tables):**
 ```markdown
-| Diagram | Type | Source file | Last updated | Maintained by |
-|---------|------|-------------|--------------|--------------|
-| Global architecture | C4-L2 | c4-containers.puml | 2024-03-01 | [name] |
-| Login flow | Sequence | seq-login.puml | 2024-03-01 | [name] |
+| ID | Name | Type | Tool | Source file | Status | Description |
+|----|------|------|------|-------------|--------|-------------|
+| C4-02 | Container Diagram | C4 L2 | Mermaid | `source/c2-container-diagram.mmd` | ✅ Done | Clients, Kong, 9 services, data stores |
+| SEQ-01 | Facial attendance capture | Sequence | Mermaid | `source/seq-facial-attendance.mmd` | ⬜ Planned | Scan → match → record → alert |
 ```
 
 ---

@@ -21,18 +21,25 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 
 ## FR → HU → Test → Service matrix
 
+> **Status verified against the implemented back end (`../FULL`, services 01–09 + Kong gateway)
+> on 2026-10-07.** ✅ means the flow exists in code and is reachable through Kong with an
+> authenticated session; it does **not** mean automated tests exist — the test specs below are
+> still *(proposed)* (the only implemented test file in the back end is
+> `03-ms-academic/src/__tests__/academic.test.ts`, not mapped to an HU). NFR validation has not
+> been executed.
+
 ### FR 1 — User Management
 
 | FR ID | FR Description | HU(s) | Tests that verify it | Service | Status |
 |-------|---------------|-------|---------------------|---------|--------|
-| FR 1.1 | Register users with role assignment | HU-IAM-002 | `iam.user.register.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
-| FR 1.1.1 | Role assignment (user-person relationship) | HU-IAM-002 | `iam.role.assign.spec.ts` *(proposed)* | authorization-service | 🔴 Pending |
-| FR 1.1.2 | Permission assignment by role on web platform | HU-IAM-003 | `iam.permissions.assign.spec.ts` *(proposed)* | authorization-service | 🔴 Pending |
+| FR 1.1 | Register users with role assignment | HU-IAM-002 | `iam.user.register.spec.ts` *(proposed)* | identity-service | ✅ Done |
+| FR 1.1.1 | Role assignment (user-person relationship) | HU-IAM-002 | `iam.role.assign.spec.ts` *(proposed)* | authorization-service | ✅ Done |
+| FR 1.1.2 | Permission assignment by role on web platform | HU-IAM-003 | `iam.permissions.assign.spec.ts` *(proposed)* | authorization-service | ✅ Done |
 | FR 1.2 | Register users via CSV files | HU-IAM-004 | `iam.user.csv-import.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
-| FR 1.3 | Login | HU-IAM-001 | `iam.auth.login.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
-| FR 1.4 | Password recovery | HU-IAM-005 | `iam.auth.recovery.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
+| FR 1.3 | Login | HU-IAM-001 | `iam.auth.login.spec.ts` *(proposed)* | identity-service | ✅ Done |
+| FR 1.4 | Password recovery | HU-IAM-005 | `iam.auth.recovery.spec.ts` *(proposed)* | identity-service | ✅ Done |
 | FR 1.5 | Password change | HU-IAM-006 | `iam.auth.password-change.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
-| FR 1.6 | Activate/Deactivate users | HU-IAM-007 | `iam.user.toggle-status.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
+| FR 1.6 | Activate/Deactivate users | HU-IAM-007 | `iam.user.toggle-status.spec.ts` *(proposed)* | identity-service | ✅ Done |
 | FR 1.7 | Delete users | HU-IAM-008 | `iam.user.delete.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
 | FR 1.8 | User information query | HU-IAM-009 | `iam.user.query.spec.ts` *(proposed)* | identity-service | 🔴 Pending |
 
@@ -40,50 +47,50 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 
 | FR ID | FR Description | HU(s) | Tests that verify it | Service | Status |
 |-------|---------------|-------|---------------------|---------|--------|
-| FR 2.1 | Register environments/classrooms | HU-ACAD-001 | `acad.environment.register.spec.ts` *(proposed)* | academic-service | 🔴 Pending |
-| FR 2.2 | Register cohorts/courses | HU-ACAD-002 | `acad.cohort.register.spec.ts` *(proposed)* | academic-service | 🔴 Pending |
-| FR 2.3 | Assign responsible instructors | HU-ACAD-003 | `acad.responsible.assign.spec.ts` *(proposed)* | academic-service | 🔴 Pending |
-| FR 2.3.1 | Assign cohorts to responsible users | HU-ACAD-004 | `acad.cohort.assign-to-responsible.spec.ts` *(proposed)* | academic-service | 🔴 Pending |
-| FR 2.3.2 | Assign schedules/training blocks | HU-ACAD-005 | `acad.schedule.assign.spec.ts` *(proposed)* | academic-service | 🔴 Pending |
+| FR 2.1 | Register environments/classrooms | HU-ACAD-001 | `acad.environment.register.spec.ts` *(proposed)* | academic-service | ✅ Done |
+| FR 2.2 | Register cohorts/courses | HU-ACAD-002 | `acad.cohort.register.spec.ts` *(proposed)* | academic-service | ✅ Done |
+| FR 2.3 | Assign responsible instructors | HU-ACAD-003 | `acad.responsible.assign.spec.ts` *(proposed)* | academic-service | ✅ Done |
+| FR 2.3.1 | Assign cohorts to responsible users | HU-ACAD-004 | `acad.cohort.assign-to-responsible.spec.ts` *(proposed)* | academic-service | ✅ Done |
+| FR 2.3.2 | Assign schedules/training blocks | HU-ACAD-005 | `acad.schedule.assign.spec.ts` *(proposed)* | academic-service | ✅ Done |
 
 ### FR 3 — Generate Entry and Exit Records
 
 | FR ID | FR Description | HU(s) | Tests that verify it | Service | Status |
 |-------|---------------|-------|---------------------|---------|--------|
-| FR 3.1 | Register entries and exits | HU-ATT-001 | `att.attendance.entry-exit.spec.ts` *(proposed)* | attendance-service | 🔴 Pending |
-| FR 3.1.1 | Facial registration | HU-ATT-001 | `att.attendance.facial.spec.ts` *(proposed)* | attendance-service / biometric-service | 🔴 Pending |
-| FR 3.1.2 | Alternate registration for registered users with facial failure | HU-ATT-003 | `att.attendance.alternative.spec.ts` *(proposed)* | attendance-service | 🔴 Pending |
+| FR 3.1 | Register entries and exits | HU-ATT-001 | `att.attendance.entry-exit.spec.ts` *(proposed)* | attendance-service | ✅ Done |
+| FR 3.1.1 | Facial registration | HU-ATT-001 | `att.attendance.facial.spec.ts` *(proposed)* | attendance-service / biometric-service | ✅ Done |
+| FR 3.1.2 | Alternate registration for registered users with facial failure | HU-ATT-003 | `att.attendance.alternative.spec.ts` *(proposed)* | attendance-service | 🟡 In progress *(only `captureMethod=MANUAL`)* |
 | FR 3.2 | Entry control for unregistered personnel | HU-ATT-004 | `att.nn.classification.spec.ts` *(proposed)* | attendance-service | 🔴 Pending |
 | FR 3.2.1 | Alternative registration for NN users | HU-ATT-005 | `att.nn.alternative-register.spec.ts` *(proposed)* | attendance-service | 🔴 Pending |
-| FR 3.x *(derived)* | Initial facial parameter enrollment | HU-ATT-002 | `att.biometric.enrollment.spec.ts` *(proposed)* | biometric-service | 🔴 Pending |
+| FR 3.x *(derived)* | Initial facial parameter enrollment | HU-ATT-002 | `att.biometric.enrollment.spec.ts` *(proposed)* | biometric-service | ✅ Done |
 
 ### FR 4 — System Configuration
 
 | FR ID | FR Description | HU(s) | Tests that verify it | Service | Status |
 |-------|---------------|-------|---------------------|---------|--------|
-| FR 4.1 | Configure system alerts | HU-CONF-001 | `conf.alerts.configure.spec.ts` *(proposed)* | configuration-service | 🔴 Pending |
+| FR 4.1 | Configure system alerts | HU-CONF-001 | `conf.alerts.configure.spec.ts` *(proposed)* | configuration-service | ✅ Done |
 | FR 4.1.1 | Enable/Disable alerts | HU-CONF-002 | `conf.alerts.toggle.spec.ts` *(proposed)* | configuration-service | 🔴 Pending |
 | FR 4.1.2 | Change notification tone | HU-CONF-003 | `conf.alerts.tone-change.spec.ts` *(proposed)* | configuration-service | 🔴 Pending |
 | FR 4.2 | Configure application language | HU-CONF-004 | `conf.language.configure.spec.ts` *(proposed)* | configuration-service | 🔴 Pending |
 | FR 4.3 | Update color palettes | HU-CONF-005 | `conf.color-palette.update.spec.ts` *(proposed)* | configuration-service | 🔴 Pending |
-| FR 4.4 | Update user facial parameters | HU-CONF-006 | `conf.facial-param.update.spec.ts` *(proposed)* | biometric-service | 🔴 Pending |
-| FR 4.5 | IoT device failure alerts management | HU-CONF-007 | `conf.iot-alerts.manage.spec.ts` *(proposed)* | configuration-service | 🔴 Pending |
+| FR 4.4 | Update user facial parameters | HU-CONF-006 | `conf.facial-param.update.spec.ts` *(proposed)* | biometric-service | ✅ Done |
+| FR 4.5 | IoT device failure alerts management | HU-CONF-007 | `conf.iot-alerts.manage.spec.ts` *(proposed)* | configuration-service | 🔴 Pending *(only `IOT` capture value exists)* |
 | FR 4.6 | Change user role | HU-IAM-010 | `iam.role.change.spec.ts` *(proposed)* | authorization-service | 🔴 Pending |
-| FR 4.7 | Delays and justifications (Parameterization) | HU-CONF-008 | `conf.justification.parametrize.spec.ts` *(proposed)* | configuration-service | 🔴 Pending |
+| FR 4.7 | Delays and justifications (Parameterization) | HU-CONF-008 | `conf.justification.parametrize.spec.ts` *(proposed)* | configuration-service | 🟡 In progress |
 
 ### FR 5 — Generate Historical Records
 
 | FR ID | FR Description | HU(s) | Tests that verify it | Service | Status |
 |-------|---------------|-------|---------------------|---------|--------|
 | FR 5.1 | Attendance and absence query by parameters | HU-HIST-001 | `hist.attendance.query.spec.ts` *(proposed)* | attendance-service | 🔴 Pending |
-| FR 5.2 | User change history | HU-HIST-002 | `hist.user-changes.query.spec.ts` *(proposed)* | identity-service (via platform logging) | 🔴 Pending |
+| FR 5.2 | User change history | HU-HIST-002 | `hist.user-changes.query.spec.ts` *(proposed)* | identity-service (via platform logging) | 🔴 Pending *(only biometric embedding version history exists)* |
 
 ### FR 6 — Justification Management
 
 | FR ID | FR Description | HU(s) | Tests that verify it | Service | Status |
 |-------|---------------|-------|---------------------|---------|--------|
-| FR 6.1 | Justification support upload | HU-JUS-001 | `jus.support.upload.spec.ts` *(proposed)* | attendance-service | 🔴 Pending |
-| FR 6.2 | Justification approval and rejection | HU-JUS-002 | `jus.evaluation.approve-reject.spec.ts` *(proposed)* | attendance-service | 🔴 Pending |
+| FR 6.1 | Justification support upload | HU-JUS-001 | `jus.support.upload.spec.ts` *(proposed)* | attendance-service | ✅ Done |
+| FR 6.2 | Justification approval and rejection | HU-JUS-002 | `jus.evaluation.approve-reject.spec.ts` *(proposed)* | attendance-service | ✅ Done |
 | FR 6.3 | Automatic notification of result (A/R) | HU-JUS-003 | `jus.notification.result.spec.ts` *(proposed)* | attendance-service / notification-service | 🔴 Pending |
 
 ### FR 7 — Visualization and Advanced Reports
@@ -167,9 +174,9 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 
 | Status | Meaning |
 |--------|---------|
-| ✅ Done | Implemented, tested, and in production |
-| 🟡 In progress | Under development in the current sprint |
-| 🔴 Pending | In the backlog, not started |
+| ✅ Done | Implemented in the current code base and reachable with a session (verified 2026-10-07). Automated tests are still *(proposed)* unless noted |
+| 🟡 In progress | Partially implemented — see the note in the row |
+| 🔴 Pending | Not implemented, or not verified as implemented |
 | ⏸ Blocked | Has an external blocker |
 | ❌ Cancelled | Removed from scope |
 
@@ -188,7 +195,7 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 | SRS Inconsistency | FR 4.6 is named 'Role Change' but the description talks about limiting access. | Correct description in SRS. | Team / Instructor | 2026-06-16 |
 | SRS Inconsistency | NFR 2 is named 'Availability' but the criteria are about usability. | Recategorize or rename NFR. | Team / Instructor | 2026-06-16 |
 | FR without dedicated HU | Use Cases 1-5 from the SRS have no independent HU (they are covered within existing HUs). | Verify coverage with the team. | Product Owner | 2026-06-16 |
-| HU without test | All HUs are without tests (project in documentation phase). | Define test strategy before Sprint 1. | QA / Dev | 2026-06-16 |
+| HU without test | No HU-level test spec is implemented; all specs in the matrix are *(proposed)*. The back end only contains `03-ms-academic/src/__tests__/academic.test.ts` (not mapped to an HU). | Execute the proposed specs. | QA / Dev | 2026-10-07 |
 | NFR without validation tool | No NFR has a defined validation tool. | Define the testing and monitoring stack. | DevOps / Team | 2026-06-16 |
 
 ---
@@ -220,6 +227,7 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 | **Total User Stories (HU)** | 39 |
 | **FRs covered by HUs** | 34/34 ✅ |
 | **FRs without coverage** | 0 |
-| **HUs without tests** | 39 (all pending development phase) |
+| **FR rows implemented** | 18 ✅ · 2 🟡 · 21 🔴 (of the 41 rows above, verified 2026-10-07) |
+| **HUs without tests** | 39 (test specs proposed; none implemented) |
 | **SRS inconsistencies identified** | 5 |
-| **Overall project status** | 🟡 Documentation and design phase |
+| **Overall project status** | 🟡 Back end implemented (01–09 + Kong); tests and NFR validation pending |

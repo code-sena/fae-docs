@@ -1,4 +1,4 @@
-﻿# Data Model — Configuration Service
+# Data Model — Configuration Service
 
 > This service is the authoritative owner of operational configuration values used across the platform.
 > It centralizes settings that affect behavior without owning the primary business records.
@@ -73,7 +73,7 @@
 
 ## Schema migration
 
-**Tool:** Flyway
+**Tool:** Liquibase 4.29 (chained containers, ADR-010)
 **Script location:** src/migrations/
 **Naming convention:** V[NNN]__[description].sql
 

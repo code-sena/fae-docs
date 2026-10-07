@@ -1,69 +1,127 @@
 # Frontend Integration — FaceAttendEDU APIs
 
+> Decisions 2026-10-03 (updated 2026-10-05, commits `c4fad72`/`e1f6d71`): canonical base is
+> `http://localhost:8080/api/v1` via Kong for Web **and** Mobile; both apps call the real backend
+> and send `Authorization: Bearer <sessionId>`. Mocks survive only as fallback data
+> (`EXPO_PUBLIC_API_MOCK=1` / API failure).
+
 > How `front-end/Web` and `front-end/Mobile` really consume the backend.
-> Sources: `front-end/Web/src/**`, `front-end/Mobile/src/**`.
+> Sources: `front-end/Web/src/**`, `front-end/Mobile/src/**`, `COMPOSE.md`.
 
 ## 1. TL;DR
 
-- **Web (`front-end/Web`, Expo Web + RN-Web): does NOT consume the real backend.** 100% mock/local. `api/apiClient.ts` is a stub, `constants/urls.ts` (`http://10.3.234.12:8080/` + paths) has zero imports. Auth is dual mock (`AuthService` dict + `AuthContext` delay). Migration to Kong `:8080` pending.
-- **Mobile (`front-end/Mobile`, Expo 57): DOES consume the backend** (JSON-Server style + Auth + Face). Centralized in `api/apiClient.js` (`fetch`, 15s timeout, `ApiError`). All services use `requiresAuth:false` today (debt: never sends `Bearer`).
+- **Web (`front-end/Web`, Expo Web + RN-Web): consumes the real backend.**
+  `src/api/apiClient.js` (`request`, `fetchAllPages`, automatic `Bearer`, 15s timeout,
+  `ApiError`) + `src/api/endpoints.js` (verified catalog of all `/api/v1` routes) +
+  `src/services/api/{auth,academic,authorization,configuration,notification,quality,
+  scheduling,referenceData}Api.js`. `context/AuthContext.js` performs the real login
+  (`POST /api/v1/auth/login`). `models/data/mockData.js` is a **fallback** when the API is
+  unreachable or `EXPO_PUBLIC_API_MOCK=1`; the old `constants/urls.ts`, `services/AuthService.ts`
+  and `rolesHierarchy.ts` were deleted.
+- **Mobile (`front-end/Mobile`, Expo): consumes the real backend** through Kong.
+  Centralized in `api/apiClient.js` (`fetch`, 15s timeout, `ApiError`, `requiresAuth` defaults to
+  **true** and the `Bearer` token is attached whenever a session exists) + `api/backend.js`
+  (`backendGet`, snake_case mapping, optional cache). ViewModels call `api/v1/...` REST paths
+  directly.
 
 ## 2. Base URLs
 
 | App | Config | Real value |
 |-----|--------|------------|
-| Web | `services/constants/urls.ts:1` | `http://10.3.234.12:8080/` (dead, no imports) |
-| Web | env / `app.json` | No `.env`, no `VITE_API_URL`, no `EXPO_PUBLIC_*` |
+| Web | `config/env.ts getApiBaseUrl()` | `EXPO_PUBLIC_API_URL` (build time) → `http://localhost:8080`; runtime override `window.__FACEATTEND_API_URL__` |
+| Web | `config/env.ts API_MODE` | `live` unless `EXPO_PUBLIC_API_MOCK=1` |
 | Web i18n | `LibreTranslateProvider.ts:37` | `https://translate.argosopentech.com` (external, non-business) |
 | Web i18n | `RestTranslationProvider.ts:34` | `http://localhost:5000` (external) |
-| Mobile | `config/env.js:16-36` | `EXPO_PUBLIC_API_URL` if set, else `http://<host>:3000/`, fallback `http://10.3.234.223:3000/` |
-| Mobile | `.env:6` | `EXPO_PUBLIC_AUTH_MODE=legacy` (only var) |
-| Mobile face | `UpdatePhotoScreen.js:28` | `EXPO_PUBLIC_FACE_URL || ${API_BASE_URL}face/register` (multipart, no auth) |
+| Mobile | `config/env.js resolveBaseUrl()` | `EXPO_PUBLIC_API_URL` → Metro `hostUri` host → `10.0.2.2` (Android emulator) → `10.3.233.33` LAN default, all on **`:8080` (Kong)**; `AUTHZ/ACADEMIC/ATTENDANCE/SCHEDULING/NOTIFY_BASE_URL` are aliases of the same gateway |
+| Mobile | `.env` | `EXPO_PUBLIC_API_URL` / `EXPO_PUBLIC_AUTH_MODE` (only vars consumed) |
+| Mobile face | `UpdatePhotoScreen.js` | `EXPO_PUBLIC_FACE_URL \|\| ${API_BASE_URL}face/register` (multipart, no auth header) |
 | Mobile countries | `api/apiCountry.js:1` | `https://countriesnow.space/api/v0.1` (external) |
-| Prod target | — | `http://localhost:8080/api/v1/...` (Kong) for both apps |
+| Prod target | — | gateway behind TLS, `https://<host>/api/v1/...` for both apps |
 
-## 3. Auth flows
+Docker: the compose stack publishes the gateway on `KONG_PROXY_PORT` (8080) and the Web app on
+**8090** (`FRONTEND_PORT`), so browser CORS origins are `localhost:3000,5173,8090`.
 
-### Mobile (real, multistep)
-1. `GET person?email` → `GET app_user?person_id` → `GET user_role?user_id` → loop `GET role?role_id` → `roleNames[]`.
-2. `POST user_session {user_id}` → `token = session.token||session_token||session_id||id`.
-3. `AuthResponse{token,user{…roles,person}}` → `TokenStorage.saveToken` (jwtDecode exp, `AsyncStorage auth_token`).
-4. `getHighestRole(roles)` → `AsyncStorage userEmail` + theme/language by role → `onLogin(role,token)`.
-5. Refresh: `POST user_session/refresh {refresh_token}`. Logout: `DELETE user_session/{id}` (viewmodels today only clear local state).
-6. Recovery: `POST auth/forgot-password|verify-code|reset-password` (15s timeout, `VerificationError`, `MAX_CODE_ATTEMPTS=5`, 30s lockout, 600s expiry, 60s resend).
+## 3. Auth flows (both real)
 
-### Web (mock)
-- Path A (`AuthService`): dict `admin/teacher/student@example.com:123456` → hardcoded JWT; `register` fabricates `eyJ…`.
-- Path B (`AuthContext`): `delay 800ms → mockAppUsers.find(email)`; `fetch("/api/auth/login")` commented out. Session in `localStorage @faceattend:session_user`.
-- No refresh, no `Bearer`, no interceptors.
+### Mobile (`services/AuthService.js`)
+
+1. `POST api/v1/auth/login {email,password}` — the backend resolves the email → user through
+   `identity.person.email` (no client-side person/app_user/user_role resolution any more).
+   400/401 → "Credenciales inválidas".
+2. `saveToken(sessionId)` into `expo-secure-store` (AsyncStorage on web) **before** any
+   authenticated call.
+3. In parallel: `GET api/v1/users/{id}/roles → roleName[]` and profile
+   (`GET users/{id}` → `persons/{id}`; fallback `GET users?page&limit`).
+4. `GET api/v1/auth/evaluate?userId&permission=attendance.record:read` — fail-closed: without a
+   real grant there is no login.
+5. `AuthResponse{token,user{…roles,person}}` → `getHighestRole()` (`admin > teacher > student`) →
+   theme/language by role.
+6. Refresh: **none** (`refreshToken()` throws "Sesión no renovable").
+   Logout: `POST api/v1/auth/logout?sessionId` (best-effort) + clear storage.
+7. Recovery: `POST auth/forgot-password|verify-code|reset-password`
+   (`verificationService.js|passwordService.js`, 15s timeout, `VerificationError`,
+   `MAX_CODE_ATTEMPTS=5`, 30s lockout, 600s expiry, 60s resend) — **the backend does not
+   implement these routes yet (404)**; see §6.
+
+### Web (`context/AuthContext.js` + `services/api/authApi.js`)
+
+- `login({email,password})` → `POST /api/v1/auth/login` → `sessionId` + `userId` required,
+  `saveToken(sessionId,{email})` (localStorage `@faceattend:session_user` on web) → loads
+  roles/profile from the API → `toUiRole(roleNames)` from `core/utils/backendRoles.js`.
+- Session bootstrap on mount: `sessionGet() + getToken()` in parallel; invalid session → cleanup.
+- `logout()` clears token + session key. `register()` still validates locally and (until the
+  backend exposes a register route) creates the account through the API when available.
+- Errors surface through `loginErrorMessage(err)` (401 → invalid credentials, network → gateway
+  `:8080` down message).
 
 ## 4. Endpoint usage
 
-### Web: 0 business HTTP calls
-All screens read `useAppData()` / `mockData.ts` / `models/data/*Storage` (local CRUD). `FaceRegistrationModal` does local cropping, no `POST face/*`.
+### Web: storages talk to the API, mocks only on failure
 
-### Mobile: generic services + N+1 in viewmodels
-`getAll/getById/create/update/delete` pattern over `app_user,person,user_session,academic_actor,attendance_record,justification,justification_type,course,program,school,academic_period,cohort,enrollment,environment,schedule_block,class_session,alert,alert_type,academic_configuration,security_configuration,biometric_update_case,role,permission` + `face/register` multipart + external `countriesnow`. Removed: `city,audit_log,error_log` (not relational tables); `blood_type,document_type` are person fields, not resources.
+- `models/data/{UserStorage,StudentStorage,FichaStorage,EnvironmentStorage,CourseStorage}.js`
+  read through `services/api/referenceData.js` first and fall back to `mockData.js` when the API
+  is unavailable (`console.warn "[FaceAttend] load*: API no disponible, uso mock"`).
+- `viewmodels/useDashboardViewModel.js` and `useReportsViewModel.js` still import chart series
+  from `models/data/mockData.js` (presentation data, not business CRUD).
+- `FaceRegistrationModal` does local cropping only (no `POST face/*` from Web).
 
-ViewModels with direct calls (`request()` / `fetch`):
-- `useDashboardViewModel`: `GET attendance_record?_limit=100`, `GET class_session?class_session_id=`, `GET schedule_block?schedule_block_id=`, `GET course?course_id=`, `GET alert_type`, `GET alert?_sort=raised_at&_order=desc&_limit=5`, `GET academic_actor?academic_actor_id=`, `GET person?person_id=`, `GET justification?review_status=Pending`.
-- `useDisplayingAttendanceViewModel`: `GET attendance_record?_limit=200` + N+1 enrichment (actor→person, block→course→environment).
-- `useAttendanceReportViewModel`: `GET attendance_record?_limit=500` + `POST attendance_report {role,attendance_type,people}` (no backend endpoint — `attendance_report` is a derived JSONB projection with no FKs, outside the 3NF core; gap recorded).
-- `useAddJustifyViewModel`: `POST justification {attendance_record_id,justification_type_id,reason,submitted_at,review_status:Pending,attachment{…}}`.
-- `useManageUsersViewModel`: `GET app_user?_limit=50` + `GET user_role?user_id=` + `GET person?person_id=`.
-- `UpdatePhotoScreen`: `POST face/register` multipart.
+### Mobile: `backendGet(ENV.X_BASE_URL, 'api/v1/…', params)` in viewmodels
+
+Examples: `useDashboardViewModel` → `class-sessions/{id}`, `schedule-blocks/{id}`,
+`courses/{id}`, `alert-types`, `alerts?limit=50`, `academic-actors?limit=2000`,
+`attendance-records?page&limit`, `justifications?status=Pending`, `schedule-blocks?
+instructorActorId=…`; `useManageEnvironmentViewModel` → `environments`; attendance report /
+justification viewmodels → `attendance-records`, `justifications`, `supporting-documents`.
+
+Endpoints still missing on the backend: `POST attendance_report` (derived JSONB projection, no
+route yet) and `POST face/register` (Web/Mobile still use the anonymous multipart helper instead
+of `POST /api/v1/biometric/facial/enroll|verify`).
 
 ## 5. DTOs, errors, pagination
 
-- DTOs: `BaseModel{created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,row_version}` + `fromApi/toApi` snake_case; `AuthRequest/AuthResponse`, `AttendanceRecord{Present/Absent/Late/Justified}`, `captureMethod{FACIAL/MANUAL/IOT/IMPORT}`, canonical roles `SUPER_ADMIN/SCHOOL_ADMIN/INSTRUCTOR/STUDENT` (legacy code uses `Administrator/Teacher/Student` and Spanish `Administrador/Docente/Estudiante` — migrate).
-- Errors: `ApiError(status,message,data)`; login maps `0/408→connectionError`; viewmodels use `useCustomAlert`; `LanguageService` falls back to `DEFAULT_LANGUAGES`; `CountryService` `{success,data/error}`.
-- Pagination: only `?_limit (+_sort/_order on alerts)`, no `page/offset`. Migrate to backend `?limit&offset`.
+- DTOs: `BaseModel{createdAt…,rowVersion}` + `fromApi/toApi` snake_case; `AuthRequest{email|username}`,
+  `AuthResponse`, `AttendanceRecord{Present/Absent/Late/Justified}`,
+  `captureMethod{FACIAL/MANUAL/IOT/IMPORT}`.
+- Roles: canonical catalog is **`Administrador | Instructor | Aprendiz`**
+  (`004-unify-mobile-roles`); `backendRoles.js` also accepts the legacy
+  `SUPER_ADMIN/SCHOOL_ADMIN/INSTRUCTOR/STUDENT/DOCENTE/…` names so an un-migrated database still
+  maps to `admin|teacher|student`.
+- Errors: `ApiError(status,message,data)`; login maps `0/408` to connection errors; viewmodels
+  use `useCustomAlert`.
+- Pagination: identity lists use **`?page&limit` → `{data,meta}`**; TS/Go use
+  `?limit&offset` + `x-total-count`. A few Mobile calls still pass JSON-Server leftovers
+  (`_limit:500` in `useAttendanceReportViewModel`, `_limit:100` in `useManageEnvironmentViewModel`)
+  — harmless today (ignored by the backends) but MUST be migrated.
 
-## 6. Migration checklist (Web + Mobile → Kong)
+## 6. Pending gaps (Web + Mobile → backend)
 
-1. Point `API_BASE_URL` to `http://localhost:8080` (env `EXPO_PUBLIC_API_URL` / Web `.env`).
-2. Always send `Authorization: Bearer` (`requiresAuth:true`) + retry with refresh on 401.
-3. Replace `?_limit` with `?limit&offset` and read `x-total-count` / `{data,total,limit,offset}`.
-4. Remove client-side N+1 using nested reads (`/class-sessions/{id}/attendance`, `/cohorts/{id}/blocks`, …).
-5. Implement `POST attendance_report` in backend or remove the Mobile call.
-6. Send `face/register` to `POST /api/v1/biometric/facial/enroll|verify` with JWT (no anonymous multipart).
+1. Recovery endpoints `auth/forgot-password|verify-code|reset-password` are called by Mobile but
+   not implemented server-side.
+2. `POST attendance_report` has no backend route.
+3. Remove the `?_limit` JSON-Server leftovers (§5) and keep `page/limit` (identity) or
+   `limit/offset` elsewhere.
+4. Collapse remaining N+1 enrichment into nested reads
+   (`/class-sessions/{id}/attendance`, `/cohorts/{id}/blocks`, `/schools/{id}/actors`, …).
+5. Replace anonymous `face/register` with `POST /api/v1/biometric/facial/enroll|verify` +
+   `Authorization: Bearer`.
+6. Keep sending `Bearer` on every call; 401 → clear session → login (no refresh endpoint exists).

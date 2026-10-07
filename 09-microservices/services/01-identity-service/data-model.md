@@ -1,4 +1,4 @@
-﻿# Data Model — Identity Service
+# Data Model — Identity Service
 
 > This service is the authoritative owner of the school identity data for the institution.
 > No other service should read these records directly as the system of record.
@@ -119,7 +119,7 @@
 
 ## Schema migration
 
-**Tool:** Flyway
+**Tool:** Liquibase 4.29 (chained containers, ADR-010)
 **Script location:** src/migrations/
 **Naming convention:** V[NNN]__[description].sql
 

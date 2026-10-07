@@ -148,7 +148,7 @@ erDiagram
     ENTITY_A {
         uuid id PK
         varchar name
-        timestamptz created_at
+        timestamp created_at
     }
     ENTITY_B {
         uuid id PK

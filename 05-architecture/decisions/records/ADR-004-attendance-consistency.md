@@ -3,6 +3,7 @@
 - **ID:** ADR-004
 - **Date:** 2026-09-03
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** **partially implemented.** Domain events are published straight to Kafka (`KafkaTemplate` in Java, `kafkajs` in TS) but there is **no transactional outbox table, no DLQ and no compensation handlers** — publish failures are swallowed (`.catch(() => undefined)`). Recorded as tech debt `AT-006` in `05-architecture/overview.md` §8.
 - **Authors:** [Diego Andrés Gutiérrez Nuñez, Juan David Arboleda Perdomo, Jonattan Steven Rizo Solano]
 
 ---

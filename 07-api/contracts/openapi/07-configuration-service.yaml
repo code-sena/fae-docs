@@ -3,7 +3,7 @@ info:
   title: Configuration Service API
   version: 1.0.0
   description: |
-    Servicio 07-ms-configuration (TS Fastify + Zod :8089, schema `configuration`).
+    Servicio 07-ms-configuration (TS Fastify + Zod :8087, schema `configuration`).
     Configuraciones académicas/seguridad. `biometric-update-cases` es el endpoint
     canónico actual, pero su dueño lógico es Biometric (DBML v7): hospedaje
     físico transitorio en `configuration`, pendiente de migración con compatibilidad.
@@ -13,10 +13,10 @@ info:
     - Doble base: `/configurations/academic|security` + alias `/academic-configurations|/security-configurations`
     - Filtros `?name=` y `?status=` exactos; paginación `?limit&offset` + `x-total-count`
     - Caso: `personId*,biometricType FACIAL|FINGERPRINT,fingerNumber 1-10 (requerido si FINGERPRINT, NULL si FACIAL),currentEmbeddingRef?,reason*,requestedBy*,requestedAt*` → `{updateStatus:Pending}`; review `{updateStatus:In_Review|Approved|Rejected,reviewedBy?,resolutionNotes?}` + `reviewedAt`
-    - Gateway `jwt` (`kong.yml:96-106`).
+    - Gateway sin plugins propios (`kong.yml:94-103`); el MS no valida el bearer hoy (tech-debt).
 
 servers:
-  - url: http://localhost:8089
+  - url: http://localhost:8087
     description: Direct (dev)
   - url: http://localhost:8080
     description: Via Kong gateway (dev, preferred)

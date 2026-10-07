@@ -1,4 +1,4 @@
-﻿# Runbook — Configuration Service
+# Runbook — Configuration Service
 
 > A runbook is for someone on-call at 3am. Each section must be executable without needing additional context.
 
@@ -13,7 +13,7 @@
 
 | Field | Value |
 |-------|-------|
-| Local port | 8089 |
+| Local port | 8087 |
 | Production URL | https://api.domain.com/08-configuration-service |
 | Staging URL | https://staging.api.domain.com/08-configuration-service |
 | Dashboard | [Grafana URL] |
@@ -28,7 +28,7 @@
 
 ```bash
 # Health check
-curl http://localhost:8089/health
+curl http://localhost:8087/health
 ```
 
 

@@ -8,18 +8,21 @@
 
 | # | Service | Code | Port | Stack (real) | DB schema |
 |---|---------|------|------|--------------|-----------|
-| 01 | Identity | `01-ms-identity` | 8081 | Java 21 + Spring Boot | `identity` (Postgres) |
-| 02 | Authorization | `02-ms-authorization` | 8083 | Java 21 + Spring Boot | `authorization` (Postgres) |
-| 03 | Academic | `03-ms-academic` | 8084 | TS Fastify + Zod + Drizzle | `academic` (Postgres) |
-| 04 | Scheduling | `04-ms-scheduling` | 8087 | Java 21 + Spring Boot | `scheduling` (Postgres) |
-| 05 | Attendance | `05-ms-attendance` | 8085 | Java 21 + Spring Boot | `attendance` (Postgres) |
+| 01 | Identity | `01-ms-identity` | 8081 | Java 21 + Spring Boot 4.1 | `identity` (Postgres) |
+| 02 | Authorization | `02-ms-authorization` | 8082 | Java 21 + Spring Boot 4.1 | `authorization` (Postgres) |
+| 03 | Academic | `03-ms-academic` | 8083 | TS Fastify + Zod + Drizzle | `academic` (Postgres) |
+| 04 | Scheduling | `04-ms-scheduling` | 8084 | Java 21 + Spring Boot 4.1 | `scheduling` (Postgres) |
+| 05 | Attendance | `05-ms-attendance` | 8085 | Java 21 + Spring Boot 4.1 | `attendance` (Postgres) |
 | 06 | Biometric | `06-ms-biometric` | 8086 | Python 3.12 + FastAPI + Motor | MongoDB `facial_embedding`, `fingerprint_embedding` |
-| 07 | Configuration | `07-ms-configuration` | 8089 | TS Fastify + Zod | `configuration` (Postgres) |
-| 08 | Notification | `08-ms-notification` | 8090 | Go 1.22 + Gin + pgx | `notification` (Postgres) |
-| 09 | Quality | `09-ms-quality` | 8091 | TS Fastify + Zod | in-memory + best-effort Postgres |
+| 07 | Configuration | `07-ms-configuration` | 8087 | TS Fastify + Zod | `configuration` (Postgres) |
+| 08 | Notification | `08-ms-notification` | 8088 | Go 1.22 + Gin + pgx | `notification` (Postgres) |
+| 09 | Quality | `09-ms-quality` | 8089 | TS Fastify + Zod | in-memory + best-effort Postgres |
 | 99 | Gateway | `99-api-gateway` | 8080 (proxy) / 8001 (admin) | Kong OSS 3.6 DB-less + Redis 7 | — |
 
-Source of truth: `back-end/SERVICES.md`, `back-end/docker-compose.yml`, `99-api-gateway/kong/kong.yml`.
+Source of truth: `COMPOSE.md`, `back-end/SERVICES.md`, `back-end/docker-compose.yml`,
+`99-api-gateway/kong/kong.yml`, root `.env.example`.
+
+> Decisions 2026-10-03: `FULL/back-end/99-api-gateway/kong/kong.yml` is canonical; `contracts/openapi/api-gateway.yaml` is the published view. Probes are `/health` + `/health/ready` + `/health/quality` where implemented (the gateway itself only routes `/health/quality`).
 
 ## 2. Versioning
 
@@ -39,7 +42,7 @@ Source of truth: `back-end/SERVICES.md`, `back-end/docker-compose.yml`, `99-api-
   - `PATCH /api/v1/academic-actors/{id}/status`, `PATCH /api/v1/enrollments/{id}/status` (academic, real)
   - `PATCH /api/v1/alerts/{id}/resolve` (notification, real)
   - `PATCH /api/v1/biometric-update-cases/{id}/review` (canonical route in configuration; logical owner Biometric)
-  - `POST /api/v1/users/{id}/activate`, `PATCH /api/v1/users/{id}/status` (identity, real); `POST /api/v1/persons/{id}/transfer` deprecated (person has no `school_id`)
+  - `POST /api/v1/users/{id}/activate`, `PATCH /api/v1/users/{id}/status` (identity, real); `POST /api/v1/persons/{id}/transfer` is **not implemented** (person has no `school_id`)
 - **Nested reads** for ownership (mirrors `kong.yml` nested routes):
   - `GET /api/v1/schools/{schoolId}/programs|periods|actors|configurations`
   - `GET /api/v1/programs/{programId}/cohorts|courses`
@@ -65,11 +68,12 @@ Real deviations documented per contract (e.g. identity `PUT /users/{id}` → 204
 
 Canonical (see `pagination.md`):
 
-- Java services: lists filter in memory (`?schoolId`, `?cohortId`, `?classSessionId`, `?status`, …); `?limit=20&offset=0` is the canonical pagination for new endpoints.
+- Java `01` identity: `?page=1&limit=20` (1-based) → `PageResponse {data,meta{page,limit,total,totalPages}}`.
+- Other Java services (`02,04,05`): filter-only lists (`?schoolId`, `?cohortId`, `?classSessionId`, `?status`, …) returning bare arrays — no pagination yet; add `?limit&offset` + envelope for new endpoints.
 - TS services (`03,07,09`): `?limit=20&offset=0`, cap 100, response header `x-total-count`; `09` list envelope is `{data,total,limit,offset}`; `03/07` return bare array + header.
 - Go service (`08`): `?limit&offset` (alert-types default 50/0), filters `?actorId&?typeId&?resolved|?status=open|resolved|pending`.
 - Python service (`06`): no pagination (single-template or small history).
-- Mobile legacy pattern `?_limit&?_sort&_order` is JSON-Server style and MUST NOT be added to new backend endpoints; backend uses `limit/offset`.
+- Mobile legacy pattern `?_limit&?_sort&_order` is JSON-Server style and MUST NOT be added to new backend endpoints; backend uses `limit/offset` (identity: `page/limit`).
 
 ## 6. Standard responses
 
@@ -79,8 +83,8 @@ Canonical (see `pagination.md`):
 | 201 | Created | Created resource (+ `Location` where Java/TS set it) |
 | 204 | Success without body | Empty |
 | 400 | Validation (`Zod`, `Bean Validation`, `Pydantic`, `Gin binding`) | `ErrorResponse` |
-| 401 | Missing/invalid JWT (enforced at Kong, except identity public) | `ErrorResponse` |
-| 403 | Authenticated but RBAC denies (`GET /auth/evaluate → allowed:false`) | `ErrorResponse` |
+| 401 | Missing/invalid/expired session bearer (checked by `AuthTokenFilter` in the Java MSs; Kong does not authenticate) | `ErrorResponse` |
+| 403 | Authenticated but RBAC denies (`GET /auth/evaluate → allowed:false`, or required permission missing) | `ErrorResponse` |
 | 404 | Not found (`SchoolNotFound`, `no active facial template`, `no match found`) | `ErrorResponse` |
 | 409 | Conflict/duplicate (email exists, person document exists) | `ErrorResponse` |
 | 422 | Semantic unprocessable (Python biometric payload) | `ErrorResponse` |
@@ -115,9 +119,14 @@ All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_b
 ## 9. Security
 
 - All inter-service and frontend traffic goes through Kong `:8080`. See `authentication.md`.
-- Identity routes are **public** at gateway (no `jwt` plugin); all others require `Authorization: Bearer <JWT>`.
+- Auth is **per-MS, not at the edge**: Kong has no `jwt` plugin and no consumers. Java services
+  (`01,02,04,05`) require `Authorization: Bearer <sessionId>` (opaque UUID from
+  `POST /api/v1/auth/login`) on every `/api/**` route; bootstrap routes (`login`, `logout`,
+  `me`, `GET /sessions/*`) and health/docs are public. TS/Python/Go services (`03,06,07,08,09`)
+  do not validate the bearer yet.
 - Local service-to-service calls use UUID cross-references, never cross-schema FKs.
-- CORS: global `http://localhost:3000,http://localhost:5173`; identity route `*` for local dev. TLS terminates at Kong in prod.
+- CORS: global Kong plugin `http://localhost:3000,http://localhost:5173,http://localhost:8090`;
+  the identity service also declares `*` on its own plugin for local dev. TLS terminates at Kong in prod.
 
 ## 10. Health and quality probes
 

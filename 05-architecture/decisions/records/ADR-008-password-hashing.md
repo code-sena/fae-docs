@@ -3,6 +3,7 @@
 - **ID:** ADR-008
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** implemented exactly as decided — `SecurityConfig` returns `new BCryptPasswordEncoder(BCryptVersion.$2B, 12)` and comments reference this ADR. The stale `APP_AUTH_BCRYPT_ROUNDS=10` mentioned in the Context no longer exists in `.env.example`.
 - **Authors:** FaceAttend EDU Team
 
 ---

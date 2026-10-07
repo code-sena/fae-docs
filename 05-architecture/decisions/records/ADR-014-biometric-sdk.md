@@ -91,8 +91,8 @@ The biometric pipeline must:
 **Impact on the system:**
 - Affected modules: `biometric-service` (face processing), `attendance-service` (consumes match results).
 - Documents that must be updated:
-  - `09-microservices/services/05-biometric-service/README.md` — document face_recognition as the embedding library
-  - `09-microservices/services/05-biometric-service/data-model.md` — document 128-D embedding format in MongoDB
+  - `09-microservices/services/06-biometric-service/README.md` — document face_recognition as the embedding library
+  - `09-microservices/services/06-biometric-service/data-model.md` — document 128-D embedding format in MongoDB
   - `10-devops/local-setup.md` — document dlib build dependencies for Docker
   - `02-domain/domain-map.md` §6 Biometric — reference the embedding format
 

@@ -29,9 +29,9 @@ CREATE TABLE role (
   description   VARCHAR,
 
   -- Audit (in all tables)
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at    TIMESTAMPTZ,
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at    TIMESTAMP,
   created_by    UUID,
   updated_by    UUID,
   deleted_by    UUID,
@@ -46,9 +46,9 @@ CREATE TABLE role (
 | role_id | SERIAL | Auto-incremental role identifier | `1` |
 | role_name | VARCHAR | Unique role name | `ADMIN` |
 | description | VARCHAR | Role description | `Full system administrator` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -72,9 +72,9 @@ CREATE TABLE permission (
   description     VARCHAR,
 
   -- Audit (in all tables)
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at      TIMESTAMPTZ,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at      TIMESTAMP,
   created_by      UUID,
   updated_by      UUID,
   deleted_by      UUID,
@@ -89,9 +89,9 @@ CREATE TABLE permission (
 | permission_id | SERIAL | Auto-incremental permission identifier | `1` |
 | permission_name | VARCHAR | Unique permission name (namespace convention) | `attendance:read` |
 | description | VARCHAR | Permission description | `View attendance records` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -108,12 +108,12 @@ CREATE TABLE role_permission (
   -- Business fields
   role_id         INT         NOT NULL,
   permission_id   INT         NOT NULL,
-  assignment_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  assignment_date TIMESTAMP NOT NULL DEFAULT NOW(),
 
   -- Audit (in all tables)
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at      TIMESTAMPTZ,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at      TIMESTAMP,
   created_by      UUID,
   updated_by      UUID,
   deleted_by      UUID,
@@ -134,10 +134,10 @@ ALTER TABLE role_permission ADD CONSTRAINT fk_rp_permission
 |--------|------|-------------|---------|
 | role_id | INT | Role receiving the permission (FK → role) | `1` |
 | permission_id | INT | Permission being assigned (FK → permission) | `3` |
-| assignment_date | TIMESTAMPTZ | When the permission was assigned | `2024-01-15T10:30:00Z` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| assignment_date | TIMESTAMP | When the permission was assigned | `2024-01-15T10:30:00Z` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -154,12 +154,12 @@ CREATE TABLE user_role (
   -- Business fields
   user_id         UUID        NOT NULL,
   role_id         INT         NOT NULL,
-  assignment_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  assignment_date TIMESTAMP NOT NULL DEFAULT NOW(),
 
   -- Audit (in all tables)
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at      TIMESTAMPTZ,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at      TIMESTAMP,
   created_by      UUID,
   updated_by      UUID,
   deleted_by      UUID,
@@ -178,10 +178,10 @@ ALTER TABLE user_role ADD CONSTRAINT fk_ur_role
 |--------|------|-------------|---------|
 | user_id | UUID | User receiving the role (external ID → Identity.app_user) | `550e8400-...` |
 | role_id | INT | Role being assigned (FK → role) | `1` |
-| assignment_date | TIMESTAMPTZ | When the role was assigned | `2024-01-15T10:30:00Z` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| assignment_date | TIMESTAMP | When the role was assigned | `2024-01-15T10:30:00Z` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |

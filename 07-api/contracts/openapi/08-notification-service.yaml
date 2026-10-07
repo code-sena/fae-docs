@@ -3,7 +3,7 @@ info:
   title: Notification Service API
   version: 1.0.0
   description: |
-    Servicio 08-ms-notification (Go 1.22 Gin + pgx :8090, schema `notification`).
+    Servicio 08-ms-notification (Go 1.22 Gin + pgx :8088, schema `notification`).
     Tipos de alerta y alertas sobre `academic_actor`.
 
     ## Fuente real
@@ -15,10 +15,10 @@ info:
     - Filtros: `?actorId&?typeId&?resolved|?status=open|resolved|pending`; `?limit&offset` (types default 50/0)
     - Envelopes: `{alerts:[]}`, `{alert_types:[]}`; errores `{error:string}` (`ErrValidation→400,ErrNotFound→404,ErrDuplicate→409`)
     - Seeds: `ABSENCE_THRESHOLD,SCHEDULE_CONFLICT`. `notification-preferences` documentado en SERVICE.md NO existe.
-    - Gateway `jwt` (`kong.yml:107-114`).
+    - Gateway sin plugins propios (`kong.yml:104-110`); el MS no valida el bearer hoy (tech-debt).
 
 servers:
-  - url: http://localhost:8090
+  - url: http://localhost:8088
     description: Direct (dev)
   - url: http://localhost:8080
     description: Via Kong gateway (dev, preferred)

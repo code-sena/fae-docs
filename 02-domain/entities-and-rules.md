@@ -87,7 +87,7 @@
 
 ### Role
 
-**Description:** Defines an access level within the system. Roles are global (not per-school, no `school_id`). Seeds: `SUPER_ADMIN`, `SCHOOL_ADMIN`, `INSTRUCTOR`, `STUDENT`.
+**Description:** Defines an access level within the system. Roles are global (not per-school, no `school_id`). Effective seeds: `Administrador`, `Instructor`, `Aprendiz` (changeset `auth-004-unify-mobile-roles`, which merges the legacy `SUPER_ADMIN`, `SCHOOL_ADMIN`, `INSTRUCTOR`, `STUDENT`).
 
 **Identity:** `role_id` (INT).
 
@@ -497,7 +497,7 @@
 
 **Context:** Identity.
 
-**Description:** Set of data required to authenticate an account (username + password). It has no identity of its own outside the app_user.
+**Description:** Set of data required to authenticate an account: an **`identifier`** (email *or* username — one field, `@JsonAlias({"username","email"})`) plus password. It has no identity of its own outside the app_user. Sent to `POST /api/v1/auth/login`; failures always return `401 Invalid email or password`.
 
 **Associated rules:** RN-04, RN-05.
 

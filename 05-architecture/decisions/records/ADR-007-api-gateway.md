@@ -3,6 +3,7 @@
 - **ID:** ADR-007
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** Kong OSS 3.6 runs **DB-less** with declarative `kong.yml`, routing by path to all 9 services. **The `jwt` plugin and its consumers are not configured** — only `cors` (origins `localhost:3000, 5173, 8090`) and `rate-limiting` (redis policy: global 300/min; identity 60, authorization 100, attendance 200, quality 100). Authentication therefore works as opaque `sessionId` Bearer validated per service (`07-api/authentication.md`); edge JWT remains the target state for this ADR (`AT-007`).
 - **Authors:** FaceAttend EDU Team
 
 ---

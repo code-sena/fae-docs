@@ -3,27 +3,32 @@ info:
   title: Identity Service API
   version: 1.1.0
   description: |
-    Servicio 01-ms-identity (Java 21 Spring Boot :8081, schema `identity`).
+    Servicio 01-ms-identity (Java 21 Spring Boot 4.1 :8081, schema `identity`).
     Personas, usuarios, sesiones y políticas de contraseña.
-    `identity.city` DEPRECATED/removed (DBML v6/v7): cities come from external `countriesnow.space` API.
+    `identity.city` está deprecado en el modelo (las ciudades vienen del API externo
+    `countriesnow.space`), pero `CityController` y su tabla Liquibase siguen servidos.
 
     ## Fuente real
     - Controllers: `AuthController`, `UserController`, `PersonController`,
-      `PasswordPolicyController`, `SessionController`, `HealthController`
-      (`CityController` deprecated, pending removal)
-    - DTOs: `UserDto{userId,username,authenticationType,status}`,
+      `PasswordPolicyController`, `SessionController`, `CityController`, `HealthController`
+    - DTOs: `UserDto{userId,personId,username,authenticationType,status,lastAccess,createdAt,updatedAt}`,
       `PersonDto{personId,documentType,documentNumber,name,lastName,email,phone,bloodType,birthDate,address}`,
       `PasswordPolicyDto{policyId,minLength,maxLength,requiresUppercase,requiresNumbers,requiresSymbols,expirationDays}`,
-      `UserSessionDto{sessionId,userId,sessionStatus}`
-    - Seguridad local: `SecurityConfig permitAll /api/v1/**`. En Kong la ruta identity es **pública** (solo cors + rate-limit 60/min, sin jwt).
+      `UserSessionDto{sessionId,userId,sessionStatus,startDate,endDate,sourceIp}`
+    - Seguridad local: `SecurityConfig` + `AuthTokenFilter` (Bearer `sessionId` en todo `/api/**`
+      salvo `login/logout/me` y `GET /sessions/*`). Kong solo aplica `cors` + `rate-limiting 60/min`
+      (sin plugin jwt).
 
     ## Gateway
-    Via Kong `http://localhost:8080/api/v1/persons|users|auth|sessions|password-policies`
-    + nested `~/persons/.+/transfer`, `~/users/.+/activate` (`kong.yml:6-15`).
-    `/cities` removed — use external `countriesnow.space` API.
+    Via Kong `http://localhost:8080/api/v1/persons|users|auth|sessions|cities|password-policies`
+    + nested `~/users/.+/activate` (`kong.yml:6-15`).
+    `POST /persons/{id}/transfer` no está implementado (Kong lo enruta por prefijo y el MS responde 404).
 
     ## Alcance
     La gestión de escuelas NO pertenece a este servicio: ver `03-academic-service.yaml`.
+
+    ## Paginación
+    Listas paged con `?page&limit` (1-based) → `PageResponse {data,meta{page,limit,total,totalPages}}`.
 
     ## Cambios 1.1.0 (fusión docs/api-implementation, sin rompimientos)
     Documentación aditiva sobre la base 1.0.0 de main: notas de `bcrypt cost 12`
@@ -56,7 +61,7 @@ tags:
   - name: Person
     description: Personas (vínculo con academic-actor)
   - name: City
-    description: DEPRECATED — removed in DBML v6/v7, use external countriesnow.space API
+    description: DEPRECATED en el modelo (usar countriesnow.space) — endpoints legacy todavía servidos
   - name: PasswordPolicy
     description: Políticas de contraseña
   - name: Session
@@ -102,7 +107,7 @@ paths:
             schema:
               $ref: '#/components/schemas/AuthRequest'
             example:
-              username: admin@example.com
+              identifier: admin@example.com
               password: Secret123!
       responses:
         '200':
@@ -135,27 +140,58 @@ paths:
 
   /api/v1/auth/me:
     get:
-      summary: Usuario actual
+      summary: Usuario actual por username o email
       operationId: getCurrentUser
       tags: [Auth]
       parameters:
         - name: username
           in: query
-          required: true
+          required: false
           schema:
             type: string
+          description: Identificador de login (uno de `username` o `email` es obligatorio)
+        - name: email
+          in: query
+          required: false
+          schema:
+            type: string
+            format: email
       responses:
         '200':
           description: Usuario actual
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  username:
-                    type: string
+                $ref: '#/components/schemas/UserDto'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
 
   /api/v1/users:
+    get:
+      summary: Listar usuarios (paginado)
+      operationId: listUsers
+      tags: [User]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: '`PageResponse {data,meta{page,limit,total,totalPages}}`'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserDto'
+                  - $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
     post:
       summary: Crear usuario
       operationId: createUser
@@ -263,6 +299,29 @@ paths:
           $ref: './_shared.yaml#/components/responses/NotFound'
 
   /api/v1/persons:
+    get:
+      summary: Listar personas (paginado)
+      operationId: listPersons
+      tags: [Person]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: '`PageResponse {data,meta}`'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PersonDto'
+                  - $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
     post:
       summary: Crear persona
       operationId: createPerson
@@ -329,15 +388,15 @@ paths:
         schema:
           $ref: './_shared.yaml#/components/schemas/UUID'
     post:
-      summary: Transferir persona de escuela [DEPRECATED — person has no school_id]
+      summary: Transferir persona de escuela [NO IMPLEMENTADO]
       operationId: transferPerson
       tags: [Person]
       deprecated: true
       description: |
-        DEPRECATED. `person` is school-agnostic (DBML v7, no `school_id`);
-        school linkage lives in `academic_actor`. Transfer is an
-        `academic_actor`-level operation, not a person-level one.
-        Kept for history; do not implement new callers.
+        NO IMPLEMENTADO: `PersonController` no expone esta ruta (Kong la enruta por prefijo
+        `/api/v1/persons` y el MS responde 404). `person` is school-agnostic (DBML, no
+        `school_id`); school linkage lives in `academic_actor`. Documented only so old
+        clients fail fast with 404.
       requestBody:
         required: true
         content:
@@ -349,8 +408,6 @@ paths:
                 newSchoolId:
                   $ref: './_shared.yaml#/components/schemas/UUID'
       responses:
-        '204':
-          description: Transferida
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
 
@@ -379,24 +436,29 @@ paths:
 
   /api/v1/cities:
     get:
-      summary: Listar ciudades [DEPRECATED — removed, use countriesnow.space]
+      summary: Listar ciudades [legacy — modelo deprecado, preferir countriesnow.space]
       operationId: listCities
       tags: [City]
       deprecated: true
       parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
         - $ref: './_shared.yaml#/components/parameters/LimitParam'
-        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
       responses:
         '200':
-          description: Lista de ciudades
+          description: '`PageResponse {data,meta}`'
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CityDto'
+                allOf:
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CityDto'
+                  - $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
     post:
-      summary: Crear ciudad [DEPRECATED — removed]
+      summary: Crear ciudad [legacy — modelo deprecado]
       operationId: createCity
       tags: [City]
       deprecated: true
@@ -423,7 +485,7 @@ paths:
     parameters:
       - $ref: './_shared.yaml#/components/parameters/IntIdParam'
     get:
-      summary: Obtener ciudad por ID [DEPRECATED — removed]
+      summary: Obtener ciudad por ID [legacy — modelo deprecado]
       operationId: getCityById
       tags: [City]
       deprecated: true
@@ -437,7 +499,7 @@ paths:
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
     put:
-      summary: Actualizar ciudad [DEPRECATED — removed]
+      summary: Actualizar ciudad [legacy — modelo deprecado]
       operationId: updateCity
       tags: [City]
       deprecated: true
@@ -453,7 +515,7 @@ paths:
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
     delete:
-      summary: Eliminar ciudad [DEPRECATED — removed]
+      summary: Eliminar ciudad [legacy — modelo deprecado]
       operationId: deleteCity
       tags: [City]
       deprecated: true
@@ -530,6 +592,29 @@ paths:
           $ref: './_shared.yaml#/components/responses/NotFound'
 
   /api/v1/sessions:
+    get:
+      summary: Listar sesiones (paginado)
+      operationId: listSessions
+      tags: [Session]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: '`PageResponse {data,meta}`'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserSessionDto'
+                  - $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
     post:
       summary: Crear sesión
       operationId: createSession
@@ -561,6 +646,19 @@ paths:
         required: true
         schema:
           $ref: './_shared.yaml#/components/schemas/UUID'
+    get:
+      summary: Obtener sesión por ID (pública: la usa cada `AuthTokenFilter` para validar el bearer)
+      operationId: getSessionById
+      tags: [Session]
+      responses:
+        '200':
+          description: Sesión encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSessionDto'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
     delete:
       summary: Cerrar sesión por ID
       operationId: closeSession
@@ -596,11 +694,25 @@ components:
   schemas:
     AuthRequest:
       type: object
-      required: [username, password]
+      description: |
+        Payload de login. El identificador es un email O un username: el cliente puede
+        enviar `{"identifier": …}`, `{"email": …}` o `{"username": …}` (mismo campo en
+        Java con `@JsonAlias`).
+      required: [password]
       properties:
+        identifier:
+          type: string
+          description: Email o username de la cuenta
+          example: admin@example.com
+        email:
+          type: string
+          description: Alias de `identifier`
+          format: email
+          example: admin@example.com
         username:
           type: string
-          example: admin@example.com
+          description: Alias de `identifier`
+          example: admin
         password:
           type: string
           format: password
@@ -610,6 +722,8 @@ components:
       required: [username]
       properties:
         userId:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+        personId:
           $ref: './_shared.yaml#/components/schemas/UUID'
         username:
           type: string
@@ -621,6 +735,12 @@ components:
         status:
           type: boolean
           example: true
+        lastAccess:
+          $ref: './_shared.yaml#/components/schemas/Timestamp'
+        createdAt:
+          $ref: './_shared.yaml#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: './_shared.yaml#/components/schemas/Timestamp'
     PersonDto:
       type: object
       required: [documentNumber, name, lastName]
@@ -663,7 +783,7 @@ components:
           nullable: true
     CityDto:
       deprecated: true
-      description: DEPRECATED — removed in DBML v6/v7, use external countriesnow.space API.
+      description: Legacy — la entidad `city` está deprecada en el modelo (el catálogo vive en `countriesnow.space`); el controlador y la tabla Liquibase siguen servidos.
       type: object
       required: [name]
       properties:
@@ -715,6 +835,15 @@ components:
           type: string
           enum: [Active, Closed]
           example: Active
+        startDate:
+          $ref: './_shared.yaml#/components/schemas/Timestamp'
+        endDate:
+          $ref: './_shared.yaml#/components/schemas/Timestamp'
+          nullable: true
+        sourceIp:
+          type: string
+          nullable: true
+          example: 192.168.1.14
   securitySchemes:
     bearerAuth:
       $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

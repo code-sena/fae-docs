@@ -309,7 +309,7 @@ Phase 3:  Client → API Gateway → New Service (100%) — monolith retired
 
 ---
 
-#### Asynchronous: Message Broker (Kafka / RabbitMQ)
+#### Asynchronous: Message Broker (Kafka)
 
 ```
 [Service A] ──publishes──▶ [Topic/Queue] ──consumes──▶ [Service B]
@@ -479,8 +479,8 @@ CREATE TABLE outbox (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_type  VARCHAR(100) NOT NULL,
   payload     JSONB NOT NULL,
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  published_at TIMESTAMPTZ,
+  created_at  TIMESTAMP DEFAULT NOW(),
+  published_at TIMESTAMP,
   published   BOOLEAN DEFAULT false
 );
 

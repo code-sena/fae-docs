@@ -49,7 +49,7 @@ Unanswered questions that block or could block the project.
 ```markdown
 | # | Question | Context | Required for | Who answers | Deadline | Status |
 |---|---------|---------|-------------|------------|---------|--------|
-| Q-001 | Do we use JWT or sessions? | Multiple services need auth | Sprint 2 | Tech Lead | [Date] | 🔴 Unanswered |
+| Q-001 | Do we use JWT or sessions? | Multiple services need auth | Sprint 2 | Tech Lead | 2026-10-05 | ✅ Answered — opaque sessions today (`sessionId` bearer), edge JWT = target state (ADR-007); see `07-api/authentication.md` |
 ```
 
 ### `technical-backlog.md`

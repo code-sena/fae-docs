@@ -34,7 +34,7 @@ C4Container
         ContainerDb(db_a, "[Service A] DB", "[Chosen engine]", "[Service A] domain data.")
         ContainerDb(db_b, "[Service B] DB", "[Chosen engine]", "[Service B] domain data.")
         ContainerDb(redis, "Redis", "Redis", "Token blacklist, rate limiting, shared cache.")
-        ContainerDb(broker, "Message Broker", "Kafka / RabbitMQ", "Domain events between services.")
+        ContainerDb(broker, "Message Broker", "Kafka (KRaft)", "Domain events between services.")
     }
 
     System_Ext(ext_email, "Email Service", "Sendgrid / SES / SMTP")

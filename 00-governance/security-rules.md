@@ -14,7 +14,7 @@
 // ❌ BAD — trusting frontend data
 const userId = req.body.userId;
 
-// ✅ GOOD — extract from verified JWT token
+// ✅ GOOD — extract from the verified session (AuthFilter/AuthTokenFilter)
 const userId = req.user.sub; // req.user comes from the authentication middleware
 ```
 
@@ -82,16 +82,22 @@ const user = await userRepository.findOne({ where: { id: userId } });
 
 ### A07 — Identification and Authentication Failures
 
-- JWT with maximum expiration of **1 hour** for access tokens
-- Refresh tokens with expiration of **[7 days / 30 days]** and rotation on each use
+- Today: opaque sessions (`sessionId` Bearer) — no access-token expiry; session ends at logout
+  or `password_policy.expiration_days = 90`. When JWT lands (ADR-007): access token maximum
+  expiration of **1 hour**
+- Refresh tokens with expiration of **[7 days / 30 days]** and rotation on each use *(target
+  state only — none are issued today)*
 - Rate limiting on `/auth/login`: maximum [10] attempts per IP in 5 minutes
-- Account lockout after [5] consecutive failed attempts
+  *(Kong rate-limits the route; the per-account counter in
+  `security_configuration.max_login_attempts` is **not read yet**)*
+- Account lockout after [5] consecutive failed attempts *(seeded in
+  `configuration.security_configuration`, not enforced yet — AT-005 area)*
 
 ### A08 — Software and Data Integrity Failures
 
 - Verify Docker image checksum before using in production
 - Third-party webhooks must verify cryptographic signature
-- Validate that messages from the broker (Kafka/RabbitMQ) have the expected schema
+- Validate that messages from the broker (Kafka) have the expected schema
 
 ### A09 — Security Logging and Monitoring Failures
 

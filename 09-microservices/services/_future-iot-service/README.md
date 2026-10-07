@@ -1,5 +1,11 @@
-﻿# IoT Service
+﻿# IoT Service (future — not implemented)
 
+> **Status (2026-10-05):** not part of the deployed system. There is **no `0X-ms-iot` service,
+> no container, no port and no OpenAPI contract**; the folder is kept as design material for the
+> future classroom-hardware integration (`01-context/scope.md`, `02-domain/domain-map.md`).
+> The directory prefix `_future-` keeps it out of the numbered service folders, whose numbers
+> match the real service numbers in `FULL/docker-compose.yml`.
+>
 > Owns physical devices, classroom assignments, and operational state of hardware used by the attendance platform.
 
 ---
@@ -23,8 +29,8 @@
 
 | Field | Value |
 |-------|-------|
-| Number in catalog | 06 |
-| Local port | 8087 |
+| Number in catalog | — (not in the catalog: future supporting context) |
+| Local port | — (not implemented) |
 | Repository | [Service repo URL] |
 | DB engine | PostgreSQL |
 | Communicates with | attendance-service, biometric-service, configuration-service |
@@ -47,5 +53,5 @@
 - [events.md](./events.md) — device lifecycle and readiness events
 - [decisions.md](./decisions.md) — operational and integration decisions for IoT assets
 - [runbook.md](./runbook.md) — incident response for devices and connectivity
-- [API Contract](../../../07-api/contracts/openapi/06-iot-service.yaml)
+- API Contract: none yet (planned when the hardware integration is scheduled)
 

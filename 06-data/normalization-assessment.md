@@ -45,7 +45,7 @@
 **Verdict: met in all tables.**
 
 - No column stores lists, CSV, unjustified JSON, or composite values.
-- Time correctly modeled: `schedule_block.starts_at`/`ends_at` are atomic `TIME`; `academic_period.starts_on/ends_on` are `DATE`; `attendance_record.captured_at` is `TIMESTAMPTZ`.
+- Time correctly modeled: `schedule_block.starts_at`/`ends_at` are atomic `TIME`; `academic_period.starts_on/ends_on` are `DATE`; `attendance_record.captured_at` is `TIMESTAMP`.
 - Positive example: `enrollment` does not store `student_names[]`; `schedule_block` does not store `days VARCHAR "Mon,Wed,Fri"` — it uses one row per block with `day_of_week SMALLINT` + uniqueness constraints.
 - Classic 1NF pitfall avoided: `person.document_number` split from `person.name/last_name` (no "full_name"), and `academic_actor.actor_code` separate from `school_id`.
 

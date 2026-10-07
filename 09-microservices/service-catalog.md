@@ -9,8 +9,9 @@
 ```
                      ┌──────────────────────┐
   External clients    │ API Gateway / Edge   │
-  (Web, Mobile, API) ─▶│ Routing, auth, rate │
-                     │ limiting, orchestration │
+  (Web, Mobile, API) ─▶│ Kong :8080           │
+                     │ CORS + rate limiting │
+                     │ (no jwt plugin)      │
                      └──────────┬───────────┘
                                 │
                      ┌──────────▼───────────┐
@@ -21,17 +22,18 @@
                      │ 04 Scheduling        │
                      │ 05 Attendance        │
                      │ 06 Biometric         │
-                      │ 07 Notification      │
-                      │ 08 Configuration     │
-                      └──────────┬───────────┘
+                     │ 07 Configuration     │
+                     │ 08 Notification      │
+                     │ 09 Quality (tooling) │
+                     └──────────┬───────────┘
                                 │
                      ┌──────────▼───────────┐
                      │ Event transport      │
-                     │ Kafka / RabbitMQ     │
+                     │ Kafka (KRaft :9092)  │
                      └──────────────────────┘
 ```
 
-> The API gateway is infrastructure. The business model itself is formed by the eight bounded contexts above.
+> The API gateway is infrastructure. The business model itself is formed by the eight bounded contexts above; `ms-quality` (09) is tooling owned by `11-quality`, not a bounded context.
 
 ---
 
@@ -39,42 +41,51 @@
 
 | # | Service | Main responsibility | Port | DB | DB type | Status |
 |---|---------|-------------------|------|-----|---------|--------|
-| 01 | `identity-service` (+ auth) | Person, user, authentication, sessions, JWT | 8081 | PostgreSQL | Relational | 🟢 Active |
-| 02 | `authorization-service` | Roles, permissions, and role assignment policies | 8083 | PostgreSQL | Relational | 🟢 Active |
-| 03 | `academic-service` | Students, teachers, courses, periods, enrollments | 8084 | PostgreSQL | Relational | 🟢 Active |
-| 04 | `scheduling-service` | Environments, schedule blocks, class sessions | 8087 | PostgreSQL | Relational | 🟢 Active |
-| 05 | `attendance-service` | Class sessions, attendance, and justification processing | 8085 | PostgreSQL | Relational | 🟢 Active |
-| 06 | `biometric-service` | Facial and fingerprint embeddings and update review cases | 8086 | MongoDB | NoSQL / Document | 🟢 Active |
-| 07 | `notification-service` | Alert types and alert lifecycle management | 8090 | PostgreSQL | Relational | 🟢 Active |
-| 08 | `configuration-service` | Academic and security configuration values and password policy | 8089 | PostgreSQL | Relational | 🟢 Active |
-| 99 | `api-gateway` | Edge routing and security enforcement for external clients | 8080 | Redis | Cache | 🟢 Active |
+| 01 | `ms-identity` (+ auth) | Person, user, authentication (opaque `sessionId`), sessions | 8081 | PostgreSQL | Relational | 🟢 Active |
+| 02 | `ms-authorization` | Roles, permissions, and role assignment policies | 8082 | PostgreSQL | Relational | 🟢 Active |
+| 03 | `ms-academic` | Schools, actors, courses, periods, enrollments | 8083 | PostgreSQL | Relational | 🟢 Active |
+| 04 | `ms-scheduling` | Environments, schedule blocks, class sessions | 8084 | PostgreSQL | Relational | 🟢 Active |
+| 05 | `ms-attendance` | Class sessions attendance and justification processing | 8085 | PostgreSQL | Relational | 🟢 Active |
+| 06 | `ms-biometric` | Facial and fingerprint embeddings and update review cases | 8086 | MongoDB (+ `biometric` schema) | NoSQL / Document | 🟢 Active |
+| 07 | `ms-configuration` | Academic and security configuration values, biometric update cases | 8087 | PostgreSQL | Relational | 🟢 Active |
+| 08 | `ms-notification` | Alert types and alert lifecycle management | 8088 | PostgreSQL | Relational | 🟢 Active |
+| 09 | `ms-quality` (tooling) | ISO 25010/29110/ISTQB quality metrics | 8089 | PostgreSQL (`quality`) | Relational | 🟢 Active |
+| 99 | `kong-gateway` | Edge routing, CORS and rate limiting (**no jwt**) | 8080 / 8001 | Redis | Rate-limit store | 🟢 Active |
 
 **Status legend:** 🟢 Active | 🟡 In development | 🔴 Planned | ⏸ Deprecated
+
+> Ports frozen from `FULL/COMPOSE.md` + `FULL/back-end/99-api-gateway/kong/kong.yml`.
 
 ---
 
 ## Detail per service
 
-### 01 — `identity-service` (+ auth merged)
+### 01 — `ms-identity` (+ auth merged)
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/01-identity-service/` |
-| **Responsibility** | Owns person profiles, user credentials, authentication sessions, JWT issuance, and refresh token management |
+| **Folder (docs)** | `09-microservices/services/01-identity-service/` |
+| **Folder (repo)** | `FULL/back-end/01-ms-identity/` |
+| **Responsibility** | Owns person profiles, user credentials, authentication sessions, session-id issuance, and password policy |
 | **Type** | Core domain service |
 | **Port** | 8081 |
-| **DB** | PostgreSQL |
+| **DB** | PostgreSQL, schema `identity` |
 | **Bounded context** | Identity (includes Authentication) |
-| **Technology** | Java 21 + Spring Boot 3 |
+| **Technology** | Java 21 + Spring Boot 4.1 |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
 - `Person`
 - `App_User`
-- `City`
+- `City` (legacy — deprecated in the model, endpoints still served)
 - `User_Session`
 - `Password_Policy` (singleton global)
-- JWT access and refresh tokens / Redis session management
+
+**Authentication reality:**
+- Login returns an **opaque `sessionId`** (row in `identity.user_session`); it is sent back as
+  `Authorization: Bearer <sessionId>` and validated per service by `AuthTokenFilter`
+  (Java services 01/02/04/05). There are **no JWT access/refresh tokens and no Redis session
+  store** — Kong carries no `jwt` plugin. See `07-api/authentication.md`.
 
 **Cross-context rule:**
 - `Person` has no `school_id` — multi-tenancy via `Academic.academic_actor`.
@@ -83,17 +94,18 @@
 
 ---
 
-### 02 — `authorization-service`
+### 02 — `ms-authorization`
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/02-authorization-service/` |
+| **Folder (docs)** | `09-microservices/services/02-authorization-service/` |
+| **Folder (repo)** | `FULL/back-end/02-ms-authorization/` |
 | **Responsibility** | Defines roles, permissions, and assignments that authorize access across the platform |
 | **Type** | Core domain service |
-| **Port** | 8083 |
-| **DB** | PostgreSQL |
+| **Port** | 8082 |
+| **DB** | PostgreSQL, schema `authorization` |
 | **Bounded context** | Authorization |
-| **Technology** | Java 21 + Spring Boot 3 |
+| **Technology** | Java 21 + Spring Boot 4.1 |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -107,17 +119,18 @@
 
 ---
 
-### 03 — `academic-service`
+### 03 — `ms-academic`
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/03-academic-service/` |
-| **Responsibility** | Manages students, teachers, courses, periods, enrollments, and the academic structure |
+| **Folder (docs)** | `09-microservices/services/03-academic-service/` |
+| **Folder (repo)** | `FULL/back-end/03-ms-academic/` |
+| **Responsibility** | Manages schools, programs, periods, cohorts, courses, actors and enrollments |
 | **Type** | Core domain service |
-| **Port** | 8084 |
-| **DB** | PostgreSQL |
+| **Port** | 8083 |
+| **DB** | PostgreSQL, schema `academic` |
 | **Bounded context** | Academic |
-| **Technology** | TypeScript + Fastify + Drizzle ORM |
+| **Technology** | TypeScript + Fastify + Zod (Drizzle in the model layer) |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -132,22 +145,23 @@
 
 **Cross-context rule:**
 - `Academic_Actor.person_id` is a public ID (→ Identity.person), not a local FK.
-- `School.city_id` is a public ID (→ Identity.city).
+- `School.city_id` is a public ID (→ external `countriesnow.space` catalog; the local `identity.city` table is legacy).
 - `Academic_Actor` unifies Student/Instructor via `actor_type_id` — no separate tables.
 
 ---
 
-### 04 — `scheduling-service`
+### 04 — `ms-scheduling`
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/04-scheduling-service/` |
+| **Folder (docs)** | `09-microservices/services/04-scheduling-service/` |
+| **Folder (repo)** | `FULL/back-end/04-ms-scheduling/` |
 | **Responsibility** | Manages physical environments, schedule blocks, and class sessions with anti-double-booking constraints |
 | **Type** | Core domain service |
-| **Port** | 8087 |
-| **DB** | PostgreSQL |
+| **Port** | 8084 |
+| **DB** | PostgreSQL, schema `scheduling` |
 | **Bounded context** | Scheduling |
-| **Technology** | Java 21 + Spring Boot 3 |
+| **Technology** | Java 21 + Spring Boot 4.1 |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -162,17 +176,18 @@
 
 ---
 
-### 05 — `attendance-service`
+### 05 — `ms-attendance`
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/05-attendance-service/` |
+| **Folder (docs)** | `09-microservices/services/05-attendance-service/` |
+| **Folder (repo)** | `FULL/back-end/05-ms-attendance/` |
 | **Responsibility** | Records actual class sessions, individual attendance data, and justification handling |
 | **Type** | Core domain service (critical path) |
 | **Port** | 8085 |
-| **DB** | PostgreSQL |
+| **DB** | PostgreSQL, schema `attendance` |
 | **Bounded context** | Attendance |
-| **Technology** | Java 21 + Spring Boot 3 |
+| **Technology** | Java 21 + Spring Boot 4.1 |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -189,17 +204,18 @@
 
 ---
 
-### 06 — `biometric-service`
+### 06 — `ms-biometric`
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/06-biometric-service/` |
+| **Folder (docs)** | `09-microservices/services/06-biometric-service/` |
+| **Folder (repo)** | `FULL/back-end/06-ms-biometric/` |
 | **Responsibility** | Stores biometric templates and review cases for recognition workflows |
 | **Type** | Specialized domain service |
 | **Port** | 8086 |
 | **DB** | MongoDB (document store with vector search indexing) |
 | **Bounded context** | Biometric |
-| **Technology** | Python 3.12 + FastAPI |
+| **Technology** | Python 3.12 + FastAPI + Motor |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -216,39 +232,18 @@ vector search requirements of biometric embedding data.
 
 ---
 
-### 07 — `notification-service`
+### 07 — `ms-configuration`
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/07-notification-service/` |
-| **Responsibility** | Manages alert types and alert lifecycle for system-wide notifications |
+| **Folder (docs)** | `09-microservices/services/07-configuration-service/` |
+| **Folder (repo)** | `FULL/back-end/07-ms-configuration/` |
+| **Responsibility** | Holds academic and security configuration values, and hosts the biometric update workflow |
 | **Type** | Support domain service |
-| **Port** | 8090 |
-| **DB** | PostgreSQL |
-| **Bounded context** | Notification |
-| **Technology** | Go 1.22 + Gin |
-| **Externally exposed** | Yes, via API Gateway |
-
-**Owned entities:**
-- `Alert_Type`
-- `Alert`
-
-**Cross-context rule:**
-- `Alert.academic_actor_id` is an external reference to Academic — no cross-context FK.
-
----
-
-### 08 — `configuration-service`
-
-| Field | Value |
-|-------|-------|
-| **Folder** | `09-microservices/services/07-configuration-service/` |
-| **Responsibility** | Holds academic, security, and password-related configuration values used by the platform |
-| **Type** | Support domain service |
-| **Port** | 8089 |
-| **DB** | PostgreSQL |
+| **Port** | 8087 |
+| **DB** | PostgreSQL, schema `configuration` |
 | **Bounded context** | Configuration |
-| **Technology** | TypeScript + Fastify |
+| **Technology** | TypeScript + Fastify + Zod |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -264,22 +259,71 @@ vector search requirements of biometric embedding data.
 
 ---
 
-### 99 — `api-gateway`
+### 08 — `ms-notification`
 
 | Field | Value |
 |-------|-------|
-| **Folder** | `09-microservices/services/99-api-gateway/` |
-| **Responsibility** | Routes requests, enforces authentication and policy boundaries, and exposes the platform to clients |
+| **Folder (docs)** | `09-microservices/services/08-notification-service/` |
+| **Folder (repo)** | `FULL/back-end/08-ms-notification/` |
+| **Responsibility** | Manages alert types and alert lifecycle for system-wide notifications |
+| **Type** | Support domain service |
+| **Port** | 8088 |
+| **DB** | PostgreSQL, schema `notification` |
+| **Bounded context** | Notification |
+| **Technology** | Go 1.22 + Gin + pgx + zap |
+| **Externally exposed** | Yes, via API Gateway |
+
+**Owned entities:**
+- `Alert_Type`
+- `Alert`
+
+**Cross-context rule:**
+- `Alert.academic_actor_id` is an external reference to Academic — no cross-context FK.
+
+---
+
+### 09 — `ms-quality` (tooling, not a bounded context)
+
+| Field | Value |
+|-------|-------|
+| **Folder (docs)** | `09-microservices/services/09-quality-service/` |
+| **Folder (repo)** | `FULL/back-end/09-ms-quality/` |
+| **Responsibility** | ISO 25010 / ISO 29110 / ISTQB quality metrics and assessments |
+| **Type** | Tooling (owned by `11-quality`) |
+| **Port** | 8089 |
+| **DB** | PostgreSQL, schema `quality` |
+| **Bounded context** | None — excluded from the 8 product contexts |
+| **Technology** | TypeScript + Fastify + Zod |
+| **Externally exposed** | Yes, via API Gateway (`/api/v1/quality`, rate limit 100/min) |
+
+**Owned entities:**
+- `Quality_Project`, `Quality_Evaluation`, `Quality_Evaluation_Item`
+- `Process_Assessment`, `Process_Assessment_Rating`
+- `ISTQB_Assessment`, `ISTQB_Assessment_Item`
+
+---
+
+### 99 — `kong-gateway`
+
+| Field | Value |
+|-------|-------|
+| **Folder (repo)** | `FULL/back-end/99-api-gateway/` (`kong/kong.yml`) |
+| **Responsibility** | Routes requests to the 9 services, applies CORS and rate limits, exposes the platform to clients |
 | **Type** | Infrastructure service |
-| **Port** | 8080 |
-| **DB** | Redis |
+| **Port** | 8080 (proxy) / 8001 (admin) |
+| **DB** | Redis (rate-limiting store) |
 | **Bounded context** | None; cross-cutting infrastructure |
-| **Technology** | Kong OSS |
+| **Technology** | Kong OSS 3.6, DB-less declarative config |
 | **Externally exposed** | Yes |
 
 **Notes:**
 - The gateway is not a business owner in the bounded-context model.
-- It coordinates calls among the domain services and centralizes external access.
+- **Authentication is not enforced here**: only the `cors` and `rate-limiting` plugins are
+  configured — no `jwt` plugin and no consumers. Session validation happens inside the Java
+  services (`AuthTokenFilter`); see `07-api/authentication.md`.
+- The only health route routed at the edge is `GET /health/quality` → `ms-academic:8083`.
+- Routes match by path prefix (`/api/v1/persons`, `/api/v1/users`, `/api/v1/auth`, …); there is
+  no gateway-level `/health`.
 
 ---
 
@@ -295,6 +339,7 @@ vector search requirements of biometric embedding data.
 | API Gateway | Biometric Service | HTTP/REST | Synchronous |
 | API Gateway | Notification Service | HTTP/REST | Synchronous |
 | API Gateway | Configuration Service | HTTP/REST | Synchronous |
+| API Gateway | Quality Service | HTTP/REST | Synchronous |
 | Identity Service | Authorization Service | Event | Asynchronous |
 | Identity Service | Academic Service | Event | Asynchronous |
 | Identity Service | Configuration Service | Event | Asynchronous |
@@ -312,14 +357,15 @@ vector search requirements of biometric embedding data.
 
 | Domain entity | Source of truth | Access pattern |
 |---------------|-----------------|----------------|
-| School, Person, User, User_Session | Identity Service | API + events |
+| Person, App_User, User_Session, Password_Policy, City (legacy) | Identity Service | API + events |
 | Role, Permission, User_Role | Authorization Service | API + events |
-| Student, Teacher, Course, Classroom, Period, Enrollment | Academic Service | API + events |
+| School, Program, Academic_Period, Cohort, Course, Academic_Actor, Enrollment | Academic Service | API + events |
 | Environment, Schedule_Block, Class_Session | Scheduling Service | API + events |
-| Attendance_Record, Justification_Type, Justification, Supporting_Document | Attendance Service | API + events |
-| Facial_Embedding, Fingerprint_Embedding, Facial_Update_Case | Biometric Service | API + events |
+| Attendance_Record, Justification_Type, Justification, Supporting_Document, Attendance_Report | Attendance Service | API + events |
+| Facial_Embedding, Fingerprint_Embedding (MongoDB) | Biometric Service | API |
+| Academic_Configuration, Security_Configuration, Biometric_Update_Case | Configuration Service | API + events |
 | Alert_Type, Alert | Notification Service | API + events |
-| Academic_Configuration, Security_Configuration, Password_Policy | Configuration Service | API + events |
+| Quality/ISTQB assessments (`quality` schema) | Quality Service | API |
 
 No other bounded context should own or directly modify the canonical table rows of another context.
 

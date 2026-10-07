@@ -3,7 +3,7 @@ info:
   title: Quality Service API
   version: 1.0.0
   description: |
-    Servicio 09-ms-quality (TS Fastify + Zod :8091).
+    Servicio 09-ms-quality (TS Fastify + Zod :8089).
     Instrumentos ISO/IEC 25010 (24 ítems), ISO/IEC 29110 (20 objetivos) e ISTQB CTFL v4.0 (30 preguntas)
     + CRUD de evaluaciones, proyectos y resúmenes por servicio.
 
@@ -13,10 +13,10 @@ info:
     - 25010 exige los 24 scores 1-5 y rechaza desconocidos; pesos Func 20%, Desempeño/Reliab/Seg 15% c/u, Compat/Usab/Mant 10% c/u, Port 5%
     - 29110 `ratings N/P/L/F`, readiness `PM&SI>50%`, 11 work products; assessments exigen proyecto existente y cobertura total
     - ISTQB 30×1-5; pesos fund/ciclo/estát/herr 15% c/u, técn/gest 20% c/u
-    - Gateway `jwt` + `rate-limiting 100/min` (`kong.yml:129-144`).
+    - Gateway `rate-limiting 100/min` (sin plugin jwt; el MS no valida el bearer hoy) (`kong.yml:124-140`).
 
 servers:
-  - url: http://localhost:8091
+  - url: http://localhost:8089
     description: Direct (dev)
   - url: http://localhost:8080
     description: Via Kong gateway (dev, preferred)

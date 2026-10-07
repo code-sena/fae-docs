@@ -3,7 +3,7 @@ info:
   title: Attendance Service API
   version: 1.0.0
   description: |
-    Servicio 05-ms-attendance (Java 21 Spring Boot :8085, schema `attendance`).
+    Servicio 05-ms-attendance (Java 21 Spring Boot 4.1 :8085, schema `attendance`).
     Registros de asistencia, tipos de justificación, justificaciones y documentos de soporte.
     Critical path ACID con `@Transactional`.
     `justification_type.school_id` INT NULL (NULL = global); unique `(school_id,name)`
@@ -17,7 +17,7 @@ info:
     - Enums: `attendanceStatus Present/Absent/Late/Justified`, `captureMethod FACIAL/MANUAL/IOT/IMPORT`
     - Bulk: `POST /api/v1/attendance-records/bulk`
     - Review: `PATCH /api/v1/justifications/{id}/review {reviewStatus,reviewedBy,resolutionNotes}`
-    - Gateway `jwt` + `rate-limiting 200/min` (`kong.yml:69-87`).
+    - Gateway `rate-limiting 200/min` (sin plugin jwt; el MS valida el bearer con `AuthTokenFilter`) (`kong.yml:68-86`).
 
 servers:
   - url: http://localhost:8085

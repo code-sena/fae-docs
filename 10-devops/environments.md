@@ -28,7 +28,7 @@
 APP_[SERVICE]_[VARIABLE]
 
 Examples:
-  APP_AUTH_JWT_SECRET
+  APP_SESSION_TTL_MINUTES
   APP_ORDERS_DATABASE_URL
   APP_NOTIFICATIONS_SMTP_HOST
 ```
@@ -39,7 +39,7 @@ Examples:
 |----------|-------|-----|---------|------------|
 | `DATABASE_URL` | `postgresql://dev:dev@localhost/dev_db` | Vault | Vault | Vault |
 | `REDIS_URL` | `redis://localhost:6379` | Vault | Vault | Vault |
-| `JWT_SECRET` | `dev-secret-only-local` | Vault | Vault | Vault |
+| `SESSION_TTL_DAYS` | `90` (session lifetime before forced renewal) | Vault | Vault | Vault |
 | `LOG_LEVEL` | `debug` | `info` | `info` | `warn` |
 | `NODE_ENV` | `development` | `development` | `staging` | `production` |
 | `CORS_ORIGIN` | `http://localhost:3000` | `https://dev.[domain]` | `https://staging.[domain]` | `https://[domain]` |

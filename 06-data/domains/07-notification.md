@@ -30,9 +30,9 @@ CREATE TABLE alert_type (
   channel       VARCHAR     NOT NULL DEFAULT 'DASHBOARD' CHECK (channel IN ('DASHBOARD','EMAIL','PUSH')),
 
   -- Audit (in all tables)
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at    TIMESTAMPTZ,
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at    TIMESTAMP,
   created_by    UUID,
   updated_by    UUID,
   deleted_by    UUID,
@@ -49,9 +49,9 @@ CREATE TABLE alert_type (
 | name | VARCHAR | Type name | `Absence threshold reached` |
 | severity | VARCHAR | INFO / WARNING / CRITICAL | `WARNING` |
 | channel | VARCHAR | DASHBOARD / EMAIL / PUSH | `DASHBOARD` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -69,13 +69,13 @@ CREATE TABLE alert (
   alert_id          BIGSERIAL   PRIMARY KEY,
   academic_actor_id BIGINT      NOT NULL,
   alert_type_id     SMALLINT    NOT NULL,
-  raised_at         TIMESTAMPTZ NOT NULL,
-  resolved_at       TIMESTAMPTZ,
+  raised_at         TIMESTAMP NOT NULL,
+  resolved_at       TIMESTAMP,
 
   -- Audit (in all tables)
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at        TIMESTAMPTZ,
+  created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMP,
   created_by        UUID,
   updated_by        UUID,
   deleted_by        UUID,
@@ -93,11 +93,11 @@ CREATE INDEX idx_alert_type ON alert (alert_type_id);
 | alert_id | BIGSERIAL | Auto-incremental alert identifier | `1` |
 | academic_actor_id | BIGINT | Actor this alert is about (external ID → Academic.academic_actor) | `1` |
 | alert_type_id | SMALLINT | Alert type (FK → alert_type) | `1` |
-| raised_at | TIMESTAMPTZ | When the alert was raised | `2024-06-01T10:00:00Z` |
-| resolved_at | TIMESTAMPTZ | When the alert was resolved (NULL = unresolved) | `NULL` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-06-01T10:00:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-06-01T10:00:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| raised_at | TIMESTAMP | When the alert was raised | `2024-06-01T10:00:00Z` |
+| resolved_at | TIMESTAMP | When the alert was resolved (NULL = unresolved) | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-06-01T10:00:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-06-01T10:00:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |

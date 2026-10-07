@@ -28,7 +28,7 @@ According to SRS + `03-product/vision.md` roadmap (validated in `02-domain` 8 co
 - Integration with external enrollment/grading/IdP systems (future candidate).
 - Advanced internal messaging beyond in-app alerts (SMS/WhatsApp — future).
 - Predictive dropout analytics / AI risk models.
-- IoT device failure alerts — external supporting context (`06-iot-service`) kept as **future hardware** integration, not in core 8 contexts (see `02-domain/domain-map.md` IoT note).
+- IoT device failure alerts — external supporting context (`_future-iot-service`) kept as **future hardware** integration, not in core 8 contexts (see `02-domain/domain-map.md` IoT note).
 - Audit bounded context (removed 2026-09; now infra logging).
 - Separate native mobile apps — MVP is **responsive web + mobile web** (React Native considered in Horizon 3, ADR-013).
 
@@ -51,7 +51,7 @@ According to SRS + `03-product/vision.md` roadmap (validated in `02-domain` 8 co
 
 - SENA training project: 3 apprentices, no dedicated DevOps, 2-week sprints (`00-governance/agile-conventions.md`).
 - Must align with SRS RF 1-8 + RNF 4 and Law 1581.
-- Security/performance/portability per SRS §2; ports `8081/8083/8084/8085/8086/8087/8089/8090` + `8080` Gateway.
+- Security/performance/portability per SRS §2; ports `8081`-`8089` (microservices) + `8080/8001` (Kong) + `8090` (frontend-web).
 - Time/resources as academic project — scope frozen to MVP Horizon 1 until pilot validation.
 
 ## Correlations

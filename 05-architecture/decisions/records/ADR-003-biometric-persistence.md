@@ -3,6 +3,7 @@
 - **ID:** ADR-003
 - **Date:** 2026-09-03
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** implemented as decided — embeddings live in MongoDB (`facial_embedding`, `fingerprint_embedding`, `faceattend_biometric`), and `configuration.biometric_update_case` is created by `database/07-ms-configuration-db` (physical hosting in the `configuration` schema is documented debt, per `AGENTS.md` §4.6). Job `06-ms-biometric-db` also creates a `biometric` schema.
 - **Authors:** [Diego Andrés Gutiérrez Nuñez, Juan David Arboleda Perdomo, Jonattan Steven Rizo Solano]
 
 ---
@@ -131,7 +132,7 @@ in the DBML model are conceptual representations; the actual MongoDB implementat
 - Affected services: `Biometric` module only (`facial_embeddings`, `fingerprint_embeddings`,
   `biometric_update_case` SQL hosted in `configuration`).
 - Documents that must be updated:
-  - `09-microservices/services/05-biometric-service/data-model.md` — document the MongoDB
+  - `09-microservices/services/06-biometric-service/data-model.md` — document the MongoDB
     database, collections, and vector search index configuration.
   - `09-microservices/service-catalog.md` — ensure biometric-service correctly reflects
     MongoDB as its data store.

@@ -39,3 +39,20 @@ ADRs document important architectural decisions. Each file = one decision.
 | ADR-017 | Localization | Proposed | 2026-09-15 | UX |
 
 > Update status to `Superseded by ADR-NNN` when replaced. Audit retirement (2026-09) is tracked in ADR-002/005/006 via `refactor/remove-audit-domain`.
+
+## Implementation notes (verified 2026-10-05 against `FULL/`)
+
+Decisions are unchanged; each ADR file carries its own `Implementation note` line under **Status**.
+
+| ADR | What the code actually does |
+|-----|------------------------------|
+| ADR-002 | Schema-per-context + no cross-schema FK: live. Single deployable: superseded — 9 service containers + Kong + frontend |
+| ADR-003 | MongoDB embeddings + `configuration.biometric_update_case`: implemented |
+| ADR-004 | Events published to Kafka, but no outbox / DLQ / compensation (AT-006) |
+| ADR-005 | Stack as decided (Java 21 + **Spring Boot 4.1**, TS Fastify, Python 3.12, Go 1.22) + ninth service `ms-quality` :8089 |
+| ADR-006 | Kafka (KRaft `:9092`) is live with wired producers; no DLQ yet |
+| ADR-007 | Kong 3.6 DB-less, cors + rate-limiting only — **no `jwt` plugin**; opaque `sessionId` bearer validated per MS |
+| ADR-008 | `BCryptPasswordEncoder($2B, 12)` in `SecurityConfig` |
+| ADR-010 | Liquibase 4.29 as 8 chained containers; YAML changesets (SQL inside); no Flyway |
+| ADR-012 | Structured logs only — no Prometheus/Grafana/Jaeger deployed |
+| ADR-015 | Not implemented — Redis only serves Kong rate-limiting |

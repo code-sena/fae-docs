@@ -1,39 +1,45 @@
 # API Examples — FaceAttendEDU
 
-> Copy-paste `curl` via Kong (`:8080`). Assumes dev JWT in `$TOKEN`
-> (`faceattend-admin` HS256 for local). Identity calls omit auth (public).
+> Copy-paste `curl` via Kong (`:8080`). Assumes a session id in `$TOKEN` — Kong has **no jwt
+> plugin/consumers**, so `$TOKEN` is the opaque `sessionId` issued at login and sent as
+> `Authorization: Bearer`. Java services (01/02/04/05) reject requests without it; the
+> TS/Python/Go services do not check it yet.
 
 ## 0. Token
 
 ```bash
-# login (identity public)
+# login (public): identifier may be an email OR a username
 curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin@example.com","password":"Secret123!"}'
-# → {"sessionId":"…","userId":"…","sessionStatus":"Active"}
+  -d '{"identifier":"admin@example.com","password":"Secret123!"}'
+# {"email":"…"} / {"username":"…"} are accepted aliases of {"identifier":"…"}
+# → {"sessionId":"…","userId":"…","sessionStatus":"Active",…}
+# wrong password → 401 {"message":"Invalid email or password"}
 
 export TOKEN=<sessionId>
 ```
 
-## 1. Identity (public)
+## 1. Identity
 
 ```bash
-# cities: REMOVED from relational model — use external API
+# cities: deprecated in the relational model — prefer the external API
 curl -s 'https://countriesnow.space/api/v0.1/countries/cities' \
   -H 'Content-Type: application/json' -d '{"country":"Colombia"}'
-curl -s http://localhost:8080/api/v1/persons/<uuid>
+# the legacy ms-identity /cities CRUD still exists behind Kong (see endpoint-matrix.md §1)
+curl -s 'http://localhost:8080/api/v1/persons?page=1&limit=20' -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/v1/persons/<uuid> -H "Authorization: Bearer $TOKEN"
 ```
 
-## 2. Authorization (jwt)
+## 2. Authorization (session bearer)
 
 ```bash
 curl -s http://localhost:8080/api/v1/roles -H "Authorization: Bearer $TOKEN"
-curl -s "http://localhost:8080/api/v1/auth/evaluate?userId=<uuid>&permission=attendance:write" \
+curl -s "http://localhost:8080/api/v1/auth/evaluate?userId=<uuid>&permission=attendance.record:read" \
   -H "Authorization: Bearer $TOKEN"
-# → {"userId":"…","permission":"attendance:write","allowed":true}
+# → {"userId":"…","permission":"attendance.record:read","allowed":true}
 ```
 
-## 3. Academic (jwt)
+## 3. Academic (no MS-side auth yet)
 
 ```bash
 curl -s 'http://localhost:8080/api/v1/schools?limit=20&offset=0' -H "Authorization: Bearer $TOKEN"
@@ -42,7 +48,7 @@ curl -s -X POST http://localhost:8080/api/v1/schools -H "Authorization: Bearer $
 curl -s http://localhost:8080/api/v1/programs/<id>/cohorts -H "Authorization: Bearer $TOKEN"
 ```
 
-## 4. Scheduling (jwt)
+## 4. Scheduling (session bearer)
 
 ```bash
 curl -s 'http://localhost:8080/api/v1/schedule-blocks?cohortId=1' -H "Authorization: Bearer $TOKEN"
@@ -50,7 +56,7 @@ curl -s -X POST http://localhost:8080/api/v1/class-sessions/<id>/open \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'
 ```
 
-## 5. Attendance (jwt)
+## 5. Attendance (session bearer)
 
 ```bash
 curl -s 'http://localhost:8080/api/v1/attendance-records?classSessionId=12' \
@@ -63,7 +69,7 @@ curl -s -X PATCH http://localhost:8080/api/v1/justifications/5/review \
   -d '{"reviewStatus":"Approved","resolutionNotes":"Valid supporting document"}'
 ```
 
-## 6. Biometric (jwt)
+## 6. Biometric (no MS-side auth yet)
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/biometric/facial/verify \
@@ -72,7 +78,7 @@ curl -s -X POST http://localhost:8080/api/v1/biometric/facial/verify \
 # → {"match":true,"score":0.93} (threshold 0.85)
 ```
 
-## 7. Configuration (jwt)
+## 7. Configuration (no MS-side auth yet)
 
 ```bash
 curl -s 'http://localhost:8080/api/v1/biometric-update-cases?status=Pending&limit=20&offset=0' \
@@ -82,7 +88,7 @@ curl -s -X PATCH http://localhost:8080/api/v1/biometric-update-cases/<id>/review
   -d '{"updateStatus":"Approved"}'
 ```
 
-## 8. Notification (jwt)
+## 8. Notification (no MS-side auth yet)
 
 ```bash
 curl -s 'http://localhost:8080/api/v1/alerts?actorId=77&status=open&limit=20&offset=0' \
@@ -92,7 +98,7 @@ curl -s -X PATCH http://localhost:8080/api/v1/alerts/10/resolve \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-## 9. Quality (jwt)
+## 9. Quality (no MS-side auth yet)
 
 ```bash
 curl -s http://localhost:8080/api/v1/quality/characteristics -H "Authorization: Bearer $TOKEN"
@@ -104,7 +110,10 @@ curl -s 'http://localhost:8080/api/v1/quality/evaluations?service=attendance&lim
 ## 10. Health (public)
 
 ```bash
-curl -s http://localhost:8080/health
+# the gateway only routes /health/quality (proxied to ms-academic:8083) — there is no GET /health at :8080
+curl -s http://localhost:8080/health/quality
+# probe services directly on their own ports
 curl -s http://localhost:8081/api/v1/health
-curl -s http://localhost:8084/health/quality
+curl -s http://localhost:8083/health
+curl -s http://localhost:8083/health/quality
 ```

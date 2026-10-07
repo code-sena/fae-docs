@@ -1,4 +1,4 @@
-﻿# Runbook — Authorization Service
+# Runbook — Authorization Service
 
 > A runbook is for someone on-call at 3am. Each section must be executable without needing additional context.
 
@@ -13,7 +13,7 @@
 
 | Field | Value |
 |-------|-------|
-| Local port | 8083 |
+| Local port | 8082 |
 | Production URL | https://api.domain.com/02-authorization-service |
 | Staging URL | https://staging.api.domain.com/02-authorization-service |
 | Dashboard | [Grafana URL] |
@@ -28,7 +28,7 @@
 
 ```bash
 # Health check
-curl http://localhost:8083/health
+curl http://localhost:8082/health
 ```
 
 

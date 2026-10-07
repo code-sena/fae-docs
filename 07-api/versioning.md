@@ -21,6 +21,8 @@ Non-breaking (same version):
 
 ## 3. Deprecation policy
 
+> Decisions 2026-10-03: `cities` and `persons/{id}/transfer` stay deprecated; canonical deletion targets are `CityController`, Kong `/cities` route and Mobile `CityService`. Single DB `faceattend_db` stays canonical dev; `init-multidb.sql` is alt-prod only.
+
 1. Announce in `endpoint-matrix.md` + contract `deprecated: true` + `Sunset` header.
 2. Keep v1 working for ≥1 release / ≥30 days.
 3. Gateway keeps routing both versions; monitor `x-total-count` consumers (Mobile uses `_limit`, must migrate to `limit/offset`).

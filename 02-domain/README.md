@@ -69,7 +69,7 @@ Based on the SRS and Event Storming, the FaceAttend EDU domain is organized into
 
 > **History:** Audit (Audit_Log, Error_Log) was removed as DDD bounded context in `refactor/remove-audit-domain`. Traceability is now a cross-cutting infrastructure concern (Kafka event log + centralized logging), not a business aggregate. RN-30/31/37-41/44/45 retired.
 
-> **IoT:** `IoT_Device` / `Device_Assignment` (see `09-microservices/services/06-iot-service`) is a *technical* supporting context for future hardware, excluded from the core business map. It integrates only via `attendance-service` when devices are present.
+> **IoT:** `IoT_Device` / `Device_Assignment` (see `09-microservices/services/_future-iot-service`) is a *technical* supporting context for future hardware, excluded from the core business map. It integrates only via `attendance-service` when devices are present.
 
 > The **Identity** and **Authorization** contexts are cross-cutting because all other contexts depend on them to validate who the user is, which role they have, and which actions they may perform.
 

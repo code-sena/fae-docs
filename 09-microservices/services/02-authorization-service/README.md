@@ -1,4 +1,4 @@
-﻿# Authorization Service
+# Authorization Service
 
 > Owns roles, permissions, and the assignments that authorize access across the platform.
 
@@ -26,7 +26,7 @@
 | Field | Value |
 |-------|-------|
 | Number in catalog | 02 |
-| Local port | 8083 |
+| Local port | 8082 |
 | Repository | [Service repo URL] |
 | DB engine | PostgreSQL |
 | Communicates with | identity-service, academic-service, attendance-service |

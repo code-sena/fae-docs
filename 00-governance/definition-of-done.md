@@ -20,7 +20,7 @@
 ### Integration
 - [ ] Changes do not break other modules (integration tests pass)
 - [ ] If API changes: OpenAPI contract updated in `07-api/contracts/openapi/` + `_shared.yaml` if needed
-- [ ] If data model changes: service `data-model.md` + `06-data/domains/` updated, migration via Flyway/Liquibase (ADR-010)
+- [ ] If data model changes: service `data-model.md` + `06-data/domains/` updated, migration via Liquibase (ADR-010)
 - [ ] If new/modified events: `02-domain/domain-events.md` + `09-microservices/event-catalog.md` + per-service `events.md` updated
 
 ### Deployment

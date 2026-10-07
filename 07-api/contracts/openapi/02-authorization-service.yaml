@@ -3,7 +3,7 @@ info:
   title: Authorization Service API
   version: 1.0.0
   description: |
-    Servicio 02-ms-authorization (Java 21 Spring Boot :8083, schema `authorization`).
+    Servicio 02-ms-authorization (Java 21 Spring Boot 4.1 :8082, schema `authorization`).
     RBAC: roles, permisos, asignación a usuarios y evaluación.
 
     ## Fuente real
@@ -14,10 +14,10 @@ info:
       `CreatePermissionRequest{permissionName*,description}`, `UpdatePermissionRequest`,
       `PermissionResponse{permissionId,permissionName,description}`,
       `AssignRoleRequest{roleId}`, `AssignPermissionRequest{permissionId}`
-    - Gateway: `jwt` + `rate-limiting 100/min` (`kong.yml:31-49`).
+    - Gateway: `rate-limiting 100/min` (sin plugin jwt; el MS valida el bearer con `AuthTokenFilter`) (`kong.yml:31-49`).
 
 servers:
-  - url: http://localhost:8083
+  - url: http://localhost:8082
     description: Direct (dev)
   - url: http://localhost:8080
     description: Via Kong gateway (dev, preferred)

@@ -3,17 +3,17 @@ info:
   title: Academic Service API
   version: 1.0.0
   description: |
-    Servicio 03-ms-academic (TS Fastify + Zod + Drizzle :8084, schema `academic`).
+    Servicio 03-ms-academic (TS Fastify + Zod + Drizzle :8083, schema `academic`).
     Escuelas, programas, períodos, cohortes, cursos, tipos de actor, actores académicos y matrículas.
 
     ## Fuente real
     - `src/infrastructure/http/routes.ts:46 registerAcademicRoutes`, `src/main.ts:70`
     - Stores `schoolId,programId,academicPeriodId,cohortId,courseId,actorTypeId,academicActorId,enrollmentId`
     - Paginación `?limit=20&offset=0` cap 100 + header `x-total-count`; errores `{error:BadRequest|NotFound|SchoolNotFound,message,details?,timestamp}`
-    - Gateway `jwt` (`kong.yml:50-57`).
+    - Gateway sin plugins propios (`kong.yml:50-56`); el MS no valida el bearer hoy (tech-debt).
 
 servers:
-  - url: http://localhost:8084
+  - url: http://localhost:8083
     description: Direct (dev)
   - url: http://localhost:8080
     description: Via Kong gateway (dev, preferred)

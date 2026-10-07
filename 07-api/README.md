@@ -2,7 +2,7 @@
 
 > **What is this?** The formal specification of how microservices communicate with each other
 > and with the outside world. The contract is the promise a service makes to its consumers.
-> All contracts here mirror REAL code in `../FACEATTEND-EDU     Front-end   Web/back-end`,
+> All contracts here mirror REAL code in `../FULL/back-end`,
 > `99-api-gateway/kong/kong.yml` and `front-end/{Web,Mobile}`.
 
 ## Why contracts are critical in microservices
@@ -19,16 +19,19 @@ can work in parallel (frontend, backend, other services) with an agreed contract
 
 | # | Service | Port | Stack | Contract | Auth at Kong |
 |---|---------|------|-------|----------|--------------|
-| 01 | Identity | 8081 | Java Spring | `contracts/openapi/01-identity-service.yaml` | public (cors + 60/min) |
-| 02 | Authorization | 8083 | Java Spring | `contracts/openapi/02-authorization-service.yaml` | jwt + 100/min |
-| 03 | Academic | 8084 | TS Fastify | `contracts/openapi/03-academic-service.yaml` | jwt |
-| 04 | Scheduling | 8087 | Java Spring | `contracts/openapi/04-scheduling-service.yaml` | jwt |
-| 05 | Attendance | 8085 | Java Spring | `contracts/openapi/05-attendance-service.yaml` | jwt + 200/min |
-| 06 | Biometric | 8086 | Python FastAPI | `contracts/openapi/06-biometric-service.yaml` | jwt |
-| 07 | Configuration | 8089 | TS Fastify | `contracts/openapi/07-configuration-service.yaml` | jwt |
-| 08 | Notification | 8090 | Go Gin | `contracts/openapi/08-notification-service.yaml` | jwt |
-| 09 | Quality | 8091 | TS Fastify | `contracts/openapi/09-quality-service.yaml` | jwt + 100/min |
-| 99 | Gateway | 8080/8001 | Kong + Redis | `contracts/openapi/api-gateway.yaml` | global cors + 300/min |
+| 01 | Identity | 8081 | Java Spring | `contracts/openapi/01-identity-service.yaml` | public (cors + rate-limit 60/min) |
+| 02 | Authorization | 8082 | Java Spring | `contracts/openapi/02-authorization-service.yaml` | rate-limit 100/min |
+| 03 | Academic | 8083 | TS Fastify | `contracts/openapi/03-academic-service.yaml` | — (MS-side auth) |
+| 04 | Scheduling | 8084 | Java Spring | `contracts/openapi/04-scheduling-service.yaml` | — (MS-side auth) |
+| 05 | Attendance | 8085 | Java Spring | `contracts/openapi/05-attendance-service.yaml` | rate-limit 200/min |
+| 06 | Biometric | 8086 | Python FastAPI | `contracts/openapi/06-biometric-service.yaml` | — (MS-side auth) |
+| 07 | Configuration | 8087 | TS Fastify | `contracts/openapi/07-configuration-service.yaml` | — (MS-side auth) |
+| 08 | Notification | 8088 | Go Gin | `contracts/openapi/08-notification-service.yaml` | — (MS-side auth) |
+| 09 | Quality | 8089 | TS Fastify | `contracts/openapi/09-quality-service.yaml` | rate-limit 100/min |
+
+> Decisions 2026-10-03: Quality 09 is tooling owned by `11-quality`, not a DDD bounded context (00-06 stay at 8 contexts). Ports frozen from `FULL/back-end/docker-compose.yml` + `99-api-gateway/kong/kong.yml` + `COMPOSE.md`. Kong has **no jwt plugin and no consumers** (removed 2026-10-05): session validation is enforced per-MS via `AuthTokenFilter`; Kong only applies cors + rate-limiting.
+| 99 | Gateway | 8080/8001 | Kong + Redis | `contracts/openapi/api-gateway.yaml` | global cors + rate-limit 300/min |
+| — | frontend-web (SPA) | 8090→80 | Expo + nginx | `docker-compose.yml` (root) | — (consumes Kong :8080) |
 
 Shared: `contracts/openapi/_shared.yaml`. Template: `_template-service.yaml`. Lint: `redocly.yaml`.
 
@@ -42,8 +45,8 @@ REST standards grounded in real code: versioning `/api/v1`, kebab-case plurals, 
 health/quality probes, contract-first checklist. **Read before designing any endpoint.**
 
 ### `authentication.md` ⭐
-Kong JWT at the edge (HS256 dev `faceattend-admin-key`, RS256 prod target), public identity vs jwt rest,
-RBAC (`/auth/evaluate`), Mobile real multistep login vs Web mock, refresh/logout, header conventions, gaps.
+Opaque session tokens (not JWT) issued by identity, validated per-MS (`AuthTokenFilter`); Kong only rate-limits.
+Identifier login (email or username), RBAC (`/auth/evaluate`), Web + Mobile real API login, refresh/logout gaps.
 
 ### `versioning.md`
 URL-only `/api/v1`, breaking vs non-breaking, deprecation policy, current `1.0.0`.
@@ -60,7 +63,7 @@ Mobile `ApiError`), frontend mapping, rules.
 Canonical METHOD×path table for all 9 services + gateway (Kong coverage, auth, description).
 
 ### `frontend-integration.md`
-Web (mock-only, zero HTTP, migration path) vs Mobile (real `apiClient`, services, N+1 viewmodels, face multipart).
+Web (real API via `api/apiClient.js` + `services/api/*`, mock only as fallback) vs Mobile (real `apiClient`, N+1 viewmodels, face multipart).
 
 ### `examples.md`
 Copy-paste `curl` via `:8080` for login, each domain, health.

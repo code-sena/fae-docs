@@ -9,7 +9,7 @@
 
 | # | Bounded Context | Source file (full DDL) | DB / Engine | Tables / Collections | Entities (02-domain) |
 |---|---|---|---|---|---|
-| 01 | Identity | `domains/01-identity.md` | PostgreSQL 17, schema `identity` | 4 tables: `person`, `app_user`, `user_session`, `password_policy` (`city` deprecated) | Person, App_User |
+| 01 | Identity | `domains/01-identity.md` | PostgreSQL 17, schema `identity` | 4 tables: `person`, `app_user`, `user_session`, `password_policy` (+ legacy `city`, see count note) | Person, App_User |
 | 02 | Authorization | `domains/02-authorization.md` | PostgreSQL 17, schema `authorization` | 4 tables: `role`, `permission`, `role_permission`, `user_role` | Role, Permission, Role_Permission, User_Role |
 | 03 | Academic | `domains/03-academic.md` | PostgreSQL 17, schema `academic` | 8 tables: `school`, `program`, `academic_period`, `cohort`, `course`, `academic_actor_type`, `academic_actor`, `enrollment` | School, Program, Academic_Period, Cohort, Course, Academic_Actor_Type, Academic_Actor, Enrollment |
 | 04 | Scheduling | `domains/04-scheduling.md` | PostgreSQL 17, schema `scheduling` | 3 tables: `environment`, `schedule_block`, `class_session` | Environment, Schedule_Block, Class_Session |
@@ -17,9 +17,11 @@
 | 06 | Biometric | `domains/06-biometric.md` | **MongoDB 7 + 1 SQL table** | `biometric_update_case` (logical owner; physically hosted in `configuration`) + collections `facial_embeddings`, `fingerprint_embeddings` | Biometric_Update_Case, Facial_Embedding, Fingerprint_Embedding |
 | 07 | Notification | `domains/07-notification.md` | PostgreSQL 17, schema `notification` | 2 tables: `alert_type`, `alert` | Alert_Type, Alert |
 | 08 | Configuration | `domains/08-configuration.md` | PostgreSQL 17, schema `configuration` | 2 tables: `academic_configuration`, `security_configuration` (+ transient host of `biometric_update_case`) | Academic_Configuration, Security_Configuration |
-| | **Total** | | PostgreSQL 17 (`faceattend_db`, 8 schemas) + MongoDB | **29 SQL tables + 2 Mongo collections** | **28 entities + 4 VOs** |
+| | **Total** | | PostgreSQL 17 (`faceattend_db`) + MongoDB | **29 SQL tables (DBML) + 2 Mongo collections** | **28 entities + 4 VOs** |
 
-> **Count note (DBML v7):** 29 SQL tables. `identity.city` removed (external API), Audit (`audit_log`/`error_log`) removed (platform observability), `attendance.attendance_report` added as derived projection outside the 3NF core.
+> **Count note (DBML v7):** 29 SQL tables. `identity.city` is **removed from the DBML** (external API) but the deployed database still has it — `01-ms-identity-db` creates `identity.city` and Kong still routes `/api/v1/cities` (legacy endpoints, marked deprecated in `07-api`). Audit (`audit_log`/`error_log`) was removed from the model (platform observability), and `attendance.attendance_report` is a derived projection outside the 3NF core.
+>
+> **Running database vs DBML:** the deployed schema set also includes 7 `quality` tables (`quality_project`, `quality_evaluation`, `quality_evaluation_item`, `process_assessment`, `process_assessment_rating`, `istqb_assessment`, `istqb_assessment_item`) created by `07-ms-configuration-db` — quality tooling, not part of the DBML model. Total: 37 tables (29 model + legacy `city` + 7 `quality`).
 
 ---
 
@@ -27,15 +29,18 @@
 
 | Service (09-microservices) | Port | Schema in `faceattend_db` | Type | Owned domain |
 |---|---|---|---|---|
-| `01-identity-service` | 8081 | `identity` | PostgreSQL | Identity |
-| `02-authorization-service` | 8083 | `authorization` | PostgreSQL | Authorization |
-| `03-academic-service` | 8084 | `academic` | PostgreSQL | Academic |
-| `04-scheduling-service` | 8087 | `scheduling` | PostgreSQL | Scheduling |
-| `05-attendance-service` | 8085 | `attendance` | PostgreSQL | Attendance |
-| `06-biometric-service` | 8086 | `biometric` (logical) + MongoDB | **MongoDB + SQL case** | Biometric (`biometric_update_case` physically in `configuration`) |
-| `07-notification-service` | 8090 | `notification` | PostgreSQL | Notification |
-| `08-configuration-service` | 8089 | `configuration` | PostgreSQL | Configuration |
-| `99-api-gateway` | 8080 | Redis (cache) | Cache | — infrastructure, no domain |
+| `01-ms-identity` | 8081 | `identity` | PostgreSQL | Identity |
+| `02-ms-authorization` | 8082 | `authorization` | PostgreSQL | Authorization |
+| `03-ms-academic` | 8083 | `academic` | PostgreSQL | Academic |
+| `04-ms-scheduling` | 8084 | `scheduling` | PostgreSQL | Scheduling |
+| `05-ms-attendance` | 8085 | `attendance` | PostgreSQL | Attendance |
+| `06-ms-biometric` | 8086 | `biometric` (schema created; embeddings in MongoDB) | **MongoDB + SQL case** | Biometric (`biometric_update_case` physically in `configuration`) |
+| `07-ms-configuration` | 8087 | `configuration` | PostgreSQL | Configuration |
+| `08-ms-notification` | 8088 | `notification` | PostgreSQL | Notification |
+| `09-ms-quality` (tooling, not a bounded context) | 8089 | `quality` | PostgreSQL | ISO 25010/29110/ISTQB (`quality_project`, `quality_evaluation`, `process_assessment`, `istqb_assessment`) |
+| `kong-gateway` (99-api-gateway) | 8080 / 8001 | Redis | Rate-limit store | — infrastructure, no domain |
+
+> **Schemas:** 9 in practice — the 8 bounded contexts seeded by `database-init/01-init-schemas.sql` plus `quality`, created by the configuration changelog. Ports from `FULL/COMPOSE.md`.
 
 **Engine justification per service:** see header of each file in `domains/`. Summary: PostgreSQL for ACID/relational/multi-tenant; MongoDB in Biometric for variable-length vectors and vector search. No Audit service — observability is platform-provided.
 
@@ -75,7 +80,7 @@
 | Academic_Configuration | `academic_configuration` | Configuration | Table |
 | Security_Configuration | `security_configuration` | Configuration | Table |
 
-**City/Audit clarification:** `identity.city` is deprecated (external `countriesnow.space` API); Audit (`audit_log`/`error_log`) was removed — observability is platform-provided. The automatic detector flag on `Facial_Embedding`/`Fingerprint_Embedding` is correct by design: they persist in MongoDB with `_id: ObjectId`, `person_id: UUID` external, `encoding: [Float]`, indexes `(person_id, is_active)` and `(person_id, finger_number, is_active)`.
+**City/Audit clarification:** `identity.city` is deprecated in the DBML (external `countriesnow.space` API) but the table and its endpoints are still deployed (legacy — see count note above); Audit (`audit_log`/`error_log`) was removed — observability is platform-provided. The automatic detector flag on `Facial_Embedding`/`Fingerprint_Embedding` is correct by design: they persist in MongoDB with `_id: ObjectId`, `person_id: UUID` external, `encoding: [Float]`, indexes `(person_id, is_active)` and `(person_id, finger_number, is_active)`.
 
 ---
 
@@ -88,14 +93,19 @@ No cross-schema FK. Cross-context references are **logical IDs** (UUID for cross
 All SQL tables include:
 
 ```sql
-created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-deleted_at  TIMESTAMPTZ,            -- NULL = active (soft delete)
+created_at  TIMESTAMP NOT NULL,     -- seeded by fn_audit_timestamps() trigger
+updated_at  TIMESTAMP NOT NULL,
+deleted_at  TIMESTAMP,            -- NULL = active (soft delete)
 created_by  UUID,
 updated_by  UUID,
 deleted_by  UUID,
 row_version BIGINT NOT NULL DEFAULT 1  -- optimistic locking
 ```
+
+The trigger `fn_audit_timestamps()` (one per table, e.g. `trg_person_audit_timestamps`) fills the
+values: on `INSERT` it sets `created_at`/`updated_at`/`row_version` when null, on `UPDATE` it
+bumps `updated_at = NOW()` and `row_version = OLD.row_version + 1`. Timestamps are plain
+`TIMESTAMP` (no time zone) in the DBML and in the deployed DDL.
 
 Observability is platform-provided (Audit context removed from the relational model).
 
@@ -111,7 +121,7 @@ Logical delete via `deleted_at`. Partial indexes `WHERE deleted_at IS NULL` on h
 -- Indexes: idx_[table]_[column(s)]        → idx_attendance_actor
 -- Unique:  uq_[table]_[column(s)]         → uq_enrollment_actor_cohort
 -- PK:      pk_[table]                     → pk_person
--- Timestamps: always TIMESTAMPTZ
+-- Timestamps: always TIMESTAMP
 -- Enums:   native PostgreSQL ENUM (user_session_status, authentication_type,
 --          enrollment_status, class_session_status, attendance_status,
 --          capture_method incl. IOT, review_status, biometric_type, update_status)
@@ -146,25 +156,30 @@ Logical delete via `deleted_at`. Partial indexes `WHERE deleted_at IS NULL` on h
 
 ## 6. Migration strategy
 
-**Tool:** Flyway (PostgreSQL) / mongock or equivalent (MongoDB) — *define per service in `09-microservices/services/NN-*/runbook.md`*
+**Tool:** **Liquibase** `4.29.0` for PostgreSQL (ADR-010) — one **containerized job per schema**,
+chained by `depends_on: service_completed_successfully` in `database/docker-compose.yml`
+(`identity → authorization → academic → scheduling → attendance → biometric → configuration → notification`).
+There is **no Flyway** and no per-service migration runner; MongoDB needs no migration tool
+(embeddings are schemaless).
 
 **Naming:**
 ```
-V{NNN}__{snake_case_description}.sql
-Ex: V001__create_person.sql
-    V002__create_academic_tables.sql
-    S001__seed_roles_permissions.sql
+database/<NN>-ms-<context>-db/changelog/changelog-master.yaml   # includes the changesets
+database/<NN>-ms-<context>-db/01-ddl/001-create-person-table.yaml
+    id: id-002-create-trigger-person                            # changeset id (immutable)
+    04-tcl/001-triggers-audit-timestamps.yaml                   # triggers / functions
+    02-dml/…seeds…                                              # catalog seeds (SEEDS.md)
 ```
 
 **Rules:**
 ```
-✓ Forward-only, one migration per logical change
-✓ Seed in separate S-prefixed migrations
-✗ Never edit a migration already run in any environment
+✓ Forward-only, one changeset per logical change, with rollback block
+✓ Seeds live in the same changelog chain (database/SEEDS.md) — never edited, only extended
+✗ Never edit a changeset already applied (id + author + path form the identity)
 ✗ DROP COLUMN/TABLE only after code deprecation (2 releases)
 ```
 
-Compatible changes (add nullable, add NOT NULL with DEFAULT, CREATE INDEX CONCURRENTLY) vs incompatible (rename → 2 phases: add new + copy + dual-write, then drop).
+Compatible changes (add nullable, add NOT NULL with DEFAULT, CREATE INDEX CONCURRENTLY) vs incompatible (rename → 2 phases: add new + copy + dual-write, then drop). Full reference: `FULL/COMPOSE.md` §2.
 
 ---
 
@@ -190,9 +205,9 @@ graph TB
 
 | Engine | When used here | When avoided |
 |---|---|---|
-| **PostgreSQL 17** | 8 services — ACID transactions, school/program/cohort hierarchies, anti-double-booking constraints, 1:1 justification | — |
+| **PostgreSQL 17** | 9 schemas (8 bounded contexts + `quality`) — ACID transactions, school/program/cohort hierarchies, anti-double-booking constraints, 1:1 justification | — |
 | **MongoDB 7** | Biometric — variable-length vectors, model-version flexibility, vector search | Critical multi-document cross transactions |
-| **Redis** | API Gateway (cache/rate limit) | Source of truth |
+| **Redis** | Kong `rate-limiting` policy only (no app caching yet, ADR-015) | Source of truth |
 
 ---
 

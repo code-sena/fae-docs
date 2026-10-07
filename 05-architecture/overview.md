@@ -8,26 +8,37 @@
 
 ## 1. Adopted architectural style
 
-**Style:** **Modular Monolith (schema-per-context) + Event-Driven (in-process, Kafka-ready)**
+**Style:** **Microservices on a shared PostgreSQL instance (schema-per-context) + Event-Driven (Kafka)**
 
-**Justification:** 8 bounded contexts (02-domain) run as modules in a single deployable (ADR-002) with one PostgreSQL instance, schema-per-context and DB-role isolation. Avoids 8 independent pipelines for a 3-person SENA team while preserving context boundaries for future Strangler Fig extraction. Biometric in MongoDB is the only polyglot exception (ADR-003). Events are in-process today, Kafka-ready (ADR-006) for when modules are extracted.
+**Justification:** the 8 bounded contexts (02-domain) are separate deployables — one container and
+one port each — plus a quality tooling service (`ms-quality`) behind Kong (`FULL/COMPOSE.md`).
+ADR-002's modular-monolith reasoning still holds at the *data* level: a single `faceattend_db`
+with schema-per-context, no cross-schema FK and DB-role isolation, so the boundaries can be
+collapsed back if the deployment cost ever outweighs the benefit. Biometric vectors live in
+MongoDB (the only polyglot exception, ADR-003). Events are published to a real Kafka broker
+(KRaft, `:9092`) through `KafkaTemplate` (Java) and `kafkajs` (TS) — ADR-006, no longer
+"Kafka-ready".
 
-**Reference ADRs:** `ADR-002` (modular monolith), `ADR-003` (biometric persistence), `ADR-006` (Kafka), `ADR-007` (API Gateway)
+**Implementation note (2026-10-05):** ADR-002's "one deployable" is superseded in practice —
+`docker compose` starts 9 microservices + Kong + frontend-web, each with its own healthcheck.
+The decision (context boundaries, schema-per-context) is unchanged; only the packaging evolved.
+
+**Reference ADRs:** `ADR-002` (module boundaries), `ADR-003` (biometric persistence), `ADR-006` (Kafka), `ADR-007` (API Gateway)
 
 ---
 
 ## 2. C4 Diagram — System Level (Context)
 
-FaceAttend EDU is a modular monolith serving a single educational institution (SENA cohort context). External actors are Students, Instructors, Administrators; external systems are none (future: institutional academic system).
+FaceAttend EDU serves a single educational institution (SENA cohort context). External actors are Students, Instructors, Administrators; external systems are none (future: institutional academic system).
 
 ```mermaid
 graph TB
   Learner[Student / Learner<br/>Mobile + Web]
   Instructor[Instructor<br/>Web]
   Admin[Administrator<br/>Web]
-  GW[API Gateway<br/>Kong :8080<br/>JWT + Rate Limit]
-  APP[FaceAttend EDU<br/>Modular Monolith<br/>8 modules, 1 process]
-  PG[(PostgreSQL 17<br/>faceattend_db 7 schemas)]
+  GW[API Gateway<br/>Kong :8080<br/>CORS + Rate Limit]
+  APP[FaceAttend EDU<br/>9 microservices + frontend<br/>one container each]
+  PG[(PostgreSQL 17<br/>faceattend_db 8 schemas)]
   MG[(MongoDB 7<br/>vectors)]
   Learner --> GW
   Instructor --> GW
@@ -41,30 +52,31 @@ graph TB
 
 ## 3. C4 Diagram — Container Level (FaceAttend EDU)
 
-One deployable process, schema-per-context isolation, Kafka-ready events. See `08-uml/diagrams/source/c4-container-example.md`.
+One container per service, schema-per-context isolation, Kafka events at `:9092`. See `08-uml/diagrams/source/c4-container-example.md`.
 
 ```mermaid
 graph TB
   subgraph Edge
-    GW[Kong API Gateway<br/>:8080<br/>JWT + CORS + RateLimit]
-    WEB[Web App<br/>React]
-    MOB[Mobile App<br/>React Native]
+    GW[Kong API Gateway<br/>:8080 proxy / :8001 admin<br/>CORS + RateLimit — no jwt]
+    WEB[Web App<br/>Expo Web :8090]
+    MOB[Mobile App<br/>Expo / React Native]
   end
-  subgraph Monolith [FaceAttend EDU Monolith — 1 process]
-    ID[identity-service<br/>:8081<br/>Java Spring<br/>schema identity]
-    AZ[authorization-service<br/>:8083<br/>Java Spring<br/>schema authorization]
-    AC[academic-service<br/>:8084<br/>TS Fastify<br/>schema academic]
-    SC[scheduling-service<br/>:8087<br/>Java Spring<br/>schema scheduling]
-    AT[attendance-service<br/>:8085<br/>Java Spring<br/>schema attendance]
-    BM[biometric-service<br/>:8086<br/>Python FastAPI<br/>MongoDB]
-    NT[notification-service<br/>:8090<br/>Go Gin<br/>schema notification]
-    CF[configuration-service<br/>:8089<br/>TS Fastify<br/>schema configuration]
-    BUS[(In-process Event Bus<br/>Kafka-ready via kafkajs)]
+  subgraph Services [FaceAttend EDU — 9 services, one container each]
+    ID[ms-identity<br/>:8081<br/>Java Spring<br/>schema identity]
+    AZ[ms-authorization<br/>:8082<br/>Java Spring<br/>schema authorization]
+    AC[ms-academic<br/>:8083<br/>TS Fastify<br/>schema academic]
+    SC[ms-scheduling<br/>:8084<br/>Java Spring<br/>schema scheduling]
+    AT[ms-attendance<br/>:8085<br/>Java Spring<br/>schema attendance]
+    BM[ms-biometric<br/>:8086<br/>Python FastAPI<br/>MongoDB + schema biometric]
+    CF[ms-configuration<br/>:8087<br/>TS Fastify<br/>schema configuration]
+    NT[ms-notification<br/>:8088<br/>Go Gin<br/>schema notification]
+    QL[ms-quality<br/>:8089<br/>TS Fastify<br/>ISO 25010 tooling]
   end
   subgraph Data
     PG[(PostgreSQL 17<br/>8 schemas)]
     MG[(MongoDB 7<br/>facial/fingerprint vectors)]
-    RD[(Redis 7<br/>cache + sessions)]
+    RD[(Redis 7<br/>Kong rate-limiting store)]
+    KA[(Kafka 3.x KRaft<br/>:9092 domain events)]
   end
   WEB --> GW
   MOB --> GW
@@ -74,8 +86,9 @@ graph TB
   GW --> SC
   GW --> AT
   GW --> BM
-  GW --> NT
   GW --> CF
+  GW --> NT
+  GW --> QL
   ID --> PG
   AZ --> PG
   AC --> PG
@@ -83,13 +96,15 @@ graph TB
   AT --> PG
   NT --> PG
   CF --> PG
+  QL --> PG
   BM --> MG
-  ID --> RD
-  ID --> BUS
-  AT --> BUS
-  AC --> BUS
-  BM --> BUS
-  BUS --> NT
+  GW --> RD
+  ID --> KA
+  AZ --> KA
+  AC --> KA
+  SC --> KA
+  AT --> KA
+  CF --> KA
 ```
 
 ---
@@ -98,19 +113,21 @@ graph TB
 
 | # | Service | Responsibility | Port | DB | Communication type |
 |---|---------|---------------|------|-----|-------------------|
-| 01 | identity-service (+auth) | Person, user, authentication, sessions, JWT | 8081 | PostgreSQL | REST + Events |
-| 02 | authorization-service | Roles, permissions, role assignments | 8083 | PostgreSQL | REST + Events |
-| 03 | academic-service | Students, teachers, courses, enrollments | 8084 | PostgreSQL | REST + Events |
-| 04 | scheduling-service | Environments, schedule blocks, class sessions | 8087 | PostgreSQL | REST + Events |
-| 05 | attendance-service | Attendance records, justifications | 8085 | PostgreSQL | REST + Events |
-| 06 | biometric-service | Facial/fingerprint embeddings | 8086 | MongoDB | REST + Events |
-| 07 | notification-service | Alert types, alerts | 8090 | PostgreSQL | REST + Events |
-| 08 | configuration-service | Academic/security config values | 8089 | PostgreSQL | REST + Events |
-| 99 | api-gateway | Routing, auth, rate limiting | 8080 | Redis (cache) | HTTP Proxy |
+| 01 | ms-identity (+auth) | Person, user, authentication (opaque `sessionId`), sessions, city (legacy) | 8081 | PostgreSQL | REST + Kafka events |
+| 02 | ms-authorization | Roles, permissions, role assignments | 8082 | PostgreSQL | REST + Kafka events |
+| 03 | ms-academic | Schools, programs, courses, actors, enrollments | 8083 | PostgreSQL | REST + Kafka events |
+| 04 | ms-scheduling | Environments, schedule blocks, class sessions | 8084 | PostgreSQL | REST + Kafka events |
+| 05 | ms-attendance | Attendance records, justifications | 8085 | PostgreSQL | REST + Kafka events |
+| 06 | ms-biometric | Facial/fingerprint embeddings + update cases | 8086 | MongoDB (+ SQL case) | REST |
+| 07 | ms-configuration | Academic/security config values, biometric update cases | 8087 | PostgreSQL | REST + Kafka events |
+| 08 | ms-notification | Alert types, alerts | 8088 | PostgreSQL | REST |
+| 09 | ms-quality | ISO 25010/29110/ISTQB quality tooling (not a bounded context) | 8089 | PostgreSQL | REST |
+| 99 | api-gateway (Kong OSS 3.6, DB-less) | Routing, CORS, rate limiting (**no jwt plugin**) | 8080 / 8001 | Redis (rate-limit store) | HTTP Proxy |
 
-> Full detail per service in `09-microservices/service-catalog.md`
+> Full detail per service in `09-microservices/service-catalog.md`; ports and routes are frozen
+> from `FULL/COMPOSE.md` + `FULL/back-end/99-api-gateway/kong/kong.yml`.
 
-> **Note:** `06-iot-service` (IoT_Device, Device_Assignment) exists as a *future* external supporting module for classroom hardware; it is not part of the 8 core business contexts in `02-domain` and is excluded from the monolith v1.1 scope.
+> **Note:** `_future-iot-service` (IoT_Device, Device_Assignment) exists as a *future* external supporting module for classroom hardware; it is not part of the 8 core business contexts in `02-domain` and is excluded from the v1.1 scope.
 
 ---
 
@@ -136,7 +153,7 @@ From day 1: structured JSON logs, metrics with Prometheus,
 distributed traces with Jaeger/Zipkin. It is not optional or a story for "later".
 
 ### P5: Security & Privacy by Design
-Biometric vectors are encrypted at rest (ADR-016), PII minimized in logs/traces per `00-governance/security-policy.md` and Law 1581 (ADR-017), JWT with short-lived access + refresh, RBAC checked at Gateway and service layers.
+Biometric vectors are encrypted at rest (ADR-016), PII minimized in logs/traces per `00-governance/security-policy.md` and Law 1581 (ADR-017). Authentication issues **opaque session ids** (`user_session`) validated per service by `AuthTokenFilter` (Java) — Kong carries no `jwt` plugin; RBAC is checked by ms-authorization (`GET /api/v1/auth/evaluate`). Target state (ADR-007): JWT at the edge — see `07-api/authentication.md`.
 
 ---
 
@@ -144,15 +161,15 @@ Biometric vectors are encrypted at rest (ADR-016), PII minimized in logs/traces 
 
 | Pattern | Adopted | Reference |
 |---------|---------|-----------|
-| API Gateway (Kong OSS, DB-less) | Yes | ADR-007, `pattern-guide.md#api-gateway` |
+| API Gateway (Kong OSS 3.6, DB-less) | Yes — cors + rate-limiting only | ADR-007, `pattern-guide.md#api-gateway` |
 | Database per Service — variant: schema-per-context in single PG instance | Yes (schema) | ADR-002, ADR-003 |
-| Hexagonal Architecture (Ports & Adapters) | Yes | `hexagonal-architecture.md` |
+| Hexagonal Architecture (Ports & Adapters) | Yes — `domain/` + `infrastructure/` per service | `hexagonal-architecture.md` |
 | CQRS | No — read/write models co-located; re-evaluate at 10k rps | — |
 | Event Sourcing | No — events for integration, not source of truth | — |
-| Circuit Breaker (Resilience4j/opossum) | Yes — for Gateway→Monolith and Monolith→MongoDB | ADR-002, `pattern-guide.md#circuit-breaker` |
-| Saga (choreographed via events) | Yes — Attendance + Biometric + Notification | ADR-004 |
-| Outbox Pattern (transactional) | Yes — exactly-once event publish per module | ADR-004 |
-| Retry with Exponential Backoff + DLQ | Yes — Kafka DLQ per `02-domain/domain-events.md` | ADR-006 |
+| Circuit Breaker (Resilience4j/opossum) | **No — not implemented yet** (gateway retries are Kong's job); recorded as tech debt | `pattern-guide.md#circuit-breaker` |
+| Saga (choreographed via events) | Partial — domain events published to Kafka; compensation flows not implemented | ADR-004 |
+| Outbox Pattern (transactional) | **No — publishers write to Kafka directly**; exactly-once still to build | ADR-004 |
+| Retry with Exponential Backoff + DLQ | **No DLQ yet** — producers swallow publish errors (`.catch(() => undefined)`) | ADR-006 |
 
 ---
 
@@ -162,14 +179,14 @@ Transversal concerns that apply to ALL services:
 
 | Concern | Adopted solution | Where it is configured |
 |---------|----------------|------------------------|
-| Authentication / Authorization | JWT + validation in API Gateway | `00-governance/security-policy.md` |
+| Authentication / Authorization | Opaque `sessionId` Bearer, validated **per service** by `AuthTokenFilter` (Java 01/02/04/05); Kong has no jwt plugin — TS/Python/Go services do not validate yet (tech debt) | `07-api/authentication.md`, `00-governance/security-policy.md` |
 | Logging | Structured JSON + Correlation ID | Shared logger in internal lib |
 | Tracing | OpenTelemetry → Jaeger | Middleware in each service |
-| Health Checks | GET /health (liveness) + GET /health/ready (readiness) | Service template |
+| Health Checks | `GET /actuator/health` (Java) · `GET /health` (TS/Python/Go) · gateway: `GET /health/quality` | compose healthchecks |
 | Error format | Standard ErrorResponse | `07-api/contracts/openapi/_shared.yaml` |
-| Rate Limiting | At the API Gateway | Kong/NGINX configuration |
-| CORS | Configured in API Gateway | |
-| Circuit Breaker | Resiliency4j / opossum per service | Pattern in `pattern-guide.md` |
+| Rate Limiting | At the API Gateway (redis policy: global 300/min) | `kong.yml` |
+| CORS | At the API Gateway (origins `localhost:3000, 5173, 8090`) | `kong.yml` |
+| Circuit Breaker | Not implemented — see tech debt below | — |
 
 ---
 
@@ -180,6 +197,10 @@ Transversal concerns that apply to ALL services:
 | AT-001 | Single PostgreSQL instance is SPOF for all schemas — no per-schema HA | Medium (single institution, but blocks HA) | P2 | Sprint 6 — evaluate per-schema backup + read replica |
 | AT-002 | No import-boundary lint rule: `domain/` of one module can still import another module's `domain/` | Medium — erodes future extractability | P1 | Sprint 3 — add eslint import-boundary + CI check |
 | AT-003 | Notification-service Go runtime adds 4th runtime for 2 tables — ops overhead | Low — isolated, low churn | P3 | Evaluate consolidating to TS/Fastify if Go learning cost > benefit |
+| AT-004 | Bearer not validated in TS/Python/Go services (03/06/07/08/09) — only `01/02/04/05` run `AuthTokenFilter` | **High** — unauthenticated access to those APIs behind the gateway | P0 | Next sprint: share a validation middleware |
+| AT-005 | Password-recovery endpoints (`auth/forgot-password`, `verify-code`, `reset-password`) are called by Web/Mobile but not implemented server-side | High — broken UX on both clients | P1 | Next sprint |
+| AT-006 | No circuit breaker, no transactional outbox, no Kafka DLQ (producers ignore publish errors) | Medium — silent event loss | P2 | With ADR-004/006 hardening |
+| AT-007 | Kong has no `jwt` plugin and no consumers — every service must re-validate the session bearer | Medium — duplicated auth code, ADR-007 not yet reached | P2 | Reintroduce edge JWT (RS256) per ADR-007 |
 
 > See also: `15-project-control/technical-backlog.md` and ADRs `ADR-002`, `ADR-005`
 
@@ -190,9 +211,11 @@ Transversal concerns that apply to ALL services:
 | Version | Architectural change | Motivation | Estimated date | ADR |
 |---------|---------------------|------------|----------------|-----|
 | v1.1 | Remove Audit bounded context; Configuration becomes 08 | Simplify domain, infra logging instead | 2026-09 (done) | `refactor/remove-audit-domain` |
+| v1.1 | Services already deployed as 9 independent containers + Kong (was "1 process") | Each stack ships its own image/healthcheck | 2026-10 (done) | ADR-002 (implementation note) |
 | v1.2 | Add per-module import-boundary CI check | Preserve extractability (AT-002) | Sprint 3 | ADR-002 |
-| v2.0 | Extract `attendance-service` as first independent service (Strangler Fig) | Highest load, first to need independent scaling | Q1 2027 | ADR-002/004 |
-| v2.1 | gRPC for Monolith→Monolith hot path if latency >50ms P95 | Reduce JSON overhead internal | Q2 2027 | TBD |
+| v1.2 | Validate the session bearer in TS/Python/Go services (AT-004) and implement password recovery (AT-005) | Close auth gaps | Next sprint | ADR-007 |
+| v2.0 | Move session validation back to the edge as RS256 JWT issued by identity | Remove duplicated per-MS checks (AT-007) | Q1 2027 | ADR-007 |
+| v2.1 | gRPC for hot internal paths if latency >50ms P95 | Reduce JSON overhead internal | Q2 2027 | TBD |
 
 ---
 

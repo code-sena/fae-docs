@@ -8,25 +8,31 @@ info:
 
     ## Puertos
     - Proxy `:8080` (contenedor `8000`), Admin `:8001`.
-    - Frontends MUST usar `:8080/api/v1/...`. Acceso directo a `8081-8091` solo para dev/debug.
+    - Frontends MUST usar `:8080/api/v1/...`. Acceso directo a `8081-8089` solo para dev/debug.
 
     ## Autenticación
     ```
-    Authorization: Bearer <token>
+    Authorization: Bearer <sessionId>
     ```
-    Token de `POST /api/v1/auth/login` (identity 8081). Ver `../authentication.md`.
-    Identidad es pública en Kong (cors + rate-limit 60/min, sin jwt); el resto exige `jwt`.
-    Dev consumer `faceattend-admin` HS256 (`faceattend-admin-key`); prod objetivo RS256 de identity.
+    `sessionId` opaco (UUID) de `POST /api/v1/auth/login` (identity 8081; `identifier` = email o
+    username). Ver `../authentication.md`.
+    **Kong NO tiene plugin `jwt` ni consumers** (solo `cors` + `rate-limiting`): la validación de
+    la sesión la hace cada MS Java (`01/02/04/05`, `AuthTokenFilter`). Los servicios TS/Python/Go
+    (`03/06/07/08/09`) no validan el bearer hoy (tech-debt). Objetivo: `jwt` RS256 de identity (ADR-007).
 
     ## Rate limits (Redis)
     Global 300/min; identity 60/min; authorization 100/min; attendance 200/min; quality 100/min.
 
     ## CORS
-    Global `http://localhost:3000,http://localhost:5173` (`Authorization,Content-Type,X-Requested-With`, `credentials:true`, `max_age:3600`).
+    Global `http://localhost:3000,http://localhost:5173,http://localhost:8090` (`Authorization,Content-Type,X-Requested-With`, `credentials:true`, `max_age:3600`).
     Identity route `*` para dev.
 
     ## Headers internos (convención Kong→upstream)
-    - `X-User-Id`, `X-User-Role`, `X-Correlation-Id` / `X-Request-Id`.
+    - `X-User-Id`, `X-User-Roles` (fijados por el `AuthTokenFilter` Java), `X-Correlation-Id` / `X-Request-Id`.
+
+    ## Health
+    El gateway NO expone `GET /health`; solo rutea `GET /health/quality` → `ms-academic:8083`.
+    Las saludades se prueban directo contra cada puerto.
 
 servers:
   - url: http://localhost:8080
@@ -44,75 +50,30 @@ servers:
 
 tags:
   - name: Health
-    description: Estado del gateway y upstreams
+    description: Estado de los upstreams (solo `/health/quality` está ruteado)
   - name: Identity
-    description: Proxied → ms-identity:8081 (público)
+    description: Proxied → ms-identity:8081 (rutas de bootstrap públicas; el resto exige bearer)
   - name: Authorization
-    description: Proxied → ms-authorization:8083 (jwt)
+    description: Proxied → ms-authorization:8082 (bearer validado en el MS)
   - name: Academic
-    description: Proxied → ms-academic:8084 (jwt)
+    description: Proxied → ms-academic:8083 (sin validación en el MS hoy)
   - name: Scheduling
-    description: Proxied → ms-scheduling:8087 (jwt)
+    description: Proxied → ms-scheduling:8084 (bearer validado en el MS)
   - name: Attendance
-    description: Proxied → ms-attendance:8085 (jwt)
+    description: Proxied → ms-attendance:8085 (bearer validado en el MS)
   - name: Biometric
-    description: Proxied → ms-biometric:8086 (jwt)
+    description: Proxied → ms-biometric:8086 (sin validación en el MS hoy)
   - name: Configuration
-    description: Proxied → ms-configuration:8089 (jwt)
+    description: Proxied → ms-configuration:8087 (sin validación en el MS hoy)
   - name: Notification
-    description: Proxied → ms-notification:8090 (jwt)
+    description: Proxied → ms-notification:8088 (sin validación en el MS hoy)
   - name: Quality
-    description: Proxied → ms-quality:8091 (jwt)
+    description: Proxied → ms-quality:8089 (sin validación en el MS hoy)
 
 paths:
-  /health:
-    get:
-      summary: Health check del gateway
-      tags: [Health]
-      security: []
-      responses:
-        '200':
-          description: Gateway y upstreams saludables
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [status, timestamp]
-                properties:
-                  status:
-                    type: string
-                    enum: [ok, degraded]
-                  timestamp:
-                    type: string
-                    format: date-time
-                  upstreams:
-                    type: object
-                    additionalProperties:
-                      type: string
-                      enum: [ok, degraded, down]
-              example:
-                status: ok
-                timestamp: '2024-01-15T10:30:00Z'
-                upstreams:
-                  identity-service: ok
-                  authorization-service: ok
-                  academic-service: ok
-                  scheduling-service: ok
-                  attendance-service: ok
-                  biometric-service: ok
-                  configuration-service: ok
-                  notification-service: ok
-                  quality-service: ok
-        '503':
-          description: Gateway iniciando o upstream crítico caído
-          content:
-            application/json:
-              schema:
-                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
-
   /health/quality:
     get:
-      summary: Health de calidad (proxied a academic:8084, solo CORS GET)
+      summary: Health de calidad (proxied a ms-academic:8083, solo CORS GET; única ruta de health en el gateway)
       tags: [Health]
       security: []
       responses:
@@ -149,7 +110,7 @@ paths:
                 type: object
   /api/v1/auth/login:
     post:
-      summary: Proxy → identity login (público, obtiene token)
+      summary: Proxy → identity login (público, obtiene `sessionId` opaco)
       tags: [Identity]
       security: []
       requestBody:
@@ -158,10 +119,17 @@ paths:
           application/json:
             schema:
               type: object
-              required: [username, password]
+              required: [password]
               properties:
+                identifier:
+                  type: string
+                  description: Email o username (alias aceptados: `email`, `username`)
+                email:
+                  type: string
+                  description: Alias de `identifier`
                 username:
                   type: string
+                  description: Alias de `identifier`
                 password:
                   type: string
                   format: password
@@ -172,6 +140,12 @@ paths:
             application/json:
               schema:
                 type: object
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
   /api/v1/sessions:
     post:
       summary: Proxy → identity sessions (público)
@@ -201,7 +175,7 @@ paths:
 
   /api/v1/roles:
     get:
-      summary: Proxy → authorization (jwt, 100/min)
+      summary: Proxy → authorization (401 sin bearer en el MS, 100/min)
       tags: [Authorization]
       responses:
         '200':
@@ -216,7 +190,7 @@ paths:
           $ref: './_shared.yaml#/components/responses/Unauthorized'
   /api/v1/permissions:
     get:
-      summary: Proxy → authorization (jwt)
+      summary: Proxy → authorization (401 sin bearer en el MS)
       tags: [Authorization]
       responses:
         '200':
@@ -229,7 +203,7 @@ paths:
                   type: object
   /api/v1/auth/evaluate:
     get:
-      summary: Proxy → authorization RBAC check (jwt)
+      summary: Proxy → authorization RBAC check (401 sin bearer en el MS)
       tags: [Authorization]
       parameters:
         - name: userId
@@ -252,7 +226,7 @@ paths:
 
   /api/v1/schools:
     get:
-      summary: Proxy → academic (jwt)
+      summary: Proxy → academic (sin auth en el MS hoy)
       tags: [Academic]
       parameters:
         - $ref: './_shared.yaml#/components/parameters/LimitParam'
@@ -268,7 +242,7 @@ paths:
                   type: object
   /api/v1/programs:
     get:
-      summary: Proxy → academic (jwt)
+      summary: Proxy → academic (sin auth en el MS hoy)
       tags: [Academic]
       responses:
         '200':
@@ -281,7 +255,7 @@ paths:
                   type: object
   /api/v1/academic-periods:
     get:
-      summary: Proxy → academic (jwt, alias /periods)
+      summary: Proxy → academic (sin auth en el MS hoy, alias /periods)
       tags: [Academic]
       responses:
         '200':
@@ -294,7 +268,7 @@ paths:
                   type: object
   /api/v1/cohorts:
     get:
-      summary: Proxy → academic (jwt)
+      summary: Proxy → academic (sin auth en el MS hoy)
       tags: [Academic]
       responses:
         '200':
@@ -307,7 +281,7 @@ paths:
                   type: object
   /api/v1/courses:
     get:
-      summary: Proxy → academic (jwt)
+      summary: Proxy → academic (sin auth en el MS hoy)
       tags: [Academic]
       responses:
         '200':
@@ -320,7 +294,7 @@ paths:
                   type: object
   /api/v1/academic-actors:
     get:
-      summary: Proxy → academic (jwt)
+      summary: Proxy → academic (sin auth en el MS hoy)
       tags: [Academic]
       responses:
         '200':
@@ -333,7 +307,7 @@ paths:
                   type: object
   /api/v1/enrollments:
     get:
-      summary: Proxy → academic (jwt)
+      summary: Proxy → academic (sin auth en el MS hoy)
       tags: [Academic]
       responses:
         '200':
@@ -347,7 +321,7 @@ paths:
 
   /api/v1/environments:
     get:
-      summary: Proxy → scheduling (jwt)
+      summary: Proxy → scheduling (401 sin bearer en el MS)
       tags: [Scheduling]
       responses:
         '200':
@@ -360,7 +334,7 @@ paths:
                   type: object
   /api/v1/schedule-blocks:
     get:
-      summary: Proxy → scheduling (jwt)
+      summary: Proxy → scheduling (401 sin bearer en el MS)
       tags: [Scheduling]
       responses:
         '200':
@@ -373,7 +347,7 @@ paths:
                   type: object
   /api/v1/class-sessions:
     get:
-      summary: Proxy → scheduling (jwt)
+      summary: Proxy → scheduling (401 sin bearer en el MS)
       tags: [Scheduling]
       responses:
         '200':
@@ -387,7 +361,7 @@ paths:
 
   /api/v1/attendance-records:
     get:
-      summary: Proxy → attendance (jwt, 200/min)
+      summary: Proxy → attendance (401 sin bearer en el MS, 200/min)
       tags: [Attendance]
       responses:
         '200':
@@ -400,7 +374,7 @@ paths:
                   type: object
   /api/v1/justifications:
     get:
-      summary: Proxy → attendance (jwt)
+      summary: Proxy → attendance (401 sin bearer en el MS)
       tags: [Attendance]
       responses:
         '200':
@@ -413,7 +387,7 @@ paths:
                   type: object
   /api/v1/justification-types:
     get:
-      summary: Proxy → attendance (jwt)
+      summary: Proxy → attendance (401 sin bearer en el MS)
       tags: [Attendance]
       responses:
         '200':
@@ -426,7 +400,7 @@ paths:
                   type: object
   /api/v1/supporting-documents:
     get:
-      summary: Proxy → attendance (jwt)
+      summary: Proxy → attendance (401 sin bearer en el MS)
       tags: [Attendance]
       responses:
         '200':
@@ -440,7 +414,7 @@ paths:
 
   /api/v1/biometric/facial/verify:
     post:
-      summary: Proxy → biometric verify (jwt)
+      summary: Proxy → biometric verify (sin auth en el MS hoy)
       tags: [Biometric]
       requestBody:
         required: true
@@ -457,7 +431,7 @@ paths:
                 type: object
   /api/v1/biometric/facial/identify:
     post:
-      summary: Proxy → biometric identify (jwt)
+      summary: Proxy → biometric identify (sin auth en el MS hoy)
       tags: [Biometric]
       requestBody:
         required: true
@@ -475,7 +449,7 @@ paths:
 
   /api/v1/academic-configurations:
     get:
-      summary: Proxy → configuration (jwt)
+      summary: Proxy → configuration (sin auth en el MS hoy)
       tags: [Configuration]
       responses:
         '200':
@@ -488,7 +462,7 @@ paths:
                   type: object
   /api/v1/security-configurations:
     get:
-      summary: Proxy → configuration (jwt)
+      summary: Proxy → configuration (sin auth en el MS hoy)
       tags: [Configuration]
       responses:
         '200':
@@ -501,7 +475,7 @@ paths:
                   type: object
   /api/v1/biometric-update-cases:
     get:
-      summary: Proxy → configuration cases (jwt)
+      summary: Proxy → configuration cases (sin auth en el MS hoy)
       tags: [Configuration]
       responses:
         '200':
@@ -514,7 +488,7 @@ paths:
                   type: object
   /api/v1/configurations:
     get:
-      summary: Proxy → configuration base (jwt)
+      summary: Proxy → configuration base (sin auth en el MS hoy)
       tags: [Configuration]
       responses:
         '200':
@@ -528,7 +502,7 @@ paths:
 
   /api/v1/alerts:
     get:
-      summary: Proxy → notification (jwt)
+      summary: Proxy → notification (sin auth en el MS hoy)
       tags: [Notification]
       responses:
         '200':
@@ -539,7 +513,7 @@ paths:
                 type: object
   /api/v1/alert-types:
     get:
-      summary: Proxy → notification types (jwt)
+      summary: Proxy → notification types (sin auth en el MS hoy)
       tags: [Notification]
       responses:
         '200':
@@ -551,7 +525,7 @@ paths:
 
   /api/v1/quality/characteristics:
     get:
-      summary: Proxy → quality 25010 instrument (jwt, 100/min)
+      summary: Proxy → quality 25010 instrument (sin auth en el MS hoy, 100/min)
       tags: [Quality]
       responses:
         '200':
@@ -562,7 +536,7 @@ paths:
                 type: object
   /api/v1/quality/evaluations:
     get:
-      summary: Proxy → quality evaluations (jwt)
+      summary: Proxy → quality evaluations (sin auth en el MS hoy)
       tags: [Quality]
       responses:
         '200':

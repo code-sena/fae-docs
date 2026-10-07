@@ -47,7 +47,7 @@
 
 ## Schema migration
 
-**Tool:** [Flyway / Liquibase / Alembic / knex]
+**Tool:** Liquibase 4.29 (ADR-010) — changelogs live in `database/<NN>-ms-*-db/`, not in the service
 **Script location:** `src/migrations/`
 **Naming convention:** `V[NNN]__[description].sql`
 

@@ -40,9 +40,9 @@ CREATE TABLE school (
   status        BOOLEAN     NOT NULL DEFAULT true,
 
   -- Audit (in all tables)
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at    TIMESTAMPTZ,
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at    TIMESTAMP,
   created_by    UUID,
   updated_by    UUID,
   deleted_by    UUID,
@@ -65,9 +65,9 @@ CREATE TABLE school (
 | phone | VARCHAR | Contact phone number | `+57 300 123 4567` |
 | email | VARCHAR | Institutional email | `info@escuela.edu.co` |
 | status | BOOLEAN | Active/inactive flag | `true` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -96,9 +96,9 @@ CREATE TABLE program (
   status        BOOLEAN     NOT NULL DEFAULT true,
 
   -- Audit (in all tables)
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at    TIMESTAMPTZ,
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at    TIMESTAMP,
   created_by    UUID,
   updated_by    UUID,
   deleted_by    UUID,
@@ -117,9 +117,9 @@ CREATE UNIQUE INDEX uq_program_code_school ON program (school_id, code);
 | code | VARCHAR | Program code within the school | `ING-SIS` |
 | name | VARCHAR | Program name | `Systems Engineering` |
 | status | BOOLEAN | Active/inactive flag | `true` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -144,9 +144,9 @@ CREATE TABLE academic_period (
   is_active           BOOLEAN     NOT NULL DEFAULT false,
 
   -- Audit (in all tables)
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at          TIMESTAMPTZ,
+  created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at          TIMESTAMP,
   created_by          UUID,
   updated_by          UUID,
   deleted_by          UUID,
@@ -168,9 +168,9 @@ CREATE UNIQUE INDEX uq_period_name_school ON academic_period (school_id, name);
 | starts_on | DATE | Period start date | `2026-01-15` |
 | ends_on | DATE | Period end date | `2026-06-30` |
 | is_active | BOOLEAN | Whether this is the current active period | `true` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -194,9 +194,9 @@ CREATE TABLE cohort (
   status              BOOLEAN     NOT NULL DEFAULT true,
 
   -- Audit (in all tables)
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at          TIMESTAMPTZ,
+  created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at          TIMESTAMP,
   created_by          UUID,
   updated_by          UUID,
   deleted_by          UUID,
@@ -213,9 +213,9 @@ CREATE TABLE cohort (
 | academic_period_id | INT | Academic period (FK → academic_period) | `1` |
 | code | VARCHAR | Globally unique cohort code | `ING-SIS-2026-S1-01` |
 | status | BOOLEAN | Active/inactive flag | `true` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -240,9 +240,9 @@ CREATE TABLE course (
   status        BOOLEAN     NOT NULL DEFAULT true,
 
   -- Audit (in all tables)
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at    TIMESTAMPTZ,
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at    TIMESTAMP,
   created_by    UUID,
   updated_by    UUID,
   deleted_by    UUID,
@@ -262,9 +262,9 @@ CREATE UNIQUE INDEX uq_course_code_program ON course (program_id, code);
 | name | VARCHAR | Course name | `Calculus I` |
 | credit_hours | SMALLINT | Number of credit hours | `4` |
 | status | BOOLEAN | Active/inactive flag | `true` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -284,9 +284,9 @@ CREATE TABLE academic_actor_type (
   name          VARCHAR     NOT NULL,
 
   -- Audit (in all tables)
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at    TIMESTAMPTZ,
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at    TIMESTAMP,
   created_by    UUID,
   updated_by    UUID,
   deleted_by    UUID,
@@ -301,9 +301,9 @@ CREATE TABLE academic_actor_type (
 | actor_type_id | SMALLINT | Auto-incremental type identifier | `1` |
 | code | VARCHAR | Type code (unique) | `STUDENT` |
 | name | VARCHAR | Type name | `Student` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -330,9 +330,9 @@ CREATE TABLE academic_actor (
   status            BOOLEAN     NOT NULL DEFAULT true,
 
   -- Audit (in all tables)
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at        TIMESTAMPTZ,
+  created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMP,
   created_by        UUID,
   updated_by        UUID,
   deleted_by        UUID,
@@ -358,9 +358,9 @@ CREATE INDEX idx_actor_deleted ON academic_actor (deleted_at) WHERE deleted_at I
 | started_on | DATE | When the actor started in this role | `2024-01-15` |
 | ended_on | DATE | When the actor ended this role (NULL = active) | `NULL` |
 | status | BOOLEAN | Active/inactive flag | `true` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |
@@ -390,9 +390,9 @@ CREATE TABLE enrollment (
   enrollment_status   academic.enrollment_status NOT NULL,
 
   -- Audit (in all tables)
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at          TIMESTAMPTZ,
+  created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at          TIMESTAMP,
   created_by          UUID,
   updated_by          UUID,
   deleted_by          UUID,
@@ -414,9 +414,9 @@ CREATE INDEX idx_enrollment_deleted ON enrollment (deleted_at) WHERE deleted_at 
 | cohort_id | BIGINT | Target cohort (FK → cohort) | `1` |
 | enrolled_on | DATE | Enrollment date | `2024-01-15` |
 | enrollment_status | VARCHAR | Status: Active, Withdrawn, Completed | `Active` |
-| created_at | TIMESTAMPTZ | When the record was created | `2024-01-15T10:30:00Z` |
-| updated_at | TIMESTAMPTZ | When the record was last updated | `2024-01-15T10:30:00Z` |
-| deleted_at | TIMESTAMPTZ | NULL = active; with value = soft-deleted | `NULL` |
+| created_at | TIMESTAMP | When the record was created | `2024-01-15T10:30:00Z` |
+| updated_at | TIMESTAMP | When the record was last updated | `2024-01-15T10:30:00Z` |
+| deleted_at | TIMESTAMP | NULL = active; with value = soft-deleted | `NULL` |
 | created_by | UUID | User who created this record | `550e8400-...` |
 | updated_by | UUID | User who last updated this record | `550e8400-...` |
 | deleted_by | UUID | User who soft-deleted this record | `NULL` |

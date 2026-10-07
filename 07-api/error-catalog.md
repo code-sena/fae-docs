@@ -1,6 +1,6 @@
 # Error Catalog — FaceAttendEDU
 
-> Canonical envelope is `ErrorResponse` (`_shared.yaml`). Per-stack wire formats below are real (from exception handlers).
+> Decisions 2026-10-03: `{error,message}` is the minimal contract in `_shared.yaml` validated by `11-quality` tests; per-stack fields stay as allowed extensions. Canonical envelope is `ErrorResponse` (`_shared.yaml`). Per-stack wire formats below are real (from exception handlers).
 
 ## 1. Canonical envelope
 
@@ -16,7 +16,7 @@
 | `error` code | HTTP | When |
 |--------------|------|------|
 | `VALIDATION_ERROR` / `BadRequest` | 400 | Zod / Bean Validation / Pydantic / Gin binding fails |
-| `UNAUTHORIZED` | 401 | Missing/invalid JWT at Kong |
+| `UNAUTHORIZED` | 401 | Missing/invalid/expired session bearer (checked by the Java `AuthTokenFilter`; Kong does not authenticate) |
 | `FORBIDDEN` | 403 | `GET /auth/evaluate → allowed:false` |
 | `NOT_FOUND` / `NotFound` | 404 | `SchoolNotFound`, `no active facial template`, `no match found` |
 | `CONFLICT` / `Duplicate` | 409 | Email/document already exists |
@@ -63,7 +63,9 @@ Mapping: `ErrValidation→400`, `ErrNotFound→404`, `ErrDuplicate→409`; `NoRo
 ## 3. Frontend handling (real)
 
 - Mobile `useLoginViewModel.js:49-59`: `0/408→connectionError`, else `ApiError.message`, else `invalidCredentials`.
-- Web `useLoginViewModel.ts:52-62`: maps `Invalid credentials→Incorrect credentials` (mock only).
+- Web `viewmodels/useAuthViewModel.js` → `AuthContext.login()` → `loginErrorMessage(err)` in
+  `context/AuthContext.js:24-28`: `400/401→"Credenciales incorrectas"`, `status 0→` network
+  message, else `err.message`. (The old `useLoginViewModel.ts` mock path no longer exists.)
 - Alerts/verification: `useCustomAlert{showSuccess,showError,showConfirm}`; `VerificationError{INVALID_CODE,EXPIRED_CODE,NO_CODE,TIMEOUT,GENERIC}` with 15s timeout.
 
 ## 4. Rules

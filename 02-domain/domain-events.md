@@ -16,7 +16,7 @@
 | Identity | `UserDeactivated` | Administrator disables account (e.g., leave, sanction) | Active sessions invalidated; attendance capture blocked |
 | Identity | `SessionStarted` | Learner/instructor signs in successfully | Session available for API Gateway; last_access updated |
 | Identity | `PasswordChanged` | User completes password change flow | Previous sessions remain but credentials rotated |
-| Authorization | `RoleAssigned` | Administrator assigns Role to App_User for a School | Permissions embedded in next JWT |
+| Authorization | `RoleAssigned` | Administrator assigns Role to App_User for a School | Permissions are looked up on the next `GET /api/v1/auth/evaluate` (no JWT claim to refresh) |
 | Authorization | `RoleRemoved` | Role revoked | Permissions recalculated |
 | Academic | `SchoolRegistered` | New institution onboarded | Enables programs, cohorts, environments |
 | Academic | `ProgramCreated` | Academic coordinator creates program | Cohorts/courses can reference it |

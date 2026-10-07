@@ -6,7 +6,7 @@ FaceAttend EDU is developed within the **Software Analysis and Development progr
 
 ## What is FaceAttend EDU?
 
-**FaceAttend EDU** is a **web + mobile (responsive)** attendance-management platform that **automates entry/exit recording via facial recognition** with **manual/import fallback**, centralizes attendance histories, and provides **justification workflows, role-based reports and alerts**. It is a **modular monolith (schema-per-context, 8 bounded contexts) — Kafka-ready**, per `05-architecture/overview.md` and `ADR-002/006`.
+**FaceAttend EDU** is a **web + mobile (responsive)** attendance-management platform that **automates entry/exit recording via facial recognition** with **manual/import fallback**, centralizes attendance histories, and provides **justification workflows, role-based reports and alerts**. It runs as **9 microservices behind Kong (schema-per-context, 8 bounded contexts) — Kafka events live**, per `05-architecture/overview.md` and `ADR-002/006`.
 
 ## Problem it solves
 
@@ -19,30 +19,33 @@ In many academic processes, attendance depends on a single instructor taking man
 - **Administrator:** manages users/roles/permissions, schools/programs/cohorts/environments, and system configuration (per-school and global).
 - **System (future IoT):** external supporting actor for classroom hardware — out of MVP core (see `scope.md`).
 
-## Technology stack (v1.1, 8 bounded contexts)
+## Technology stack (v1.2, 8 bounded contexts + quality tooling)
 
-- **Backend:** Modular monolith — Java 21 + Spring Boot 3 (identity/authorization/scheduling/attendance), TypeScript + Fastify (academic/configuration), Python 3.12 + FastAPI (biometric), Go 1.22 + Gin (notification)
-- **Databases:** Single logical DB `faceattend_db` on PostgreSQL 17 (7 schemas) + MongoDB 7 (facial/fingerprint vectors) + Redis 7 (cache/sessions)
-- **Edge:** Kong OSS API Gateway :8080, JWT + RBAC, Kafka-ready events (ADR-006)
-- **Infrastructure:** Docker Compose local, Flyway/Liquibase migrations (ADR-010), Jenkins CI/CD (ADR-011)
+- **Backend:** 9 services in 4 runtimes — Java 21 + Spring Boot 4.1 (`ms-identity`, `ms-authorization`, `ms-scheduling`, `ms-attendance`), TypeScript + Fastify + Zod (`ms-academic`, `ms-configuration`, `ms-quality`), Python 3.12 + FastAPI (`ms-biometric`), Go 1.22 + Gin (`ms-notification`)
+- **Databases:** Single logical DB `faceattend_db` on PostgreSQL 17 (**8 schemas**) + MongoDB 7 (facial/fingerprint vectors) + Redis 7 (Kong rate-limiting store)
+- **Edge:** Kong OSS 3.6 :8080 (proxy) / :8001 (admin) — cors + rate-limiting only, **no jwt plugin**; session bearer validated per service (`07-api/authentication.md`)
+- **Events:** Kafka (KRaft) `:9092` — real broker, producers via `KafkaTemplate` / `kafkajs` (ADR-006)
+- **Infrastructure:** Docker Compose (root `docker-compose.yml` + `COMPOSE.md`), Liquibase migrations (8 jobs, ADR-010), Jenkins CI/CD (ADR-011)
 
 ## Main architecture — Bounded Contexts & Services (Schema per Context, Single DB)
 
-> **Ubiquitous Language:** service names below are the single source of truth — identical in `02-domain/domain-map.md`, `05-architecture/overview.md`, `09-microservices/service-catalog.md` and `06-data/models.md` (Informe 2026-09-22 §3.1-§3.2).
+> **Ubiquitous Language:** service names below are the single source of truth — identical in `02-domain/domain-map.md`, `05-architecture/overview.md`, `09-microservices/service-catalog.md` and `06-data/models.md` (Informe 2026-09-22 §3.1-§3.2). Ports frozen from `FULL/COMPOSE.md` + `kong.yml`.
 
 | # | Service | Bounded Context | Main responsibility | Port | DB | Technology |
 |---|---|---|---|---|---|---|
-| 01 | `identity-service` | Identity | Person, App_User, User_Session, Password_Policy, auth/JWT (City via external API) | 8081 | PostgreSQL | Java 21 + Spring Boot 3 |
-| 02 | `authorization-service` | Authorization | Role, Permission, Role_Permission, User_Role (global roles) | 8083 | PostgreSQL | Java 21 + Spring Boot 3 |
-| 03 | `academic-service` | Academic | School, Program, Academic_Period, Cohort, Course, Academic_Actor, Enrollment | 8084 | PostgreSQL | TypeScript + Fastify |
-| 04 | `scheduling-service` | Scheduling | Environment, Schedule_Block, Class_Session (anti-double-booking) | 8087 | PostgreSQL | Java 21 + Spring Boot 3 |
-| 05 | `attendance-service` | Attendance | Attendance_Record, Justification_Type, Justification, Supporting_Document, Attendance_Report (derived) | 8085 | PostgreSQL | Java 21 + Spring Boot 3 |
-| 06 | `biometric-service` | Biometric | Facial_Embedding, Fingerprint_Embedding (MongoDB vectors) + Biometric_Update_Case (SQL, hosted in `configuration`) | 8086 | **MongoDB + SQL case** | Python 3.12 + FastAPI |
-| 07 | `notification-service` | Notification | Alert_Type, Alert | 8090 | PostgreSQL | Go 1.22 + Gin |
-| 08 | `configuration-service` | Configuration | Academic_Configuration, Security_Configuration | 8089 | PostgreSQL | TypeScript + Fastify |
-| 99 | `api-gateway` | — (infrastructure) | Routing, auth, rate limiting | 8080 | Redis (cache) | Kong OSS |
+| 01 | `ms-identity` | Identity | Person, App_User, User_Session, Password_Policy, auth (opaque `sessionId`) (City legacy via external API) | 8081 | PostgreSQL | Java 21 + Spring Boot 4.1 |
+| 02 | `ms-authorization` | Authorization | Role, Permission, Role_Permission, User_Role (global roles) | 8082 | PostgreSQL | Java 21 + Spring Boot 4.1 |
+| 03 | `ms-academic` | Academic | School, Program, Academic_Period, Cohort, Course, Academic_Actor, Enrollment | 8083 | PostgreSQL | TypeScript + Fastify |
+| 04 | `ms-scheduling` | Scheduling | Environment, Schedule_Block, Class_Session (anti-double-booking) | 8084 | PostgreSQL | Java 21 + Spring Boot 4.1 |
+| 05 | `ms-attendance` | Attendance | Attendance_Record, Justification_Type, Justification, Supporting_Document, Attendance_Report (derived) | 8085 | PostgreSQL | Java 21 + Spring Boot 4.1 |
+| 06 | `ms-biometric` | Biometric | Facial_Embedding, Fingerprint_Embedding (MongoDB vectors) + Biometric_Update_Case | 8086 | **MongoDB + SQL case** | Python 3.12 + FastAPI |
+| 07 | `ms-configuration` | Configuration | Academic_Configuration, Security_Configuration (+ hosts biometric update cases) | 8087 | PostgreSQL | TypeScript + Fastify |
+| 08 | `ms-notification` | Notification | Alert_Type, Alert | 8088 | PostgreSQL | Go 1.22 + Gin |
+| 09 | `ms-quality` | — (tooling, not a bounded context) | ISO 25010/29110/ISTQB quality metrics | 8089 | PostgreSQL | TypeScript + Fastify |
+| 99 | `kong-gateway` | — (infrastructure) | Routing, CORS, rate limiting (no jwt) | 8080 / 8001 | Redis (rate-limit store) | Kong OSS 3.6 |
+| — | `frontend-web` | — | Expo Web SPA served by nginx | 8090 | — | React (Expo) |
 
-- **Communication:** sync via REST through gateway; async via events (Kafka-ready) per `09-microservices/event-catalog.md` and `05-architecture/pattern-guide.md` (Saga + Outbox).
+- **Communication:** sync via REST through Kong; async via Kafka domain events per `09-microservices/event-catalog.md` and `05-architecture/pattern-guide.md` (Saga + Outbox — partially implemented, see AT-006).
 - **Data isolation:** each service owns its DB/schema; cross-context refs are public IDs without physical FK (see `06-data/models.md` §4.5).
 
 ## Status

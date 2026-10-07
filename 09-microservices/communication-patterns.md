@@ -41,7 +41,7 @@ Used when services need to propagate state changes without blocking.
 
 | Aspect | Detail |
 |--------|--------|
-| **Transport** | Kafka or RabbitMQ |
+| **Transport** | Kafka (KRaft, `:9092`) |
 | **Pattern** | Publish → Subscribe (event-driven) |
 | **Consistency** | Eventual |
 | **Use cases** | Cross-context state propagation, audit logging, notifications |
@@ -56,7 +56,7 @@ Used when services need to propagate state changes without blocking.
 ### Asynchronous flow
 
 ```
-Producer Service ──▶ Event Bus (Kafka/RabbitMQ) ──▶ Consumer Service A
+Producer Service ──▶ Kafka topic ──▶ Consumer Service A
                                                   ──▶ Consumer Service B
                                                   ──▶ Audit Service
 ```

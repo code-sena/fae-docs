@@ -1,0 +1,668 @@
+openapi: 3.0.3
+info:
+  title: Configuration Service API
+  version: 1.0.0
+  description: |
+    Servicio 07-ms-configuration (TS Fastify + Zod :8087, schema `configuration`).
+    Configuraciones académicas/seguridad. `biometric-update-cases` es el endpoint
+    canónico actual, pero su dueño lógico es Biometric (DBML v7): hospedaje
+    físico transitorio en `configuration`, pendiente de migración con compatibilidad.
+
+    ## Fuente real
+    - `src/infrastructure/http/routes.ts:103 registerConfigurationRoutes`, `src/main.ts:65`
+    - Doble base: `/configurations/academic|security` + alias `/academic-configurations|/security-configurations`
+    - Filtros `?name=` y `?status=` exactos; paginación `?limit&offset` + `x-total-count`
+    - Caso: `personId*,biometricType FACIAL|FINGERPRINT,fingerNumber 1-10 (requerido si FINGERPRINT, NULL si FACIAL),currentEmbeddingRef?,reason*,requestedBy*,requestedAt*` → `{updateStatus:Pending}`; review `{updateStatus:In_Review|Approved|Rejected,reviewedBy?,resolutionNotes?}` + `reviewedAt`
+    - Gateway sin plugins propios (`kong.yml:94-103`); el MS no valida el bearer hoy (tech-debt).
+
+servers:
+  - url: http://localhost:8087
+    description: Direct (dev)
+  - url: http://localhost:8080
+    description: Via Kong gateway (dev, preferred)
+  - url: https://api.dev.{domain}
+    description: Development
+    variables:
+      domain:
+        default: example.com
+  - url: https://api.{domain}
+    description: Production
+    variables:
+      domain:
+        default: example.com
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: AcademicConfiguration
+  - name: SecurityConfiguration
+  - name: BiometricUpdateCase
+  - name: Health
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /api/v1/health:
+    get:
+      summary: Health versionado
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+
+  /api/v1/configurations/academic:
+    get:
+      summary: Listar configuraciones académicas (?name + paginación)
+      operationId: listAcademicConfigurations
+      tags: [AcademicConfiguration]
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista (+ x-total-count)
+          headers:
+            x-total-count:
+              $ref: './_shared.yaml#/components/headers/TotalCount'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AcademicConfiguration'
+    post:
+      summary: Crear configuración académica
+      operationId: createAcademicConfiguration
+      tags: [AcademicConfiguration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcademicConfigurationInput'
+      responses:
+        '201':
+          description: Configuración creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicConfiguration'
+
+  /api/v1/academic-configurations:
+    get:
+      summary: Alias listar configuraciones académicas
+      operationId: listAcademicConfigurationsAlias
+      tags: [AcademicConfiguration]
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista (+ x-total-count)
+          headers:
+            x-total-count:
+              $ref: './_shared.yaml#/components/headers/TotalCount'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AcademicConfiguration'
+    post:
+      summary: Alias crear configuración académica
+      operationId: createAcademicConfigurationAlias
+      tags: [AcademicConfiguration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcademicConfigurationInput'
+      responses:
+        '201':
+          description: Configuración creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicConfiguration'
+
+  /api/v1/configurations/academic/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Obtener configuración académica
+      operationId: getAcademicConfiguration
+      tags: [AcademicConfiguration]
+      responses:
+        '200':
+          description: Configuración encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicConfiguration'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar configuración académica
+      operationId: updateAcademicConfiguration
+      tags: [AcademicConfiguration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcademicConfigurationInput'
+      responses:
+        '200':
+          description: Configuración actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicConfiguration'
+    delete:
+      summary: Eliminar configuración académica
+      operationId: deleteAcademicConfiguration
+      tags: [AcademicConfiguration]
+      responses:
+        '204':
+          description: Eliminada
+
+  /api/v1/academic-configurations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Alias obtener configuración académica
+      operationId: getAcademicConfigurationAlias
+      tags: [AcademicConfiguration]
+      responses:
+        '200':
+          description: Configuración encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicConfiguration'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Alias actualizar configuración académica
+      operationId: updateAcademicConfigurationAlias
+      tags: [AcademicConfiguration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcademicConfigurationInput'
+      responses:
+        '200':
+          description: Configuración actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicConfiguration'
+    delete:
+      summary: Alias eliminar configuración académica
+      operationId: deleteAcademicConfigurationAlias
+      tags: [AcademicConfiguration]
+      responses:
+        '204':
+          description: Eliminada
+
+  /api/v1/configurations/security:
+    get:
+      summary: Listar configuraciones de seguridad
+      operationId: listSecurityConfigurations
+      tags: [SecurityConfiguration]
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista (+ x-total-count)
+          headers:
+            x-total-count:
+              $ref: './_shared.yaml#/components/headers/TotalCount'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SecurityConfiguration'
+    post:
+      summary: Crear configuración de seguridad
+      operationId: createSecurityConfiguration
+      tags: [SecurityConfiguration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityConfigurationInput'
+      responses:
+        '201':
+          description: Configuración creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityConfiguration'
+
+  /api/v1/security-configurations:
+    get:
+      summary: Alias listar configuraciones de seguridad
+      operationId: listSecurityConfigurationsAlias
+      tags: [SecurityConfiguration]
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista (+ x-total-count)
+          headers:
+            x-total-count:
+              $ref: './_shared.yaml#/components/headers/TotalCount'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SecurityConfiguration'
+    post:
+      summary: Alias crear configuración de seguridad
+      operationId: createSecurityConfigurationAlias
+      tags: [SecurityConfiguration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityConfigurationInput'
+      responses:
+        '201':
+          description: Configuración creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityConfiguration'
+
+  /api/v1/configurations/security/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Obtener configuración de seguridad
+      operationId: getSecurityConfiguration
+      tags: [SecurityConfiguration]
+      responses:
+        '200':
+          description: Configuración encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityConfiguration'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar configuración de seguridad
+      operationId: updateSecurityConfiguration
+      tags: [SecurityConfiguration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityConfigurationInput'
+      responses:
+        '200':
+          description: Configuración actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityConfiguration'
+    delete:
+      summary: Eliminar configuración de seguridad
+      operationId: deleteSecurityConfiguration
+      tags: [SecurityConfiguration]
+      responses:
+        '204':
+          description: Eliminada
+
+  /api/v1/schools/{schoolId}/configurations:
+    parameters:
+      - name: schoolId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Configuraciones académicas por escuela
+      operationId: listConfigurationsBySchool
+      tags: [AcademicConfiguration]
+      responses:
+        '200':
+          description: Configuraciones de la escuela
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AcademicConfiguration'
+
+  /api/v1/biometric-update-cases:
+    get:
+      summary: Listar casos (?status + paginación)
+      operationId: listBiometricUpdateCases
+      tags: [BiometricUpdateCase]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filtro exacto por updateStatus
+          schema:
+            type: string
+            enum: [Pending, In_Review, Approved, Rejected]
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista de casos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BiometricUpdateCase'
+    post:
+      summary: Solicitar actualización biométrica (canónico)
+      operationId: createBiometricUpdateCase
+      tags: [BiometricUpdateCase]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BiometricUpdateCaseInput'
+      responses:
+        '201':
+          description: Caso creado (Pending)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BiometricUpdateCase'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+
+  /api/v1/biometric-update-cases/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Obtener caso
+      operationId: getBiometricUpdateCase
+      tags: [BiometricUpdateCase]
+      responses:
+        '200':
+          description: Caso encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BiometricUpdateCase'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar caso (parcial)
+      operationId: updateBiometricUpdateCase
+      tags: [BiometricUpdateCase]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BiometricUpdateCaseInput'
+      responses:
+        '200':
+          description: Caso actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BiometricUpdateCase'
+    delete:
+      summary: Eliminar caso
+      operationId: deleteBiometricUpdateCase
+      tags: [BiometricUpdateCase]
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/biometric-update-cases/{id}/review:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      summary: Revisar caso
+      operationId: reviewBiometricUpdateCase
+      tags: [BiometricUpdateCase]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [updateStatus]
+              properties:
+                updateStatus:
+                  type: string
+                  enum: [In_Review, Approved, Rejected]
+                reviewedBy:
+                  type: string
+                  nullable: true
+                resolutionNotes:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Caso revisado (+ reviewedAt)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BiometricUpdateCase'
+
+  /api/v1/persons/{personId}/biometric-cases:
+    parameters:
+      - name: personId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Casos por persona
+      operationId: listBiometricCasesByPerson
+      tags: [BiometricUpdateCase]
+      responses:
+        '200':
+          description: Casos de la persona
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BiometricUpdateCase'
+
+components:
+  schemas:
+    AcademicConfiguration:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [configurationId, schoolId, configurationName, configurationValue]
+          properties:
+            configurationId:
+              type: string
+            schoolId:
+              type: string
+            configurationName:
+              type: string
+            configurationValue:
+              type: string
+            description:
+              type: string
+              nullable: true
+    AcademicConfigurationInput:
+      type: object
+      required: [schoolId, configurationName, configurationValue]
+      properties:
+        schoolId:
+          type: string
+        configurationName:
+          type: string
+        configurationValue:
+          type: string
+        description:
+          type: string
+          nullable: true
+    SecurityConfiguration:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [configurationId, configurationName, configurationValue]
+          properties:
+            configurationId:
+              type: string
+            configurationName:
+              type: string
+            configurationValue:
+              type: string
+            description:
+              type: string
+              nullable: true
+    SecurityConfigurationInput:
+      type: object
+      required: [configurationName, configurationValue]
+      properties:
+        configurationName:
+          type: string
+        configurationValue:
+          type: string
+        description:
+          type: string
+          nullable: true
+    BiometricUpdateCase:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [caseId, personId, biometricType, reason, updateStatus, requestedBy, requestedAt]
+          properties:
+            caseId:
+              type: string
+            personId:
+              type: string
+            biometricType:
+              type: string
+              enum: [FACIAL, FINGERPRINT]
+            fingerNumber:
+              type: integer
+              minimum: 1
+              maximum: 10
+              nullable: true
+              description: Required 1..10 if FINGERPRINT, NULL if FACIAL (chk_finger_number)
+            currentEmbeddingRef:
+              type: string
+              nullable: true
+              description: Logical Mongo _id, cross-paradigm, no FK
+            reason:
+              type: string
+            requestedBy:
+              type: string
+              description: Mandatory cross-context app_user id
+            updateStatus:
+              type: string
+              enum: [Pending, In_Review, Approved, Rejected]
+            requestedAt:
+              $ref: './_shared.yaml#/components/schemas/Timestamp'
+            reviewedBy:
+              type: string
+              nullable: true
+            reviewedAt:
+              $ref: './_shared.yaml#/components/schemas/Timestamp'
+              nullable: true
+            resolutionNotes:
+              type: string
+              nullable: true
+    BiometricUpdateCaseInput:
+      type: object
+      required: [personId, biometricType, reason, requestedBy]
+      properties:
+        personId:
+          type: string
+        biometricType:
+          type: string
+          enum: [FACIAL, FINGERPRINT]
+        fingerNumber:
+          type: integer
+          minimum: 1
+          maximum: 10
+          nullable: true
+          description: Required 1..10 if FINGERPRINT, NULL if FACIAL
+        currentEmbeddingRef:
+          type: string
+          nullable: true
+        reason:
+          type: string
+        requestedBy:
+          type: string
+          description: Mandatory cross-context app_user id
+  securitySchemes:
+    bearerAuth:
+      $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

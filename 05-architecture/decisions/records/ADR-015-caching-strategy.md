@@ -3,6 +3,7 @@
 - **ID:** ADR-015
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** **not implemented.** No service code imports a Redis client; the only Redis consumer in the stack is Kong's `rate-limiting` plugin (redis policy). Sessions are rows in `identity.user_session`, not Redis entries, and `ioredis` is not in any `package.json`.
 - **Authors:** FaceAttend EDU Team
 
 ---
@@ -47,7 +48,7 @@ Caching is relevant for:
 | Attendance records | Write-once, read-for-reports; freshness required; low read volume |
 | Biometric embeddings | Already in MongoDB with vector search index; caching adds complexity |
 | Audit events | Append-only; read is rare and time-range based |
-| Justification documents | Stored in MinIO (ADR-009); binary data不适合 Redis |
+| Justification documents | Stored in MinIO (ADR-009); binary data not suitable for Redis |
 
 ### Cache key naming convention
 

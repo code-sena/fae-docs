@@ -27,8 +27,7 @@
 | User credentials | PostgreSQL | Indefinite | N/A |
 | User sessions | PostgreSQL | 90 days (configurable) | N/A |
 | Profile images | S3 (object storage) | Duration of user account | 5 MB per image |
-| JWT tokens | Ephemeral (in-memory / Redis) | Token TTL (15 min access, 7 days refresh) | 4 KB per token |
-| Authentication sessions | Redis | Session TTL (configurable) | 1 KB per session |
+| Opaque session ids | PostgreSQL — row in `identity.user_session` (no JWT, no Redis session store) | Session TTL (configurable) | ~100 B per row |
 
 ### Authorization Service
 
@@ -146,7 +145,7 @@ s3://
 | 2 years | Error logs, Notification alerts |
 | 90 days | User sessions |
 | 30 days | Biometric review images after decision |
-| Token TTL | JWT tokens and auth sessions (minutes to days) |
+| Token TTL | Opaque session ids and auth sessions (minutes to days) |
 
 ---
 

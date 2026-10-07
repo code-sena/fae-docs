@@ -1,4 +1,4 @@
-﻿# Data Model — Identity Service
+# Data Model — Identity Service
 
 > This service is the authoritative owner of the school identity data for the institution.
 > No other service should read these records directly as the system of record.
@@ -112,14 +112,14 @@
 ## Modeling decisions
 
 - **Local ownership:** The Identity context owns `School`, `Person`, `User`, and `User_Session`.
-- **External references:** `User` is referenced by public IDs from Authorization and Audit contexts, not by a direct cross-context FK.
+- **External references:** `User` is referenced by public IDs from Authorization context, not by a direct cross-context FK.
 - **Academic independence:** The person is not considered to be the owner of academic profiles such as Student or Teacher.
 
 ---
 
 ## Schema migration
 
-**Tool:** Flyway
+**Tool:** Liquibase 4.29 (chained containers, ADR-010)
 **Script location:** src/migrations/
 **Naming convention:** V[NNN]__[description].sql
 

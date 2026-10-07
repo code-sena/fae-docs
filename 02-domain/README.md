@@ -7,7 +7,7 @@
 
 This section describes the domain model of the **FaceAttend EDU** project, understood as the business representation of the system. It defines the main concepts used by the educational institution to manage attendance, the entities involved in the process, the rules that must always be satisfied, and the events that occur during platform operation.
 
-FaceAttend EDU should not be understood solely as an application with screens, forms, or records. From a domain perspective, the system revolves around concepts such as person, user, role, permission, school, program, cohort, environment, schedule, class session, attendance record, facial embedding, fingerprint embedding, justification, alert, and audit log.
+FaceAttend EDU should not be understood solely as an application with screens, forms, or records. From a domain perspective, the system revolves around concepts such as person, user, role, permission, school, program, cohort, environment, schedule, class session, attendance record, facial embedding, fingerprint embedding, justification, and alert.
 
 The purpose of this section is to build a common language among the development team, the instructor, and project stakeholders so that everyone understands the business terms in the same way.
 
@@ -26,7 +26,7 @@ The domain section aims to:
 
 This section includes:
 
-- Domain map and bounded contexts (9 contexts aligned with the data model).
+- Domain map and bounded contexts (8 contexts aligned with the data model).
 - Business entities and their relationships.
 - Business rules and invariants.
 - Domain events and their side effects.
@@ -50,23 +50,26 @@ Example of the difference:
 | Approach | Question answered | Example |
 |---|---|---|
 | Domain | What does a cohort mean in the business? | A cohort represents a group of learners associated with a program, an academic period, and an instructor. |
-| Data | How is that cohort stored in persistence? | It is stored in the `cohort` table with `cohort_id`, `program_id`, `period_id`, `school_id`, and specific fields. |
+| Data | How is that cohort stored in persistence? | It is stored in the `cohort` table with `cohort_id`, `program_id`, `academic_period_id`, `code`, and audit fields (no direct `school_id`). |
 
 ## Bounded Contexts
 
-Based on the data model, the FaceAttend EDU domain is organized into the following 9 bounded contexts:
+Based on the SRS and Event Storming, the FaceAttend EDU domain is organized into the following 8 bounded contexts (Audit retired in v1.1 — see history below):
 
 | Context | Type | Main entities | Related requirements |
 |---|---|---|---|
-| Identity | Cross-cutting supporting | Person, App_User, City | RF 1, RNF 4 |
+| Identity | Cross-cutting supporting | Person, App_User (`City` deprecated — external API) | RF 1, RNF 4 |
 | Authorization | Cross-cutting supporting | Role, Permission, Role_Permission, User_Role | RF 1.1.1, RF 1.1.2, RF 4.6 |
 | Academic | Core | School, Program, Academic_Period, Cohort, Course, Academic_Actor, Enrollment | RF 2, RF 8 |
 | Scheduling | Core | Environment, Schedule_Block, Class_Session | RF 2.1, RF 2.3.2 |
-| Attendance | System core | Attendance_Record, Justification_Type, Justification, Supporting_Document | RF 3, RF 6 |
-| Biometric | Supporting (NoSQL) | Facial_Embedding, Fingerprint_Embedding | RF 3.1.1, RNF 4 |
+| Attendance | System core | Attendance_Record, Justification_Type, Justification, Supporting_Document, Attendance_Report (derived) | RF 3, RF 6 |
+| Biometric | Supporting (NoSQL + 1 SQL) | Facial_Embedding, Fingerprint_Embedding, Biometric_Update_Case (logical owner) | RF 3.1.1, RNF 4 |
 | Notification | Supporting | Alert_Type, Alert | RF 4.1 |
-| Audit | Supporting | Audit_Log, Error_Log | RF 5.2, RNF 4 |
-| Configuration | Cross-cutting supporting | Academic_Configuration, Security_Configuration, Biometric_Update_Case | RF 4 |
+| Configuration | Cross-cutting supporting | Academic_Configuration, Security_Configuration | RF 4 |
+
+> **History:** Audit (Audit_Log, Error_Log) was removed as DDD bounded context in `refactor/remove-audit-domain`. Traceability is now a cross-cutting infrastructure concern (Kafka event log + centralized logging), not a business aggregate. RN-30/31/37-41/44/45 retired.
+
+> **IoT:** `IoT_Device` / `Device_Assignment` (see `09-microservices/services/_future-iot-service`) is a *technical* supporting context for future hardware, excluded from the core business map. It integrates only via `attendance-service` when devices are present.
 
 > The **Identity** and **Authorization** contexts are cross-cutting because all other contexts depend on them to validate who the user is, which role they have, and which actions they may perform.
 
@@ -94,29 +97,16 @@ The information in this section is mainly based on the FaceAttend EDU Software R
 
 ## Key Domain Concepts
 
-The following important terms must remain consistent throughout this section:
+The following terms must remain consistent (see `01-context/glossary.md` as source of truth and `domain-map.md#ubiquitous-language` for business definitions):
 
-- Person.
-- App_User.
-- Role.
-- Permission.
-- School.
-- Program.
-- Academic_Period.
-- Cohort.
-- Course.
-- Academic_Actor.
-- Enrollment.
-- Environment.
-- Schedule_Block.
-- Class_Session.
-- Attendance_Record.
-- Justification.
-- Supporting_Document.
-- Facial_Embedding.
-- Fingerprint_Embedding.
-- Alert.
-- Audit_Log.
+- Person / App_User / Credentials / Session (`City` deprecated — external API).
+- Role / Permission / Role_Permission / User_Role (global roles, PK `(user_id, role_id)`).
+- School / Program / Academic_Period / Cohort / Course / Academic_Actor / Academic_Actor_Type / Enrollment.
+- Environment / Schedule_Block / Class_Session / Time_Block.
+- Attendance_Record / Justification_Type / Justification / Supporting_Document / Attendance_Report / Recording_Method (FACIAL/MANUAL/IOT/IMPORT).
+- Facial_Embedding / Fingerprint_Embedding / Biometric_Update_Case (logical owner Biometric).
+- Alert_Type (severity/channel) / Alert.
+- Academic_Configuration / Security_Configuration.
 
 ## Modeling Conventions
 

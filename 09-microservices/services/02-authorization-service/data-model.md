@@ -1,4 +1,4 @@
-﻿# Data Model — Authorization Service
+# Data Model — Authorization Service
 
 > This service is the authoritative owner of the authorization policy model.
 > It owns role and permission assignments but not the identity records themselves.
@@ -82,7 +82,7 @@
 
 ## Schema migration
 
-**Tool:** Flyway
+**Tool:** Liquibase 4.29 (chained containers, ADR-010)
 **Script location:** src/migrations/
 **Naming convention:** V[NNN]__[description].sql
 

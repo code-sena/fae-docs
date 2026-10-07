@@ -3,29 +3,30 @@ info:
   title: Authorization Service API
   version: 1.0.0
   description: |
-    Servicio de autorización: gestión de roles, permisos y asignación de roles a usuarios.
+    Servicio 02-ms-authorization (Java 21 Spring Boot 4.1 :8082, schema `authorization`).
+    RBAC: roles, permisos, asignación a usuarios y evaluación.
 
-    ## Autenticación
-    Todos los endpoints requieren un JWT válido en el header:
-    ```
-    Authorization: Bearer <token>
-    ```
-
-    ## Manejo de errores
-    Todos los errores siguen el esquema `ErrorResponse` definido en `_shared.yaml`.
-
-    ## Paginación
-    Los endpoints de lista soportan paginación via `?page=1&limit=20`.
+    ## Fuente real
+    - Controllers: `RoleController`, `PermissionController`, `UserRoleController`,
+      `HealthController`, `QualityHealthController`
+    - DTOs: `CreateRoleRequest{roleName*,description}`, `UpdateRoleRequest`,
+      `RoleResponse{roleId,roleName,description}`,
+      `CreatePermissionRequest{permissionName*,description}`, `UpdatePermissionRequest`,
+      `PermissionResponse{permissionId,permissionName,description}`,
+      `AssignRoleRequest{roleId}`, `AssignPermissionRequest{permissionId}`
+    - Gateway: `rate-limiting 100/min` (sin plugin jwt; el MS valida el bearer con `AuthTokenFilter`) (`kong.yml:31-49`).
 
 servers:
-  - url: http://localhost:8083
-    description: Local development
-  - url: https://api.dev.{domain}/api/v1/authorization
+  - url: http://localhost:8082
+    description: Direct (dev)
+  - url: http://localhost:8080
+    description: Via Kong gateway (dev, preferred)
+  - url: https://api.dev.{domain}
     description: Development
     variables:
       domain:
         default: example.com
-  - url: https://api.{domain}/api/v1/authorization
+  - url: https://api.{domain}
     description: Production
     variables:
       domain:
@@ -36,11 +37,11 @@ security:
 
 tags:
   - name: Role
-    description: Gestión de roles del sistema
+    description: Roles del sistema
   - name: Permission
-    description: Gestión de permisos
+    description: Permisos
   - name: UserRole
-    description: Asignación de roles a usuarios
+    description: Asignación usuario↔rol y evaluación RBAC
   - name: Health
     description: Estado del servicio
 
@@ -56,71 +57,48 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    enum: [ok]
-                  timestamp:
-                    type: string
-                    format: date-time
-                  dependencies:
-                    type: object
-                    properties:
-                      database:
-                        type: string
-                        enum: [ok, degraded, down]
-                      redis:
-                        type: string
-                        enum: [ok, degraded, down]
-              example:
-                status: ok
-                timestamp: '2024-01-15T10:30:00Z'
-                dependencies:
-                  database: ok
-                  redis: ok
-        '503':
-          description: Servicio no disponible
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /api/v1/health:
+    get:
+      summary: Health check versionado
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /health/quality:
+    get:
+      summary: Reporte de calidad ISO
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Reporte de calidad
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/QualityReport'
 
-  /roles:
+  /api/v1/roles:
     get:
       summary: Listar roles
       operationId: listRoles
       tags: [Role]
-      parameters:
-        - $ref: './_shared.yaml#/components/parameters/PageParam'
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
-        - name: name
-          in: query
-          description: Filtrar por nombre
-          schema:
-            type: string
-        - name: status
-          in: query
-          description: Filtrar por estado
-          schema:
-            type: string
-            enum: [ACTIVE, INACTIVE]
       responses:
         '200':
           description: Lista de roles
           content:
             application/json:
               schema:
-                type: object
-                required: [data, meta]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/RoleResponse'
-                  meta:
-                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
         '401':
           $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
-
     post:
       summary: Crear rol
       operationId: createRole
@@ -132,35 +110,21 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateRoleRequest'
             example:
-              name: "ADMIN"
-              description: "Administrador del sistema"
-              permissions: ["school:read", "school:write", "person:read", "person:write"]
+              roleName: INSTRUCTOR
+              description: Docente con carga académica
       responses:
         '201':
-          description: Rol creado exitosamente
+          description: Rol creado
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RoleResponse'
         '400':
           $ref: './_shared.yaml#/components/responses/BadRequest'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '403':
-          $ref: './_shared.yaml#/components/responses/Forbidden'
-        '409':
-          description: Ya existe un rol con ese nombre
-          content:
-            application/json:
-              schema:
-                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
 
-  /roles/{id}:
+  /api/v1/roles/{id}:
     parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-
+      - $ref: './_shared.yaml#/components/parameters/IntIdParam'
     get:
       summary: Obtener rol por ID
       operationId: getRoleById
@@ -172,14 +136,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RoleResponse'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
-
-    patch:
+    put:
       summary: Actualizar rol
       operationId: updateRole
       tags: [Role]
@@ -196,62 +155,86 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RoleResponse'
-        '400':
-          $ref: './_shared.yaml#/components/responses/BadRequest'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '403':
-          $ref: './_shared.yaml#/components/responses/Forbidden'
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
-
     delete:
       summary: Eliminar rol
       operationId: deleteRole
       tags: [Role]
       responses:
         '204':
-          description: Eliminado exitosamente
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '403':
-          $ref: './_shared.yaml#/components/responses/Forbidden'
+          description: Eliminado
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
 
-  /permissions:
+  /api/v1/roles/{roleId}/permissions:
+    parameters:
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      summary: Permisos de un rol
+      operationId: listRolePermissions
+      tags: [Role]
+      responses:
+        '200':
+          description: Permisos del rol
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionResponse'
+    post:
+      summary: Asignar permiso a rol
+      operationId: assignPermissionToRole
+      tags: [Role]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignPermissionRequest'
+      responses:
+        '201':
+          description: Permiso asignado
+
+  /api/v1/roles/{roleId}/permissions/{permId}:
+    parameters:
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: permId
+        in: path
+        required: true
+        schema:
+          type: integer
+    delete:
+      summary: Quitar permiso de rol
+      operationId: removePermissionFromRole
+      tags: [Role]
+      responses:
+        '204':
+          description: Permiso removido
+
+  /api/v1/permissions:
     get:
       summary: Listar permisos
       operationId: listPermissions
       tags: [Permission]
-      parameters:
-        - $ref: './_shared.yaml#/components/parameters/PageParam'
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
-        - name: resource
-          in: query
-          description: Filtrar por recurso (ej: school, person)
-          schema:
-            type: string
       responses:
         '200':
           description: Lista de permisos
           content:
             application/json:
               schema:
-                type: object
-                required: [data, meta]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/PermissionResponse'
-                  meta:
-                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
-
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionResponse'
     post:
       summary: Crear permiso
       operationId: createPermission
@@ -263,33 +246,19 @@ paths:
             schema:
               $ref: '#/components/schemas/CreatePermissionRequest'
             example:
-              resource: "school"
-              action: "read"
-              description: "Permite leer información de escuelas"
+              permissionName: attendance:write
+              description: Registrar asistencia
       responses:
         '201':
-          description: Permiso creado exitosamente
+          description: Permiso creado
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PermissionResponse'
-        '400':
-          $ref: './_shared.yaml#/components/responses/BadRequest'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '409':
-          description: Permiso ya existe
-          content:
-            application/json:
-              schema:
-                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
 
-  /permissions/{id}:
+  /api/v1/permissions/{id}:
     parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-
+      - $ref: './_shared.yaml#/components/parameters/IntIdParam'
     get:
       summary: Obtener permiso por ID
       operationId: getPermissionById
@@ -301,14 +270,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PermissionResponse'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
-
-    patch:
+    put:
       summary: Actualizar permiso
       operationId: updatePermission
       tags: [Permission]
@@ -325,65 +289,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PermissionResponse'
-        '400':
-          $ref: './_shared.yaml#/components/responses/BadRequest'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-
     delete:
       summary: Eliminar permiso
       operationId: deletePermission
       tags: [Permission]
       responses:
         '204':
-          description: Eliminado exitosamente
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
+          description: Eliminado
 
-  /user-roles:
+  /api/v1/users/{userId}/roles:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
     get:
-      summary: Listar asignaciones de roles
+      summary: Roles de un usuario
       operationId: listUserRoles
       tags: [UserRole]
-      parameters:
-        - $ref: './_shared.yaml#/components/parameters/PageParam'
-        - $ref: './_shared.yaml#/components/parameters/LimitParam'
-        - name: userId
-          in: query
-          description: Filtrar por ID de usuario
-          schema:
-            type: string
-            format: uuid
-        - name: roleId
-          in: query
-          description: Filtrar por ID de rol
-          schema:
-            type: string
-            format: uuid
       responses:
         '200':
-          description: Lista de asignaciones
+          description: Roles del usuario
           content:
             application/json:
               schema:
-                type: object
-                required: [data, meta]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/UserRoleResponse'
-                  meta:
-                    $ref: './_shared.yaml#/components/schemas/PaginatedMeta'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
-
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
     post:
       summary: Asignar rol a usuario
       operationId: assignRoleToUser
@@ -393,240 +326,140 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateUserRoleRequest'
-            example:
-              userId: "550e8400-e29b-41d4-a716-446655440000"
-              roleId: "660e8400-e29b-41d4-a716-446655440001"
-              schoolId: "770e8400-e29b-41d4-a716-446655440002"
+              $ref: '#/components/schemas/AssignRoleRequest'
       responses:
         '201':
-          description: Rol asignado exitosamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserRoleResponse'
-        '400':
-          $ref: './_shared.yaml#/components/responses/BadRequest'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '409':
-          description: El usuario ya tiene ese rol asignado
-          content:
-            application/json:
-              schema:
-                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
+          description: Rol asignado
 
-  /user-roles/{id}:
+  /api/v1/users/{userId}/roles/{roleId}:
     parameters:
-      - $ref: './_shared.yaml#/components/parameters/IdParam'
-
-    get:
-      summary: Obtener asignación por ID
-      operationId: getUserRoleById
-      tags: [UserRole]
-      responses:
-        '200':
-          description: Asignación encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserRoleResponse'
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
-        '500':
-          $ref: './_shared.yaml#/components/responses/InternalError'
-
+      - name: userId
+        in: path
+        required: true
+        schema:
+          $ref: './_shared.yaml#/components/schemas/UUID'
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: integer
     delete:
-      summary: Revocar rol de usuario
-      operationId: revokeRoleFromUser
+      summary: Quitar rol a usuario
+      operationId: removeRoleFromUser
       tags: [UserRole]
       responses:
         '204':
-          description: Rol revocado exitosamente
-        '401':
-          $ref: './_shared.yaml#/components/responses/Unauthorized'
-        '404':
-          $ref: './_shared.yaml#/components/responses/NotFound'
+          description: Rol removido
+
+  /api/v1/auth/evaluate:
+    get:
+      summary: Evaluar permiso (RBAC check)
+      operationId: evaluatePermission
+      tags: [UserRole]
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            $ref: './_shared.yaml#/components/schemas/UUID'
+        - name: permission
+          in: query
+          required: true
+          schema:
+            type: string
+            example: attendance:write
+      responses:
+        '200':
+          description: Resultado de evaluación
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userId, permission, allowed]
+                properties:
+                  userId:
+                    $ref: './_shared.yaml#/components/schemas/UUID'
+                  permission:
+                    type: string
+                  allowed:
+                    type: boolean
 
 components:
   schemas:
-    # ─── Role ───────────────────────────────────────────────────────────
     CreateRoleRequest:
       type: object
-      required: [name, description]
+      required: [roleName]
       properties:
-        name:
+        roleName:
           type: string
-          minLength: 1
-          maxLength: 50
-          description: Nombre único del rol
-          example: "ADMIN"
+          maxLength: 255
+          example: INSTRUCTOR
         description:
           type: string
-          minLength: 1
-          maxLength: 255
-          description: Descripción del rol
-          example: "Administrador del sistema"
-        permissions:
-          type: array
-          description: Lista de permisos a asignar (formato "recurso:acción")
-          items:
-            type: string
-          example: ["school:read", "school:write"]
-
+          maxLength: 500
+          nullable: true
     UpdateRoleRequest:
       type: object
       properties:
-        name:
+        roleName:
           type: string
-          minLength: 1
-          maxLength: 50
         description:
           type: string
-          minLength: 1
-          maxLength: 255
-        permissions:
-          type: array
-          items:
-            type: string
-        status:
-          type: string
-          enum: [ACTIVE, INACTIVE]
-
+          nullable: true
     RoleResponse:
-      allOf:
-        - $ref: './_shared.yaml#/components/schemas/AuditFields'
-        - type: object
-          required: [id, name, description, status]
-          properties:
-            id:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            name:
-              type: string
-              example: "ADMIN"
-            description:
-              type: string
-              example: "Administrador del sistema"
-            permissions:
-              type: array
-              items:
-                type: string
-              example: ["school:read", "school:write"]
-            status:
-              type: string
-              enum: [ACTIVE, INACTIVE]
-              example: ACTIVE
-
-    # ─── Permission ─────────────────────────────────────────────────────
+      type: object
+      required: [roleId, roleName]
+      properties:
+        roleId:
+          type: integer
+          example: 3
+        roleName:
+          type: string
+          example: INSTRUCTOR
+        description:
+          type: string
+          nullable: true
     CreatePermissionRequest:
       type: object
-      required: [resource, action, description]
+      required: [permissionName]
       properties:
-        resource:
+        permissionName:
           type: string
-          minLength: 1
-          maxLength: 50
-          description: Recurso al que aplica el permiso
-          example: "school"
-        action:
-          type: string
-          enum: [read, write, delete, manage]
-          description: Acción permitida
-          example: "read"
+          example: attendance:write
         description:
           type: string
-          minLength: 1
-          maxLength: 255
-          description: Descripción del permiso
-          example: "Permite leer información de escuelas"
-
+          nullable: true
     UpdatePermissionRequest:
       type: object
       properties:
+        permissionName:
+          type: string
         description:
           type: string
-          minLength: 1
-          maxLength: 255
-
+          nullable: true
     PermissionResponse:
-      allOf:
-        - $ref: './_shared.yaml#/components/schemas/AuditFields'
-        - type: object
-          required: [id, resource, action, description, status]
-          properties:
-            id:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            resource:
-              type: string
-              example: "school"
-            action:
-              type: string
-              enum: [read, write, delete, manage]
-              example: "read"
-            description:
-              type: string
-              example: "Permite leer información de escuelas"
-            status:
-              type: string
-              enum: [ACTIVE, INACTIVE]
-              example: ACTIVE
-
-    # ─── UserRole ───────────────────────────────────────────────────────
-    CreateUserRoleRequest:
       type: object
-      required: [userId, roleId]
+      required: [permissionId, permissionName]
       properties:
-        userId:
+        permissionId:
+          type: integer
+        permissionName:
           type: string
-          format: uuid
-          description: ID del usuario
-          example: "550e8400-e29b-41d4-a716-446655440000"
+        description:
+          type: string
+          nullable: true
+    AssignRoleRequest:
+      type: object
+      required: [roleId]
+      properties:
         roleId:
-          type: string
-          format: uuid
-          description: ID del rol a asignar
-          example: "660e8400-e29b-41d4-a716-446655440001"
-        schoolId:
-          type: string
-          format: uuid
-          nullable: true
-          description: ID de la escuela (opcional, para roles contextuales)
-          example: "770e8400-e29b-41d4-a716-446655440002"
-        expiresAt:
-          type: string
-          format: date-time
-          nullable: true
-          description: Fecha de expiración de la asignación (opcional)
-
-    UserRoleResponse:
-      allOf:
-        - $ref: './_shared.yaml#/components/schemas/AuditFields'
-        - type: object
-          required: [id, userId, roleId, status]
-          properties:
-            id:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            userId:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            roleId:
-              $ref: './_shared.yaml#/components/schemas/UUID'
-            schoolId:
-              type: string
-              format: uuid
-              nullable: true
-            expiresAt:
-              type: string
-              format: date-time
-              nullable: true
-            status:
-              type: string
-              enum: [ACTIVE, INACTIVE, EXPIRED]
-              example: ACTIVE
-
+          type: integer
+    AssignPermissionRequest:
+      type: object
+      required: [permissionId]
+      properties:
+        permissionId:
+          type: integer
   securitySchemes:
     bearerAuth:
       $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

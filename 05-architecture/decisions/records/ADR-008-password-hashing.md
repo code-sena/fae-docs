@@ -3,6 +3,7 @@
 - **ID:** ADR-008
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** implemented exactly as decided — `SecurityConfig` returns `new BCryptPasswordEncoder(BCryptVersion.$2B, 12)` and comments reference this ADR. The stale `APP_AUTH_BCRYPT_ROUNDS=10` mentioned in the Context no longer exists in `.env.example`.
 - **Authors:** FaceAttend EDU Team
 
 ---
@@ -85,7 +86,7 @@ This decision affects:
 | Risk | Probability | Impact | Mitigation |
 |------|------------|--------|-----------|
 | Cost factor too high causes login latency | Low | Medium | Cost 12 adds ~250ms to login — within NFR-001 P95 target for auth endpoints; can reduce to 11 if needed |
-| Cost factor too low allows brute-force | Low | High | Cost 12 is above OWASP minimum; monitor failed login rates via audit-service |
+| Cost factor too low allows brute-force | Low | High | Cost 12 is above OWASP minimum; monitor failed login rates via centralized logging |
 | Future quantum computing threats | Very Low | High | Not addressable by choice of hash algorithm; out of current scope |
 
 ---

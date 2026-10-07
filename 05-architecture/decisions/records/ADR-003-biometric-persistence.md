@@ -3,6 +3,7 @@
 - **ID:** ADR-003
 - **Date:** 2026-09-03
 - **Status:** Proposed
+- **Implementation note (2026-10-05, verified against `FULL/`):** implemented as decided — embeddings live in MongoDB (`facial_embedding`, `fingerprint_embedding`, `faceattend_biometric`), and `configuration.biometric_update_case` is created by `database/07-ms-configuration-db` (physical hosting in the `configuration` schema is documented debt, per `AGENTS.md` §4.6). Job `06-ms-biometric-db` also creates a `biometric` schema.
 - **Authors:** [Diego Andrés Gutiérrez Nuñez, Juan David Arboleda Perdomo, Jonattan Steven Rizo Solano]
 
 ---
@@ -15,17 +16,18 @@ that this ADR must resolve before implementation begins.
 
 The comment block above the `Biometric` group in the system's relational data model states:
 
-> "NOTA: este contexto se persiste en NoSQL (ej. MongoDB), no en una base relacional. Las
-> tablas de abajo son una representación lógica/documental de las colecciones... DBML no
-> modela nativamente esquemas de documentos, así que aquí NO se asumen FKs reales entre
-> colecciones."
+> "NOTE: this context persists in NoSQL (e.g. MongoDB), not in a relational DB. The
+> tables below are a logical/documentary representation of the collections... DBML does not
+> natively model document schemas, so here NO real FKs are assumed between
+> collections."
+> (Translated from the original Spanish data-model note.)
 
 Yet the same tables (`Facial_Embedding`, `Fingerprint_Embedding`) declare their core column
 with the type `vector`:
 
 ```
 embedding vector [not null]
-template  vector [not null, note: 'Plantilla/template biometrico de la huella']
+template  vector [not null, note: 'Biometric fingerprint template']
 ```
 
 `vector` is not a generic or document-database type — it is specifically the column type
@@ -56,10 +58,9 @@ attendance).
 
 ## Decision
 
-**We decided:** The `Biometric` bounded context is persisted in an **external NoSQL document
-store (MongoDB)**, separate from the main PostgreSQL instance. The `Facial_Embedding`,
-`Fingerprint_Embedding`, and `Facial_Update_Case` collections reside in a dedicated MongoDB
-database with vector search indexing enabled for similarity queries on embedding vectors.
+**We decided:** The `Biometric` bounded context uses **MongoDB 7 for embeddings plus one SQL workflow table**. The `facial_embeddings` and
+`fingerprint_embeddings` collections reside in a dedicated MongoDB
+database with vector search indexing enabled for similarity queries on embedding vectors. The `biometric_update_case` workflow table is logically owned by Biometric and physically hosted in the `configuration` schema (DBML v7).
 
 **Justification:** Biometric data (facial embeddings, fingerprint templates) has fundamentally
 different storage and query patterns than relational data. Document databases naturally
@@ -68,8 +69,8 @@ capabilities provide native similarity search (cosine similarity, euclidean dist
 dedicated vector indexing (HNSW) that is purpose-built for high-dimensional vector workloads.
 This approach:
 
-- Aligns with the original data model documentation that explicitly states "este contexto se
-  persiste en NoSQL (ej. MongoDB)"
+- Aligns with the original data model documentation that explicitly states "this context
+  persists in NoSQL (e.g. MongoDB)"
 - Provides better performance characteristics for vector similarity search at scale compared to
   pgvector, which requires manual tuning of index parameters (ivfflat/hnsw)
 - Follows the established precedent in this project: Redis is already an accepted exception for
@@ -87,7 +88,7 @@ monitor. However, the operational cost is justified by:
    data dependencies
 
 The data model's comment block for `Biometric` remains consistent with this decision — it
-already states "este contexto se persiste en NoSQL (ej. MongoDB)". The `vector` column types
+already states "this context persists in NoSQL (e.g. MongoDB)". The `vector` column types
 in the DBML model are conceptual representations; the actual MongoDB implementation will use
 `array` fields for embedding vectors with a vector search index.
 
@@ -128,10 +129,10 @@ in the DBML model are conceptual representations; the actual MongoDB implementat
   for the Biometric context because embedding data is read-heavy and write-once.
 
 **Impact on the system:**
-- Affected services: `Biometric` module only (`Facial_Embedding`, `Fingerprint_Embedding`,
-  `Facial_Update_Case`).
+- Affected services: `Biometric` module only (`facial_embeddings`, `fingerprint_embeddings`,
+  `biometric_update_case` SQL hosted in `configuration`).
 - Documents that must be updated:
-  - `09-microservices/services/05-biometric-service/data-model.md` — document the MongoDB
+  - `09-microservices/services/06-biometric-service/data-model.md` — document the MongoDB
     database, collections, and vector search index configuration.
   - `09-microservices/service-catalog.md` — ensure biometric-service correctly reflects
     MongoDB as its data store.

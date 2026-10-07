@@ -15,67 +15,21 @@ Without this, each team member works with different assumptions and the project 
 
 ---
 
-## What is here and how to fill it in
+## What is here and current fill status (v1.1)
 
-### `overview.md` ⭐
-Executive description of the system in maximum 1 page.
-**Fill in:** system name, problem it solves, main users, key technologies,
-current status (under construction / in production / legacy).
+| File | Status | Summary |
+|---|--------|---------|
+| `overview.md` | ✅ Complete | FaceAttend EDU definition, institutional context SENA, 8 bounded contexts, technology stack (PG/Mongo/Redis/Kong/Kafka-ready), status Under construction MVP |
+| `scope.md` | ✅ Complete | In Scope MVP mapped to RF 1-8, Out of Scope (IoT future, Audit retired, payroll/grading), Assumptions/Constraints with Law 1581 |
+| `glossary.md` | ✅ Complete | 25+ domain terms + 7 technical terms + acronyms; source of truth for ubiquitous language |
 
-**Suggested format:**
-```markdown
-## What is [System Name]?
-[2-3 sentences: what it is and what it's for]
+> **No placeholders remain.** All `01-context` docs were completed in `docs/improve-00-01-context-governance` to address evaluation “no muy bien hechas”.
 
-## Problem it solves
-[The user's pain before this system]
+## File purposes (for reference)
 
-## Main users
-- [Role 1]: [what they do in the system]
-- [Role 2]: [what they do in the system]
-
-## Technology stack
-- Backend: [language/framework]
-- Database: [engine]
-- Infrastructure: [Docker/K8s/Cloud]
-```
-
-### `scope.md` ⭐
-System boundaries: what it does and what it does NOT do.
-**Fill in:** explicit list of what is INSIDE and OUTSIDE the MVP scope and future versions.
-This prevents scope creep (the system that grows without control).
-
-**Format:**
-```markdown
-## In scope (MVP)
-- [Feature 1]
-- [Feature 2]
-
-## Out of scope (MVP)
-- [What we deliberately do NOT do]
-
-## Candidates for future versions
-- [What might come later]
-```
-
-### `glossary.md` ⭐
-Dictionary of the project domain.
-**Fill in:** all technical and business terms used in the project, with their exact definition.
-If two people define "client" differently, the system will have bugs.
-
-**Format:**
-```markdown
-| Term | Definition | Synonyms | Notes |
-|------|-----------|----------|-------|
-| [Term] | [Precise definition in the context of this system] | [if any] | [if applicable] |
-```
-
-### `_template-project-profile.md`
-Project technical sheet for internal records.
-**Fill in:** when the project is formalized (official name, tech lead, dates, stakeholders).
-
-### `_template-scope-declaration.md`
-Formal scope declaration template for presentations or deliverables.
+- `overview.md` — Executive 1-page: What is FaceAttend EDU, problem, users, technology stack, status.
+- `scope.md` — Boundaries: In Scope MVP vs Out of Scope vs Future candidates; Assumptions/Constraints.
+- `glossary.md` — Dictionary: domain + technical terms + acronyms; source of truth for `02-domain` ubiquitous language.
 
 ---
 

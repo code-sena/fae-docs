@@ -1,0 +1,365 @@
+openapi: 3.0.3
+info:
+  title: Notification Service API
+  version: 1.0.0
+  description: |
+    Servicio 08-ms-notification (Go 1.22 Gin + pgx :8088, schema `notification`).
+    Tipos de alerta y alertas sobre `academic_actor`.
+
+    ## Fuente real
+    - Handlers: `alert_handler.go`, `alert_type_handler.go`, `quality_middleware.go`, `cmd/server/main.go:55-101`
+    - Dominio: `Alert{alert_id,academic_actor_id,alert_type_id,raised_at,resolved_at?,created_at,updated_at?,row_version}`,
+      `AlertType{alert_type_id,code,name,severity,channel,…}`
+    - Comandos: `CreateAlertCommand{academic_actor_id*,alert_type_id*}`,
+      `CreateAlertTypeCommand{code*,name*,severity*,channel?}`, `UpdateAlertTypeCommand{code?,name?,severity?,channel?}`
+    - Filtros: `?actorId&?typeId&?resolved|?status=open|resolved|pending`; `?limit&offset` (types default 50/0)
+    - Envelopes: `{alerts:[]}`, `{alert_types:[]}`; errores `{error:string}` (`ErrValidation→400,ErrNotFound→404,ErrDuplicate→409`)
+    - Seeds: `ABSENCE_THRESHOLD,SCHEDULE_CONFLICT`. `notification-preferences` documentado en SERVICE.md NO existe.
+    - Gateway sin plugins propios (`kong.yml:104-110`); el MS no valida el bearer hoy (tech-debt).
+
+servers:
+  - url: http://localhost:8088
+    description: Direct (dev)
+  - url: http://localhost:8080
+    description: Via Kong gateway (dev, preferred)
+  - url: https://api.dev.{domain}
+    description: Development
+    variables:
+      domain:
+        default: example.com
+  - url: https://api.{domain}
+    description: Production
+    variables:
+      domain:
+        default: example.com
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Alert
+  - name: AlertType
+  - name: Health
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /api/v1/health:
+    get:
+      summary: Health versionado
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /health/quality:
+    get:
+      summary: Reporte de calidad
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Reporte
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/QualityReport'
+
+  /api/v1/alerts:
+    get:
+      summary: Listar alertas (filtros actor/tipo/estado + paginación)
+      operationId: listAlerts
+      tags: [Alert]
+      parameters:
+        - name: actorId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: typeId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: resolved
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: status
+          in: query
+          required: false
+          description: Alias open|pending|resolved
+          schema:
+            type: string
+            enum: [open, pending, resolved]
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista de alertas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [alerts]
+                properties:
+                  alerts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alert'
+    post:
+      summary: Crear alerta manual
+      operationId: createAlert
+      tags: [Alert]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAlertCommand'
+            example:
+              academic_actor_id: 77
+              alert_type_id: 1
+      responses:
+        '201':
+          description: Alerta creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+
+  /api/v1/alerts/{id}:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    get:
+      summary: Obtener alerta
+      operationId: getAlert
+      tags: [Alert]
+      responses:
+        '200':
+          description: Alerta encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    delete:
+      summary: Eliminar alerta
+      operationId: deleteAlert
+      tags: [Alert]
+      responses:
+        '204':
+          description: Eliminada
+
+  /api/v1/alerts/{id}/resolve:
+    parameters:
+      - $ref: './_shared.yaml#/components/parameters/LongIdParam'
+    patch:
+      summary: Resolver alerta (set resolved_at)
+      operationId: resolveAlert
+      tags: [Alert]
+      responses:
+        '200':
+          description: Alerta resuelta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/alert-types:
+    get:
+      summary: Listar tipos de alerta
+      operationId: listAlertTypes
+      tags: [AlertType]
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+        - $ref: './_shared.yaml#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Lista de tipos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [alert_types]
+                properties:
+                  alert_types:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AlertType'
+    post:
+      summary: Crear tipo de alerta
+      operationId: createAlertType
+      tags: [AlertType]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAlertTypeCommand'
+            example:
+              code: ABSENCE_THRESHOLD
+              name: Umbral de ausencias
+              severity: WARNING
+              channel: DASHBOARD
+      responses:
+        '201':
+          description: Tipo creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertType'
+
+  /api/v1/alert-types/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      summary: Obtener tipo de alerta
+      operationId: getAlertType
+      tags: [AlertType]
+      responses:
+        '200':
+          description: Tipo encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertType'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    put:
+      summary: Actualizar tipo de alerta
+      operationId: updateAlertType
+      tags: [AlertType]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAlertTypeCommand'
+      responses:
+        '200':
+          description: Tipo actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertType'
+    delete:
+      summary: Eliminar tipo de alerta
+      operationId: deleteAlertType
+      tags: [AlertType]
+      responses:
+        '204':
+          description: Eliminado
+
+components:
+  schemas:
+    Alert:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [alert_id, academic_actor_id, alert_type_id, raised_at]
+          properties:
+            alert_id:
+              type: integer
+              format: int64
+            academic_actor_id:
+              type: integer
+              format: int64
+              description: Cross-context academic_actor id, no FK
+            alert_type_id:
+              type: integer
+            raised_at:
+              $ref: './_shared.yaml#/components/schemas/Timestamp'
+            resolved_at:
+              $ref: './_shared.yaml#/components/schemas/Timestamp'
+              nullable: true
+    CreateAlertCommand:
+      type: object
+      required: [academic_actor_id, alert_type_id]
+      properties:
+        academic_actor_id:
+          type: integer
+          format: int64
+        alert_type_id:
+          type: integer
+    AlertType:
+      allOf:
+        - $ref: './_shared.yaml#/components/schemas/AuditFields'
+        - type: object
+          required: [alert_type_id, code, name, severity, channel]
+          properties:
+            alert_type_id:
+              type: integer
+            code:
+              type: string
+              example: ABSENCE_THRESHOLD
+            name:
+              type: string
+            severity:
+              type: string
+              enum: [INFO, WARNING, CRITICAL]
+              example: WARNING
+            channel:
+              type: string
+              enum: [DASHBOARD, EMAIL, PUSH]
+              example: DASHBOARD
+    CreateAlertTypeCommand:
+      type: object
+      required: [code, name, severity]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        severity:
+          type: string
+          enum: [INFO, WARNING, CRITICAL]
+        channel:
+          type: string
+          enum: [DASHBOARD, EMAIL, PUSH]
+          default: DASHBOARD
+    UpdateAlertTypeCommand:
+      type: object
+      properties:
+        code:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        severity:
+          type: string
+          enum: [INFO, WARNING, CRITICAL]
+          nullable: true
+        channel:
+          type: string
+          enum: [DASHBOARD, EMAIL, PUSH]
+          nullable: true
+  securitySchemes:
+    bearerAuth:
+      $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

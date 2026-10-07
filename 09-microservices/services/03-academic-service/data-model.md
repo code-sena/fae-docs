@@ -1,4 +1,4 @@
-﻿# Data Model — Academic Service
+# Data Model — Academic Service
 
 > This service is the authoritative owner of academic structure and school operations.
 > The academic context maintains the canonical data for the institution's learning model.
@@ -181,7 +181,7 @@
 
 ## Schema migration
 
-**Tool:** Flyway
+**Tool:** Liquibase 4.29 (chained containers, ADR-010)
 **Script location:** src/migrations/
 **Naming convention:** V[NNN]__[description].sql
 

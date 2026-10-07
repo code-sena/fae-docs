@@ -1,0 +1,33 @@
+stateDiagram-v2
+    direction LR
+
+    [*] --> Pending : POST /biometric-update-cases — updateStatus forced to "Pending", requestedAt = now
+
+    Pending --> In_Review : PATCH .../review {status: In_Review}
+    Pending --> Approved : PATCH .../review {status: Approved} — accepted, no ordering guard
+    Pending --> Rejected : PATCH .../review {status: Rejected} — accepted, no ordering guard
+
+    In_Review --> Approved : PATCH .../review {status: Approved}
+    In_Review --> Rejected : PATCH .../review {status: Rejected}
+
+    Approved --> In_Review : PATCH .../review — accepted, the current state is never checked
+    Rejected --> Approved : PATCH .../review — accepted, the current state is never checked
+
+    note right of Pending
+        The review endpoint only validates the target value against
+        In_Review|Approved|Rejected (zod enum / regex); it never reads
+        the current update_status, so any transition above is possible.
+        FINGERPRINT cases additionally require fingerNumber (400 otherwise).
+    end note
+
+    note right of Approved
+        Two stores with the same API shape:
+        - configuration (canonical): MemoryStore, soft delete sets deletedAt
+        - biometric mirror: MongoDB biometric_update_cases, sets
+          is_active=false + deleted_at, never removes the document
+    end note
+
+    Pending --> [*] : DELETE (soft delete: deletedAt / is_active=false)
+    In_Review --> [*] : DELETE (soft delete)
+    Approved --> [*] : DELETE (soft delete)
+    Rejected --> [*] : DELETE (soft delete)

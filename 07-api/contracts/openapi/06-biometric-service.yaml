@@ -1,0 +1,575 @@
+openapi: 3.0.3
+info:
+  title: Biometric Service API
+  version: 1.0.0
+  description: |
+    Servicio 06-ms-biometric (Python 3.12 FastAPI + Motor :8086, MongoDB).
+    Embeddings faciales y dactilares + solicitudes espejo de actualización.
+    Dueño lógico de `biometric_update_case` (DBML v7); el caso canónico vive
+    hoy en `07-configuration/biometric-update-cases` como hospedaje físico
+    transitorio pendiente de migración.
+
+    ## Fuente real
+    - Routers: `facial_router.py`, `fingerprint_router.py`, `update_router.py`, `main.py:82-84,106-110`
+    - Umbral `SIMILARITY_THRESHOLD=0.85` (cosine). Store `EmbeddingStore{_id,is_active,enrolled_at,…}`
+    - Sin paginación. Errores `{error:NotFound|BadRequest|InternalError,message,path,timestamp}` + `422 Invalid biometric payload` + headers `x-request-id,x-process-time-ms`.
+    - Gateway sin plugins propios para `/api/v1/biometric` (`kong.yml:87-93`); el MS no valida el bearer hoy (tech-debt).
+
+servers:
+  - url: http://localhost:8086
+    description: Direct (dev)
+  - url: http://localhost:8080
+    description: Via Kong gateway (dev, preferred)
+  - url: https://api.dev.{domain}
+    description: Development
+    variables:
+      domain:
+        default: example.com
+  - url: https://api.{domain}
+    description: Production
+    variables:
+      domain:
+        default: example.com
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Facial
+  - name: Fingerprint
+  - name: UpdateRequest
+  - name: Health
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+  /api/v1/health:
+    get:
+      summary: Health versionado
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/HealthResponse'
+
+  /api/v1/biometric/facial/enroll:
+    post:
+      summary: Enrolar rostro (desactiva previos)
+      operationId: enrollFacial
+      tags: [Facial]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollFacialRequest'
+      responses:
+        '201':
+          description: Template enrolado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacialTemplate'
+        '422':
+          $ref: './_shared.yaml#/components/responses/Unprocessable'
+
+  /api/v1/biometric/facial/{person_id}:
+    parameters:
+      - name: person_id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Template facial activo
+      operationId: getFacialTemplate
+      tags: [Facial]
+      responses:
+        '200':
+          description: Template activo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacialTemplate'
+        '404':
+          description: Sin template activo
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+    delete:
+      summary: Desactivar template facial
+      operationId: deleteFacialTemplate
+      tags: [Facial]
+      responses:
+        '204':
+          description: Desactivado
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/biometric/facial/{person_id}/history:
+    parameters:
+      - name: person_id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Historial de versiones faciales
+      operationId: listFacialHistory
+      tags: [Facial]
+      responses:
+        '200':
+          description: Historial
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  history:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FacialTemplate'
+
+  /api/v1/biometric/facial/verify:
+    post:
+      summary: Verificación 1:1 facial
+      operationId: verifyFacial
+      tags: [Facial]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyFacialRequest'
+      responses:
+        '200':
+          description: Resultado (match = score>=0.85)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyResult'
+
+  /api/v1/biometric/facial/identify:
+    post:
+      summary: Identificación 1:N facial
+      operationId: identifyFacial
+      tags: [Facial]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentifyFacialRequest'
+      responses:
+        '200':
+          description: Mejor coincidencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentifyResult'
+        '404':
+          description: Sin coincidencia
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+
+  /api/v1/biometric/fingerprint/enroll:
+    post:
+      summary: Enrolar huella
+      operationId: enrollFingerprint
+      tags: [Fingerprint]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollFingerprintRequest'
+      responses:
+        '201':
+          description: Template enrolado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FingerprintTemplate'
+
+  /api/v1/biometric/fingerprint/{person_id}:
+    parameters:
+      - name: person_id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Templates activos de la persona
+      operationId: listFingerprintTemplates
+      tags: [Fingerprint]
+      responses:
+        '200':
+          description: Templates activos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FingerprintTemplate'
+
+  /api/v1/biometric/fingerprint/{person_id}/{finger}:
+    parameters:
+      - name: person_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: finger
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 10
+    get:
+      summary: Template de un dedo
+      operationId: getFingerprintTemplate
+      tags: [Fingerprint]
+      responses:
+        '200':
+          description: Template encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FingerprintTemplate'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+    delete:
+      summary: Desactivar huella
+      operationId: deleteFingerprintTemplate
+      tags: [Fingerprint]
+      responses:
+        '204':
+          description: Desactivada
+
+  /api/v1/biometric/fingerprint/verify:
+    post:
+      summary: Verificación 1:1 dactilar
+      operationId: verifyFingerprint
+      tags: [Fingerprint]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyFingerprintRequest'
+      responses:
+        '200':
+          description: Resultado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyResult'
+
+  /api/v1/biometric/fingerprint/identify:
+    post:
+      summary: Identificación 1:N dactilar (filtro opcional por dedo)
+      operationId: identifyFingerprint
+      tags: [Fingerprint]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentifyFingerprintRequest'
+      responses:
+        '200':
+          description: Mejor coincidencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentifyFingerprintResult'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /api/v1/biometric/update-request:
+    post:
+      summary: Solicitar actualización biométrica (espejo; canónico en 07)
+      operationId: createBiometricUpdateRequest
+      tags: [UpdateRequest]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRequestIn'
+      responses:
+        '201':
+          description: Solicitud creada (Pending)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateRequestOut'
+
+  /api/v1/biometric/update-requests/{person_id}:
+    parameters:
+      - name: person_id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Solicitudes por persona
+      operationId: listBiometricUpdateRequests
+      tags: [UpdateRequest]
+      responses:
+        '200':
+          description: Solicitudes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UpdateRequestOut'
+
+  /api/v1/biometric/update-request/{request_id}/review:
+    parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      summary: Revisar solicitud
+      operationId: reviewBiometricUpdateRequest
+      tags: [UpdateRequest]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [Approved, Rejected, In_Review]
+      responses:
+        '200':
+          description: Solicitud revisada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateRequestOut'
+
+  /api/v1/biometric/update-request/{request_id}:
+    parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      summary: Eliminar solicitud
+      operationId: deleteBiometricUpdateRequest
+      tags: [UpdateRequest]
+      responses:
+        '204':
+          description: Eliminada
+
+components:
+  schemas:
+    EnrollFacialRequest:
+      type: object
+      required: [person_id, encoding]
+      properties:
+        person_id:
+          type: string
+        encoding:
+          type: array
+          items:
+            type: number
+        model_version:
+          type: string
+          default: facenet-v1
+    VerifyFacialRequest:
+      type: object
+      required: [person_id, encoding]
+      properties:
+        person_id:
+          type: string
+        encoding:
+          type: array
+          items:
+            type: number
+    IdentifyFacialRequest:
+      type: object
+      required: [encoding]
+      properties:
+        encoding:
+          type: array
+          items:
+            type: number
+    FacialTemplate:
+      type: object
+      properties:
+        _id:
+          type: string
+        person_id:
+          type: string
+        encoding:
+          type: array
+          items:
+            type: number
+        model_version:
+          type: string
+        is_active:
+          type: boolean
+        enrolled_at:
+          $ref: './_shared.yaml#/components/schemas/Timestamp'
+    VerifyResult:
+      type: object
+      required: [match, score]
+      properties:
+        match:
+          type: boolean
+        score:
+          type: number
+          example: 0.93
+    IdentifyResult:
+      type: object
+      required: [person_id, score]
+      properties:
+        person_id:
+          type: string
+        score:
+          type: number
+    EnrollFingerprintRequest:
+      type: object
+      required: [person_id, finger_number, encoding]
+      properties:
+        person_id:
+          type: string
+        finger_number:
+          type: integer
+          minimum: 1
+          maximum: 10
+        encoding:
+          type: array
+          items:
+            type: number
+        model_version:
+          type: string
+          default: fingerprint-v1
+    VerifyFingerprintRequest:
+      type: object
+      required: [person_id, finger_number, encoding]
+      properties:
+        person_id:
+          type: string
+        finger_number:
+          type: integer
+          minimum: 1
+          maximum: 10
+        encoding:
+          type: array
+          items:
+            type: number
+    IdentifyFingerprintRequest:
+      type: object
+      required: [encoding]
+      properties:
+        encoding:
+          type: array
+          items:
+            type: number
+        finger_number:
+          type: integer
+          minimum: 1
+          maximum: 10
+          nullable: true
+    FingerprintTemplate:
+      type: object
+      properties:
+        _id:
+          type: string
+        person_id:
+          type: string
+        finger_number:
+          type: integer
+        encoding:
+          type: array
+          items:
+            type: number
+        model_version:
+          type: string
+        is_active:
+          type: boolean
+        enrolled_at:
+          $ref: './_shared.yaml#/components/schemas/Timestamp'
+    IdentifyFingerprintResult:
+      type: object
+      required: [person_id, finger_number, score]
+      properties:
+        person_id:
+          type: string
+        finger_number:
+          type: integer
+        score:
+          type: number
+    UpdateRequestIn:
+      type: object
+      required: [person_id, biometric_type, reason, requested_by]
+      properties:
+        person_id:
+          type: string
+        biometric_type:
+          type: string
+          enum: [FACIAL, FINGERPRINT]
+        finger_number:
+          type: integer
+          minimum: 1
+          maximum: 10
+          nullable: true
+          description: Required 1..10 if FINGERPRINT, NULL if FACIAL
+        reason:
+          type: string
+        requested_by:
+          type: string
+          description: Mandatory cross-context app_user id
+    UpdateRequestOut:
+      allOf:
+        - $ref: '#/components/schemas/UpdateRequestIn'
+        - type: object
+          required: [request_id, status, requested_at]
+          properties:
+            request_id:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+            status:
+              type: string
+              enum: [Pending, Approved, Rejected, In_Review]
+            requested_at:
+              $ref: './_shared.yaml#/components/schemas/Timestamp'
+  securitySchemes:
+    bearerAuth:
+      $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'

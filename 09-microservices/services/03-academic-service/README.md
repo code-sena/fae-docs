@@ -1,4 +1,4 @@
-﻿# Academic Service
+# Academic Service
 
 > Owns the academic structure of the school: students, teachers, courses, periods, classrooms, enrollments, and schedules.
 
@@ -29,10 +29,10 @@
 | Field | Value |
 |-------|-------|
 | Number in catalog | 03 |
-| Local port | 8084 |
+| Local port | 8083 |
 | Repository | [Service repo URL] |
 | DB engine | PostgreSQL |
-| Communicates with | attendance-service, configuration-service, audit-service |
+| Communicates with | attendance-service, configuration-service |
 | Consumed by | API Gateway, admin and teacher clients |
 
 ---

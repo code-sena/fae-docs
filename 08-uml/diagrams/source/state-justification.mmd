@@ -1,0 +1,26 @@
+stateDiagram-v2
+    direction LR
+
+    [*] --> Pending : create() — reviewStatus defaults to "Pending" (touchCreated)
+
+    Pending --> Approved : PATCH /justifications/{id}/review (reviewedBy, reviewedAt, resolutionNotes)
+    Pending --> Rejected : PATCH /justifications/{id}/review (reviewedBy, reviewedAt, resolutionNotes)
+
+    Approved --> Rejected : review() again — allowed, there is no ordering guard
+    Rejected --> Approved : review() again — allowed, there is no ordering guard
+
+    note right of Pending
+        The only guarded transition is the target: reviewStatus=Pending is
+        rejected with "Cannot review to Pending". The current state is never
+        checked, so a resolved justification can be flipped either way.
+    end note
+
+    note right of Approved
+        Publishing an event and flipping attendance_record.attendance_status
+        to "Justified" are NOT part of review() — approval does not cascade.
+        requires_attachment is not enforced server-side before approval.
+    end note
+
+    Pending --> [*] : DELETE (physical delete)
+    Approved --> [*] : DELETE (physical delete)
+    Rejected --> [*] : DELETE (physical delete)

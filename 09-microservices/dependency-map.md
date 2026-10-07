@@ -19,7 +19,7 @@
 
 | Service | Depends on (sync API) | Depends on (async events) |
 |---------|----------------------|---------------------------|
-| API Gateway | Identity, Authorization, Academic, Scheduling, Attendance, Biometric, Notification, Audit, Configuration | — |
+| API Gateway | Identity, Authorization, Academic, Scheduling, Attendance, Biometric, Notification, Configuration | — |
 | Identity Service | — | Configuration (policy changes) |
 | Authorization Service | — | Identity (UserCreated, SchoolCreated) |
 | Academic Service | — | Identity (PersonCreated, SchoolCreated) |
@@ -27,7 +27,6 @@
 | Attendance Service | — | Academic (EnrollmentCreated), Scheduling (ClassSessionOpened), Biometric (BiometricVerified) |
 | Biometric Service | — | Identity (UserCreated), Attendance (AttendanceRecorded) |
 | Notification Service | — | Attendance (AttendanceRecorded, JustificationReviewed) |
-| Audit Service | — | Identity (UserCreated), Attendance (AttendanceRecorded), Scheduling (ClassSessionClosed) |
 | Configuration Service | — | Identity (SchoolCreated) |
 
 ---
@@ -40,26 +39,26 @@
                         │  (Infrastructure)│
                         └────────┬────────┘
                                  │ sync
-        ┌────────────┬───────────┼───────────┬────────────┬───────────┬────────────┐
-        ▼            ▼           ▼           ▼           ▼           ▼            ▼
-  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-  │ Identity │ │Academic  │ │Scheduling│ │Attendance│ │Biometric │ │Notification│ │   Audit  │
-  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
-       │             │            │             │             │            │            │
-       │             │            │             │             │            │            │
-       │             │     ┌──────┘             │             │            │            │
-       │             │     │                    │             │            │            │
-       ▼             ▼     ▼                    ▼             ▼            ▼            ▼
-  ┌──────────────────────────────────────────────────────────────────────────────────────┐
-  │                         Event Bus (Kafka / RabbitMQ)                                │
-  └──────────────────────────────────────────────────────────────────────────────────────┘
+        ┌────────────┬───────────┼───────────┬────────────┬───────────┐
+        ▼            ▼           ▼           ▼           ▼           ▼
+  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+  │ Identity │ │Academic  │ │Scheduling│ │Attendance│ │Biometric │ │Notification│
+  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
        │             │            │             │             │            │
-       ▼             │            ▼             │             │            │
-  ┌──────────┐       │     ┌──────────┐        │             │            │
-  │Config    │       │     │  Audit   │        │             │            │
-  └──────────┘       │     └──────────┘        │             │            │
-                     │                         │             │            │
-                     └─────────────────────────┴─────────────┘            │
+       │             │            │             │             │            │
+       │             │     ┌──────┘             │             │            │
+       │             │     │                    │             │            │
+       ▼             ▼     ▼                    ▼             ▼            ▼
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │                    Event Bus (Kafka, KRaft :9092)                   │
+  └──────────────────────────────────────────────────────────────────────┘
+       │             │            │             │             │            │
+       ▼             │            │             │             │            │
+  ┌──────────┐       │            │             │             │            │
+  │Config    │       │            │             │             │            │
+  └──────────┘       │            │             │             │            │
+                     │            │             │             │            │
+                     └────────────┴─────────────┴─────────────┘            │
                                                                          │
                          (no domain-level cycles)                       │
                                                                          │
@@ -83,7 +82,7 @@
                            │
 ┌──────────────────────────▼──────────────────────────────┐
 │  SUPPORT SERVICES                                       │
-│  Notification │ Audit │ Configuration                   │
+│  Notification │ Configuration                           │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -112,10 +111,9 @@
 | Authorization | API Gateway cannot authorize requests; downstream services fail auth checks |
 | Academic | Scheduling cannot validate cohorts; Attendance cannot validate enrollments |
 | Scheduling | Attendance cannot validate class sessions |
-| Attendance | Audit loses attendance traceability; Notification loses alert triggers |
+| Attendance | Notification loses alert triggers |
 | Biometric | Attendance cannot correlate biometric captures |
 | Notification | No immediate operational impact; alerts queue in DLQ |
-| Audit | No immediate operational impact; events queue in DLQ |
 | Configuration | Identity and Academic may operate with stale policies |
 
 ---

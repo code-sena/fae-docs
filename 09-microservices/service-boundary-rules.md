@@ -107,15 +107,16 @@ A new bounded context (and therefore a new service) should be created when:
 
 | Service | Owns | Does NOT own |
 |---------|------|--------------|
-| Identity | School, Person, User, User_Session | Roles, enrollments, devices |
-| Auth | Authentication sessions, JWT tokens | User credentials, person data |
-| Authorization | Role, Permission, User_Role | User accounts, academic data |
-| Academic | Student, Teacher, Course, Classroom, Period, Enrollment, Schedule | Person profiles, attendance |
-| Attendance | Class_Session, Attendance, Justification | Biometric data, student records |
-| Biometric | Facial_Embedding, Fingerprint_Embedding, Facial_Update_Case | Identity data, attendance records |
-| IoT | IoT_Device, Device_Assignment | Classroom data, attendance |
-| Audit | Audit_Event, Error_Log | Business entity data from other contexts |
-| Configuration | Academic_Configuration, Security_Configuration, Password_Policy | Any core business entity data |
+| Identity (auth merged in) | Person, App_User, User_Session, Password_Policy, City (legacy), opaque session ids | Roles, enrollments, devices |
+| Authorization | Role, Permission, Role_Permission, User_Role | User accounts, academic data |
+| Academic | School, Program, Academic_Period, Cohort, Course, Academic_Actor_Type, Academic_Actor, Enrollment | Person profiles, attendance |
+| Scheduling | Environment, Schedule_Block, Class_Session | Enrollment, attendance records |
+| Attendance | Attendance_Record, Justification_Type, Justification, Supporting_Document, Attendance_Report | Biometric data, student records |
+| Biometric | Facial_Embedding, Fingerprint_Embedding (MongoDB) | Identity data, attendance records, update cases |
+| Configuration | Academic_Configuration, Security_Configuration, Biometric_Update_Case | Password_Policy (Identity), any core business entity data |
+| Notification | Alert_Type, Alert | The conditions that trigger them |
+| Quality (tooling) | Quality/ISTQB assessments in schema `quality` | Any bounded-context entity |
+| IoT (future) | IoT_Device, Device_Assignment — **not implemented** | Classroom data, attendance |
 
 ---
 

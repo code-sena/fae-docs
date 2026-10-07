@@ -124,7 +124,7 @@ FROM identity.person;
   - `06-data/models.md` — mark encrypted columns
   - `10-devops/local-setup.md` — document pgcrypto extension setup
   - `.env.example` — add `APP_ENCRYPTION_KEY` variable (placeholder)
-  - `09-microservices/services/05-biometric-service/data-model.md` — document MongoDB FLE configuration
+  - `09-microservices/services/06-biometric-service/data-model.md` — document MongoDB FLE configuration
 
 ---
 

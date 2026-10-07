@@ -1,6 +1,6 @@
 # Stack: Java + Spring Boot
 
-> This guide is for teams building microservices with **Java** and **Spring Boot 3.x**.
+> This guide is for teams building microservices with **Java 21** and **Spring Boot 4.1**.
 > Build tools: Maven or Gradle.
 
 ---
@@ -51,7 +51,7 @@ src/
 │           │   ├── JpaAppointmentRepository.java   # implements AppointmentRepository
 │           │   └── entity/
 │           │       └── AppointmentJpaEntity.java   # @Entity — separate from domain model
-│           ├── messaging/                   # Secondary adapter: Kafka/RabbitMQ
+│           ├── messaging/                   # Secondary adapter: Kafka producer
 │           │   └── KafkaEventPublisher.java        # implements EventPublisher
 │           └── config/                      # Spring @Configuration — dependency wiring
 │               └── AppConfig.java

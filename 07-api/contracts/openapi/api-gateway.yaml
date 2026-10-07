@@ -141,7 +141,7 @@ paths:
               properties:
                 identifier:
                   type: string
-                  description: Email o username (alias aceptados: `email`, `username`)
+                  description: "Email o username (alias aceptados: `email`, `username`)"
                 email:
                   type: string
                   description: Alias de `identifier`
@@ -206,7 +206,7 @@ paths:
           $ref: './_shared.yaml#/components/responses/Unauthorized'
   /api/v1/permissions:
     get:
-      summary: Proxy → authorization (401 without bearer: gateway + MS)
+      summary: "Proxy → authorization (401 without bearer: gateway + MS)"
       tags: [Authorization]
       responses:
         '200':
@@ -219,7 +219,7 @@ paths:
                   type: object
   /api/v1/auth/evaluate:
     get:
-      summary: Proxy → authorization RBAC check (401 without bearer: gateway + MS)
+      summary: "Proxy → authorization RBAC check (401 without bearer: gateway + MS)"
       tags: [Authorization]
       parameters:
         - name: userId
@@ -337,7 +337,7 @@ paths:
 
   /api/v1/environments:
     get:
-      summary: Proxy → scheduling (401 without bearer: gateway + MS)
+      summary: "Proxy → scheduling (401 without bearer: gateway + MS)"
       tags: [Scheduling]
       responses:
         '200':
@@ -350,7 +350,7 @@ paths:
                   type: object
   /api/v1/schedule-blocks:
     get:
-      summary: Proxy → scheduling (401 without bearer: gateway + MS)
+      summary: "Proxy → scheduling (401 without bearer: gateway + MS)"
       tags: [Scheduling]
       responses:
         '200':
@@ -363,7 +363,7 @@ paths:
                   type: object
   /api/v1/class-sessions:
     get:
-      summary: Proxy → scheduling (401 without bearer: gateway + MS)
+      summary: "Proxy → scheduling (401 without bearer: gateway + MS)"
       tags: [Scheduling]
       responses:
         '200':
@@ -390,7 +390,7 @@ paths:
                   type: object
   /api/v1/justifications:
     get:
-      summary: Proxy → attendance (401 without bearer: gateway + MS)
+      summary: "Proxy → attendance (401 without bearer: gateway + MS)"
       tags: [Attendance]
       responses:
         '200':
@@ -403,7 +403,7 @@ paths:
                   type: object
   /api/v1/justification-types:
     get:
-      summary: Proxy → attendance (401 without bearer: gateway + MS)
+      summary: "Proxy → attendance (401 without bearer: gateway + MS)"
       tags: [Attendance]
       responses:
         '200':
@@ -416,7 +416,7 @@ paths:
                   type: object
   /api/v1/supporting-documents:
     get:
-      summary: Proxy → attendance (401 without bearer: gateway + MS)
+      summary: "Proxy → attendance (401 without bearer: gateway + MS)"
       tags: [Attendance]
       responses:
         '200':

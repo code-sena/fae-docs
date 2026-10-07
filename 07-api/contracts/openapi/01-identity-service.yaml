@@ -647,7 +647,7 @@ paths:
         schema:
           $ref: './_shared.yaml#/components/schemas/UUID'
     get:
-      summary: Obtener sesión por ID (pública: la usa cada `AuthTokenFilter` para validar el bearer)
+      summary: "Obtener sesión por ID (pública: la usa cada `AuthTokenFilter` para validar el bearer)"
       operationId: getSessionById
       tags: [Session]
       responses:

@@ -264,7 +264,7 @@ components:
                 message: Formato de email inválido
 
     Unauthorized:
-      description: Session bearer ausente, inválido o expirado (validado por el AuthTokenFilter del MS Java; Kong no autentica)
+      description: Session bearer ausente, inválido o expirado (validado por el pre-function de Kong en el edge y por el AuthTokenFilter del MS Java)
       content:
         application/json:
           schema:
@@ -332,5 +332,6 @@ components:
       description: |
         sessionId opaco (UUID) obtenido en POST /api/v1/auth/login (identity 8081).
         Incluir en el header: Authorization: Bearer <sessionId>.
-        Kong NO valida el token (sin plugin jwt ni consumers): lo validan los MS Java
-        (01/02/04/05) con su AuthTokenFilter; los MS TS/Python/Go no lo validan hoy.
+        Kong valida el token en el edge con un pre-function (introspección de la sesión contra
+        identity; sin plugin jwt ni consumers): lo vuelven a validar los MS Java
+        (01/02/04/05) con su AuthTokenFilter; los MS TS/Python/Go no lo validan por sí mismos.

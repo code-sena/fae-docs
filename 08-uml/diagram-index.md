@@ -53,7 +53,7 @@ Examples (match the registry below):
 | ID | Name | Tool | Source file | Status | Description |
 |----|------|------|-------------|--------|-------------|
 | SEQ-01 | Facial attendance capture | Mermaid | `source/seq-facial-attendance.mmd` | ✅ Done | Mobile scan → gateway → biometric match → attendance record (event publish, with the unwired gaps called out) |
-| SEQ-02 | Login flow | Mermaid | `source/seq-login.mmd` | ✅ Done | Login → opaque `sessionId` → per-service validation |
+| SEQ-02 | Login flow | Mermaid | `source/seq-login.mmd` | ✅ Done | Login → opaque `sessionId` → edge check at Kong + per-service validation |
 | SEQ-03 | Justification approval | Mermaid | `source/seq-justification-approval.mmd` | ✅ Done | Submit → attachments → review → Approved/Rejected |
 
 ### State diagrams

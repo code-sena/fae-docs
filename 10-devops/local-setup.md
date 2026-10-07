@@ -284,8 +284,9 @@ docker compose up identity-liquibase
 
 ### "401 Unauthorized on every call"
 
-Authentication is **not** JWT-based: Kong has no `jwt` plugin, so a 401 always comes from the
-Java services (`01/02/04/05`) rejecting the session bearer.
+Authentication is **not** JWT-based: Kong has no `jwt` plugin, so a 401 can come from the gateway's
+`pre-function` (missing/invalid/expired session) or from the Java services (`01/02/04/05`)
+rejecting the bearer.
 
 ```bash
 # 1. Get a fresh session id (identifier = email o username)

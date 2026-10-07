@@ -166,8 +166,9 @@ non-Java services — tech-debt, §10.
 
 - Base URL: `ENV.API_BASE_URL` = `http://<host>:8080/` (Kong) resolved from
   `EXPO_PUBLIC_API_URL` → Metro `hostUri` → `10.0.2.2` (Android emulator) → LAN default
-  (`config/env.js`). All business traffic goes through the gateway; direct MS ports are not
-  published.
+  (`config/env.js`). All business traffic goes through the gateway; the direct MS ports **are**
+  published on loopback (`127.0.0.1:8081-8089`, `BIND_IP`) for local dev — services 03/06/07/08/09
+  have no auth filter of their own, so bypassing Kong means no authentication (`risks.md` R-003).
 - Client: `api/apiClient.js` — `request({method,url,data,params,requiresAuth=true})`,
   `Authorization: Bearer <token>` attached automatically whenever a token exists,
   `API_TIMEOUT 15000`, `ApiError(status,message,data)`.

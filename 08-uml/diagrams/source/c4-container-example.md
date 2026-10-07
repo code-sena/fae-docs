@@ -60,9 +60,10 @@ C4Container
 | `System_Ext` | Third-party system you do not control (e.g. `countriesnow.space`, SMTP) |
 
 **Accuracy rules (this repo):**
-- Kong does **not** authenticate: only `cors` + `rate-limiting` plugins, no `jwt`, no Redis token
-  blacklist (Redis holds rate-limit counters only). Auth is a per-service check over an opaque
-  `sessionId` — see `07-api/authentication.md`.
+- Kong authenticates **at the edge**: only `cors` + `rate-limiting` plugins and a global
+  `pre-function` (opaque `sessionId` introspected against identity, no `jwt`, no Redis token
+  blacklist — Redis holds rate-limit counters only); the Java services check the same
+  `sessionId` again (plus RBAC) — see `07-api/authentication.md`.
 - No payment gateway exists in this system; do not add one to a diagram.
 - Ports, stacks and DB engines must match `09-microservices/service-catalog.md`.
 

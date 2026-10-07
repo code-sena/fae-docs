@@ -2,8 +2,9 @@
 
 > Copy-paste `curl` via Kong (`:8080`). Assumes a session id in `$TOKEN` — Kong has **no jwt
 > plugin/consumers**, so `$TOKEN` is the opaque `sessionId` issued at login and sent as
-> `Authorization: Bearer`. Java services (01/02/04/05) reject requests without it; the
-> TS/Python/Go services do not check it yet.
+> `Authorization: Bearer`. Kong's `pre-function` checks it on every non-public route and the Java
+> services (01/02/04/05) check it again (plus RBAC); the TS/Python/Go services rely on that edge
+> check only.
 
 ## 0. Token
 

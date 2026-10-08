@@ -1,295 +1,119 @@
-# System Observability
+# System Observability — FaceAttend-Edu
 
-> An unobservable system cannot be operated. Observability is not an optional feature
-> added later — it is designed from the first sprint.
-> The 3 pillars: Logs, Metrics, Traces.
-
-> **Stack note:** The concepts (structured logging, RED metrics, OpenTelemetry) apply
-> to any language. Code examples use Node.js ecosystem libraries
-> (pino, prom-client, @opentelemetry/sdk-node). For other technologies, the equivalents are:
-> - Java: Logback/SLF4J + Micrometer + OpenTelemetry Java Agent
-> - Python: structlog + prometheus_client + opentelemetry-sdk
-> - Go: zap + prometheus/client_golang + go.opentelemetry.io/otel
+> An unobservable system cannot be operated. Observability in FaceAttend-Edu is designed to support a polyglot architecture (Java, TS, Python, Go) ensuring that regardless of the runtime, the operational visibility remains consistent.
 
 ---
 
-## The 3 pillars of observability
+## Observability Stack: FaceAttend-Edu
 
-```
-                    ┌───────────────────────────────────────────┐
-                    │           Production system               │
-                    │                                           │
-                    │  [Service A]   [Service B]  [Service C]  │
-                    └──────┬──────────────┬───────────┬─────────┘
-                           │              │           │
-               ┌───────────┼──────────────┼───────────┼──────────┐
-               ▼           ▼              ▼           ▼          │
-           [LOGS]      [METRICS]      [TRACES]   [EVENTS]       │
-               │           │              │                       │
-               ▼           ▼              ▼                       │
-       [Elasticsearch] [Prometheus]  [Jaeger/Zipkin]             │
-               │           │              │                       │
-               ▼           ▼              │                       │
-           [Kibana]    [Grafana]          │                       │
-                           │              │                       │
-                           └──────────────┘                      │
-                                  │                              │
-                           [ALERTS] ──────────────────────────▶│
-                        [Alertmanager]                          │
-                        [PagerDuty]                             │
-                        [Slack]                                  │
-                    └──────────────────────────────────────────-┘
-```
+Given the polyglot nature of the project, we implement a standardized observability layer across different runtimes:
+
+| Runtime | Logging | Metrics | Tracing |
+|----------|----------|----------|----------|
+| **Java (Spring Boot)** | Logback / SLF4J | Micrometer / Prometheus | OpenTelemetry Java Agent |
+| **TypeScript (Fastify)**| Pino / Winston | prom-client | OpenTelemetry Node SDK |
+| **Python (FastAPI)** | structlog / Logging | prometheus_client | OpenTelemetry Python SDK |
+| **Go (Gin)** | Zap / Logrus | prometheus/client_golang | OpenTelemetry Go SDK |
+| **Gateway (Kong)** | Kong Log Plugins | Kong Prometheus Plugin | OpenTelemetry (Native) |
 
 ---
 
 ## Logs
 
-### Standard format (structured JSON)
+### Standard Format (Structured JSON)
 
-All services must produce JSON logs with these minimum fields:
+To allow centralized log aggregation (e.g., ELK or Loki), all microservices must produce structured JSON logs. This is critical for the **API Gateway (Kong)** to correlate requests across the `faceattend-app` network.
 
+**Minimum Required Fields:**
 ```json
 {
-  "timestamp": "2024-01-15T10:30:00.123Z",
-  "level": "INFO",
-  "service": "identity-service",
-  "version": "1.3.0",
+  "timestamp": "2026-10-08T14:30:00.123Z",
+  "level": "ERROR",
+  "service": "ms-attendance",
   "environment": "production",
   "correlationId": "550e8400-e29b-41d4-a716-446655440000",
-  "userId": "user-uuid-if-available",
-  "message": "User authenticated successfully",
+  "message": "Failed to record attendance for student",
   "context": {
-    "userId": "uuid",
-    "method": "POST",
-    "path": "/auth/login",
-    "statusCode": 200,
-    "durationMs": 45
+    "studentId": "uuid-123",
+    "sessionId": "uuid-456",
+    "errorCode": "BIOMETRIC_MISMATCH",
+    "durationMs": 120
   }
 }
 ```
 
-**Required fields:**
+### Log Level Policy for FaceAttend-Edu
 
-| Field | Description |
-|-------|-------------|
-| `timestamp` | ISO 8601 with milliseconds and UTC timezone |
-| `level` | `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL` |
-| `service` | Microservice name |
-| `correlationId` | For tracing the transaction across services |
-| `message` | Descriptive message, without sensitive data |
+| Level | Usage in FaceAttend-Edu | Example |
+|-------|-------------------------|---------|
+| `DEBUG` | Internal state, SQL queries (Disabled in Prod) | "Querying biometric_embeddings for user X" |
+| `INFO` | High-level business events | "Attendance recorded for Session S-101" |
+| `WARN` | Recoverable issues or anomalies | "Retry attempt 2 for Notification Service" |
+| `ERROR` | Failures requiring intervention | "Cannot connect to MongoDB (ms-biometric)" |
+| `FATAL` | Service startup failure | "Port 8085 already in use" |
 
-### Log levels
-
-| Level | When to use it | Example |
-|-------|---------------|---------|
-| `DEBUG` | Development info. Disabled in production | "SQL query executed: SELECT..." |
-| `INFO` | Normal business events | "Order #123 created" |
-| `WARN` | Abnormal but not failure | "Token about to expire", "Retry #2" |
-| `ERROR` | Error that requires attention | "Failed to connect to PostgreSQL" |
-| `FATAL` | Error that brings down the service | "Cannot start: port in use" |
-
-### What NOT to log
-
-```
-✗ Passwords or full tokens
-✗ Credit card numbers
-✗ Unmasked PII (GDPR/Data Protection)
-✗ Full SQL queries with user data
-✓ IDs, counts, durations, status codes
-✓ First/last 4 digits of card: "****1234"
-✓ Masked email: "u***@example.com"
-```
-
-### Implementation
-
-```typescript
-// Always use a configured logger, never console.log
-import { logger } from '@shared/logger';
-
-// ✓ Correct
-logger.info('Order created', { orderId: order.id, customerId: order.customerId });
-
-// ✗ Incorrect
-console.log('order:', JSON.stringify(order)); // May expose sensitive data
-```
+### Data Privacy (PII)
+Due to the nature of biometric data, **it is strictly forbidden** to log:
+- Full facial/fingerprint embeddings.
+- Plain-text passwords or JWT tokens.
+- Unmasked personal identification numbers.
 
 ---
 
 ## Metrics
 
-### RED Metrics (Rate, Errors, Duration)
+### RED Metrics for Microservices
+Each of the 9 components (8 MS + Gateway) must expose a `/metrics` endpoint in Prometheus format.
 
-For each endpoint and each business operation, measure:
+| Metric | Type | FaceAttend-Edu Application |
+|--------|------|-----------------------------|
+| `http_requests_total` | Counter | Total requests per service (e.g., `ms-identity` vs `ms-academic`) |
+| `http_request_duration_seconds`| Histogram | Latency of biometric matching in `ms-biometric` |
+| `http_requests_in_flight` | Gauge | Concurrent requests hitting `ms-attendance` during peak hours |
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `http_requests_total` | Counter | Total requests by method, path, status |
-| `http_request_duration_seconds` | Histogram | Latency of each request |
-| `http_requests_in_flight` | Gauge | Active requests at this moment |
+### Business-Specific Metrics (KPIs)
 
-```typescript
-// Implementation with prom-client (Node.js)
-import { Counter, Histogram, Registry } from 'prom-client';
-
-const requestCounter = new Counter({
-  name: 'http_requests_total',
-  help: 'Total HTTP requests',
-  labelNames: ['method', 'path', 'status'],
-});
-
-const requestDuration = new Histogram({
-  name: 'http_request_duration_seconds',
-  help: 'HTTP request duration in seconds',
-  labelNames: ['method', 'path', 'status'],
-  buckets: [0.01, 0.05, 0.1, 0.3, 0.5, 1, 2, 5], // seconds
-});
-```
-
-### Business metrics (USE method for resources)
-
-| Business metric | Type | Description |
-|----------------|------|-------------|
-| `orders_created_total` | Counter | Orders successfully created |
-| `orders_failed_total` | Counter | Orders that failed (by reason) |
-| `order_value_usd` | Histogram | Distribution of order values |
-
-### Metrics endpoint
-
-```
-GET /metrics
-```
-
-Exposes metrics in Prometheus format (text/plain).
-Only accessible from the internal network, not exposed to the API Gateway.
+| Business Metric | Type | Description |
+|-----------------|------|-------------|
+| `attendance_records_total` | Counter | Total successful check-ins recorded |
+| `biometric_match_failures_total`| Counter | Number of failed facial/fingerprint matches |
+| `notification_delivery_latency` | Histogram | Time from alert trigger to notification sent (ms) |
+| `active_sessions_count` | Gauge | Current number of active user sessions in `ms-identity` |
 
 ---
 
-## Distributed traces
+## Distributed Tracing
 
-Tracing allows following a request across multiple services.
+Since a single user action (e.g., marking attendance) involves **Kong $\rightarrow$ ms-attendance $\rightarrow$ ms-biometric $\rightarrow$ ms-notification**, distributed tracing is mandatory.
 
-### Context propagation
-
-```
-External request
-     │
-     ▼
-[API Gateway]  generates trace-id: abc123, span-id: 001
-     │         Headers: traceparent: 00-abc123-001-01
-     │
-     ▼
-[Auth Service]  creates child span: abc123 / 002
-     │
-     ▼
-[Order Service]  creates child span: abc123 / 003
-     │
-     ▼
-[PostgreSQL DB]  creates child span: abc123 / 004 (automatic instrumentation)
-```
-
-### Implementation with OpenTelemetry
-
-```typescript
-// Automatic instrumentation (configure at service startup)
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-
-const sdk = new NodeSDK({
-  traceExporter: new OTLPTraceExporter({
-    url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-  }),
-  instrumentations: [
-    // Automatically instruments: HTTP, Express, PostgreSQL, Redis
-    getNodeAutoInstrumentations(),
-  ],
-});
-
-sdk.start();
-```
-
-### Create manual spans for business logic
-
-```typescript
-import { trace } from '@opentelemetry/api';
-
-const tracer = trace.getTracer('identity-service');
-
-async function authenticateUser(email: string): Promise<Token> {
-  return tracer.startActiveSpan('authenticate-user', async (span) => {
-    try {
-      span.setAttributes({ 'user.email_domain': email.split('@')[1] });
-      const user = await userRepo.findByEmail(email);
-      span.setAttributes({ 'user.found': !!user });
-      // ... logic ...
-      return token;
-    } catch (error) {
-      span.recordException(error);
-      span.setStatus({ code: SpanStatusCode.ERROR });
-      throw error;
-    } finally {
-      span.end();
-    }
-  });
-}
-```
+### Trace Propagation Flow
+1. **Kong Gateway:** Generates the initial `trace-id` and injects it into headers.
+2. **Application Layer:** Each service (Java/TS/Python/Go) extracts the ID and creates a child span.
+3. **Data Layer:** Automatic instrumentation for PostgreSQL (via Hibernate/Drizzle/FastAPI) and MongoDB.
 
 ---
 
-## Grafana Dashboards
+## Monitoring & Alerting
 
-### Main dashboard — Executive view
+### Grafana Dashboard Strategy
+- **Executive View:** High-level availability of the 8 services and Gateway throughput.
+- **Biometric Depth:** Specific monitoring for `ms-biometric` (MongoDB latency and embedding processing time).
+- **Infrastructure View:** Docker container health, CPU/RAM usage for JVM services (which have higher footprints).
 
-Required panels:
-1. **Error rate** (%) — last 30 min
-2. **P95 latency** (ms) — per service
-3. **Throughput** (RPS) — per service
-4. **Availability** (%) — vs SLO
-5. **Instances per service** — to detect scaling events
+### Standard Alert Rules
 
-### Per-service dashboard
-
-Each service must have its own dashboard with:
-1. RED metrics (Rate, Errors, Duration)
-2. JVM / Node.js metrics (GC, heap, CPU)
-3. DB connection pool (active, waiting, maximum)
-4. Message metrics (published / consumed / DLQ)
-
----
-
-## Alerts
-
-### Standard alert rules
-
-| Alert | Condition | Severity | Notifies |
-|-------|-----------|----------|---------|
-| `HighErrorRate` | Error rate > 5% for 5 min | P1 | PagerDuty + Slack |
-| `HighLatency` | P95 > 500ms for 5 min | P2 | Slack #alerts |
-| `ServiceDown` | Health check fails > 1 min | P1 | PagerDuty |
-| `DLQNotEmpty` | DLQ has > 0 messages | P2 | Slack #alerts |
-| `LowDiskSpace` | Disk > 80% | P2 | Slack #alerts |
-| `PodCrashLooping` | Pod restarts > 3 times in 10 min | P1 | PagerDuty |
-
-```yaml
-# prometheus-rules.yaml
-groups:
-  - name: service-alerts
-    rules:
-      - alert: HighErrorRate
-        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "High error rate in {{ $labels.service }}"
-          description: "Error rate: {{ $value | humanizePercentage }}"
-```
+| Alert | Condition | Severity | Action |
+|-------|-----------|----------|--------|
+| `CriticalServiceDown` | Health check fails for `ms-identity` or `ms-attendance` | **P0** | Immediate PagerDuty alert |
+| `BiometricLatencyHigh`| P95 latency > 2s for `ms-biometric` | **P1** | Slack alert #ops-biometric |
+| `DBConnectionSaturation`| Connection pool > 90% in any MS | **P2** | Slack alert #ops-infra |
+| `NotificationQueueLag`| Kafka lag > 1000 messages | **P2** | Slack alert #ops-notifications |
 
 ---
 
 ## Correlations
 
-- Alert response runbook → `09-microservices/services/XX/runbook.md`
-- SLOs and Error Budget → `13-operations/README.md`
-- Incidents → `13-operations/incident-management.md`
-- How to add business metrics → `09-microservices/services/XX/README.md`
+- **SLA/SLO Definition** $\rightarrow$ `13-operations/README.md`
+- **Service Definitions** $\rightarrow$ `back-end/SERVICES.md`
+- **Healthcheck Definitions** $\rightarrow$ `docker-compose.yml`
+- **Incident Response** $\rightarrow$ `13-operations/incident-management.md`

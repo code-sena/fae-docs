@@ -35,6 +35,8 @@ The system is divided into three isolated network tiers to ensure that the data 
 - **`faceattend-app`**: Internal communication between the API Gateway and the microservices (Java, TS, Python, Go) and Redis cache.
 - **`faceattend-data`**: Restricted access for microservices to reach PostgreSQL, MongoDB, Kafka, and Liquibase migration tools.
 
+**Security Note:** This design ensures that the database and message broker are unreachable from the `faceattend-edge` network, preventing direct external access to the data tier.
+
 ### Component Stack
 | Layer | Technology | Purpose |
 |-------|------------|---------|
@@ -77,9 +79,10 @@ Incident response process.
 ### `backup-and-recovery.md`
 Data backup and recovery strategy.
 **Fill in:** backup frequency, where they are stored, how they are tested, target recovery time (RTO/RPO).
-- **PostgreSQL:** Backup of the `faceattend_db` containing the 8 logical schemas.
-- **MongoDB:** Backup of the `biometric` collections.
+- **PostgreSQL:** Backup of the `faceattend_db` (8 schemas) and the separate `face_auth` database.
+- **MongoDB:** Backup of the `biometric` collections and the `faceattend_face_auth` database.
 - **Liquibase:** All schema changes are versioned in the `database/` directory, allowing for deterministic recovery of the DB state.
+- **Existing Tools:** The project includes `database/scripts/backup.sh` and `database/scripts/restore.sh` for manual dumps and restoration of all three databases.
 
 ---
 

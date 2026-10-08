@@ -1,4 +1,4 @@
-# 🎓 Training & Onboarding - FaceAttendEDU
+# Training & Onboarding - FaceAttendEDU
 
 Welcome to the FaceAttendEDU technical team. This directory contains all the necessary resources to get a new developer up to speed, from the initial environment setup to the first production contribution.
 
@@ -6,7 +6,7 @@ Our onboarding process is designed to be hands-on, ensuring that every team memb
 
 ---
 
-## 🚀 Onboarding Path
+## Onboarding Path
 
 The onboarding process is divided into a structured 2-week plan to ensure a smooth transition:
 
@@ -23,7 +23,7 @@ The onboarding process is divided into a structured 2-week plan to ensure a smoo
 
 ---
 
-## 📚 Key Documentation
+## Key Documentation
 
 To successfully complete the onboarding, the following documents are mandatory reading:
 
@@ -36,7 +36,7 @@ To successfully complete the onboarding, the following documents are mandatory r
 
 ---
 
-## 🏗️ Core Technical Concepts for Newcomers
+## Core Technical Concepts for Newcomers
 
 Every developer at FaceAttendEDU must master these 5 pillars before working on the core domain:
 
@@ -48,7 +48,7 @@ Every developer at FaceAttendEDU must master these 5 pillars before working on t
 
 ---
 
-## 🛠️ Quick Setup Checklist
+## Quick Setup Checklist
 
 - [ ] Local environment configured (See `10-devops/local-setup.md`).
 - [ ] Docker containers for databases and API Gateway running.
@@ -57,7 +57,7 @@ Every developer at FaceAttendEDU must master these 5 pillars before working on t
 
 ---
 
-## 🔗 Correlations
+## Correlations
 - **Technical Setup** $\rightarrow$ `10-devops/local-setup.md`
 - **Coding Standards** $\rightarrow$ `00-governance/git-conventions.md`
 - **Quality Strategy** $\rightarrow$ `11-quality/testing-strategy.md`

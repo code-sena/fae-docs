@@ -4,7 +4,7 @@ Welcome to the technical team. This document is your operational guide for your 
 
 ---
 
-## 🗓️ Day 1: Setup and Context
+## Day 1: Setup and Context
 
 ### Morning: Environment & Access
 - [ ] **Repository Access:** Confirm your access to the GitHub organization and clones the main repositories.
@@ -21,7 +21,7 @@ Read these documents in the following order:
 
 ---
 
-## 🗓️ Day 2: Domain and Code Exploration
+## Day 2: Domain and Code Exploration
 
 ### Business Logic Deep Dive
 - [ ] Read `02-domain/entities-and-rules.md` to understand how Attendance and Identity are handled.
@@ -39,7 +39,7 @@ Read these documents in the following order:
 
 ---
 
-## 🗓️ Day 3: The First Contribution
+## Day 3: The First Contribution
 
 ### The "Good First Issue"
 The Tech Lead will assign you a small task (bug fix or doc improvement).
@@ -67,7 +67,7 @@ To avoid "Architecture Friction", keep these rules in mind:
 
 ---
 
-## ❓ FAQ
+## FAQ
 
 **Q: Where do I ask for help?**
 A: Start with the documentation. If you're still stuck after 30 minutes, ask in the team channel.
@@ -80,7 +80,7 @@ A: Check the OpenAPI contracts in `07-api/` before modifying any endpoint.
 
 ---
 
-## 🔗 Correlations
+## Correlations
 - **Setup Guide** $\rightarrow$ `10-devops/local-setup.md`
 - **TDD Workflow** $\rightarrow$ `11-quality/tdd-guide.md`
 - **Git Rules** $\rightarrow$ `00-governance/git-conventions.md`

@@ -1,204 +1,114 @@
-# Design System
+# Design System - FaceAttendEDU
 
-> The design system is the shared visual language between design and development.
-> It prevents inconsistencies, accelerates design, and reduces rework.
-> **Rule:** Before creating a new component, check here if it already exists.
+The design system of FaceAttendEDU is the shared visual and functional foundation between the Web and Mobile platforms. It is designed to be highly adaptable, supporting light/dark modes and accessibility profiles for different types of color blindness.
 
 ---
 
-## Design tokens
-
-Tokens are the design system's variables. Changing a token changes the entire system.
+## Design Tokens
 
 ### Colors
+The system uses dynamic theme generation (`generateTheme.js`) that adjusts colors based on the mode and the user's vision.
 
-```css
-/* Base palette */
---color-primary-50:  #[hex];   /* Lightest */
---color-primary-100: #[hex];
---color-primary-500: #[hex];   /* Default */
---color-primary-900: #[hex];   /* Darkest */
+#### Base Palette (Dynamic)
+- **Primary (Accent):** Based on the user's selection (Default: `#2196F3` / `hsl(217, 76, 52)`).
+- **Neutrals and Backgrounds:**
+  - **App Background:** Light: `#F8FAFC` | Dark: `#0F172A`
+  - **Surface:** Light: `#FFFFFF` | Dark: `#1E293B`
+  - **Elevated:** Light: `#FFFFFF` | Dark: `#334155`
+  - **Overlay:** `rgba(0, 0, 0, 0.45)`
 
---color-secondary-500: #[hex];
---color-neutral-50:  #[hex];
---color-neutral-900: #[hex];
+#### Semantic Colors
+- **Success:** `#10B981` (Light variants generated through `lighten(35)` or `alpha(0.18)`).
+- **Warning:** `#F59E0B`
+- **Error/Danger:** `#EF4444`
+- **Info:** Uses the Primary accent color.
 
-/* Semantic colors */
---color-success:  #[hex];      /* Green — success, confirmed */
---color-warning:  #[hex];      /* Yellow — caution, pending */
---color-error:    #[hex];      /* Red — error, cancelled */
---color-info:     #[hex];      /* Blue — neutral information */
-
-/* Text */
---color-text-primary:   #[hex];
---color-text-secondary: #[hex];
---color-text-disabled:  #[hex];
-
-/* Backgrounds */
---color-bg-page:    #[hex];
---color-bg-card:    #[hex];
---color-bg-overlay: rgba([r],[g],[b], 0.5);
-```
+#### Text and Borders
+- **Primary Text:** Light: `#0F172A` | Dark: `#F1F5F9` (Adjusted dynamically for contrast).
+- **Secondary Text:** Light: `#64748B` | Dark: `#94A3B8`
+- **Disabled Text:** Light: `#94A3B8` | Dark: `#475569`
+- **Inverse Text:** Light: `#FFFFFF` | Dark: `#0F172A`
+- **Primary Borders:** Light: `#E2E8F0` | Dark: `#334155`
+- **Secondary Borders:** Light: `#CBD5E1` | Dark: `#475569`
 
 ### Typography
+It follows a responsive scale defined in `typography.js`.
 
-```css
-/* Families */
---font-family-sans:  '[Font name], sans-serif';
---font-family-mono:  '[Mono font name], monospace';
-
-/* Sizes (modular scale 1.25) */
---font-size-xs:   0.75rem;   /* 12px */
---font-size-sm:   0.875rem;  /* 14px */
---font-size-base: 1rem;      /* 16px */
---font-size-lg:   1.25rem;   /* 20px */
---font-size-xl:   1.563rem;  /* 25px */
---font-size-2xl:  1.953rem;  /* 31px */
---font-size-3xl:  2.441rem;  /* 39px */
-
-/* Weights */
---font-weight-regular: 400;
---font-weight-medium:  500;
---font-weight-bold:    700;
-
-/* Line height */
---line-height-tight:  1.2;
---line-height-normal: 1.5;
---line-height-loose:  1.8;
-```
+- **Font Family:** System sans-serif (Android/Web) / System (iOS).
+- **Size Scale:**
+  - **Display XL:** 52px | Weight: 800 | LH: 62px
+  - **Display LG:** 36px | Weight: 800 | LH: 44px
+  - **Heading 1:** 28px | Weight: 700 | LH: 36px
+  - **Heading 2:** 22px | Weight: 700 | LH: 30px
+  - **Body LG:** 16px | Weight: 400 | LH: 26px
+  - **Body MD:** 14px | Weight: 400 | LH: 22px
+  - **Body SM:** 12px | Weight: 400 | LH: 18px
+  - **Button MD:** 15px | Weight: 700
+  - **Caption:** 11px | Weight: 400
 
 ### Spacing
+System based on 8px increments (`theme.config.js`):
+- `xs`: 4px | `sm`: 8px | `md`: 16px | `lg`: 24px | `xl`: 32px | `xxl`: 48px | `xxxl`: 64px
 
-```css
-/* 4px system */
---space-1:  0.25rem;   /* 4px */
---space-2:  0.5rem;    /* 8px */
---space-3:  0.75rem;   /* 12px */
---space-4:  1rem;      /* 16px */
---space-6:  1.5rem;    /* 24px */
---space-8:  2rem;      /* 32px */
---space-12: 3rem;      /* 48px */
---space-16: 4rem;      /* 64px */
-```
-
-### Borders and shadows
-
-```css
-/* Border radius */
---radius-sm: 4px;
---radius-md: 8px;
---radius-lg: 16px;
---radius-full: 9999px;  /* Pill */
-
-/* Shadows */
---shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
---shadow-md: 0 4px 6px rgba(0,0,0,0.1);
---shadow-lg: 0 10px 15px rgba(0,0,0,0.15);
-```
+### Borders and Shadows
+- **Border Radius:** `sm`: 4px | `md`: 8px | `lg`: 12px | `xl`: 16px | `xxl`: 24px | `round`: 9999px.
+- **Shadows:**
+  - `sm`: Opacity 0.05 | Radius 2 | Elevation 1
+  - `md`: Opacity 0.1 | Radius 4 | Elevation 2
+  - `lg`: Opacity 0.15 | Radius 8 | Elevation 4
+  - `xl`: Opacity 0.2 | Radius 16 | Elevation 8
 
 ---
 
 ## Components
 
-### Buttons
+### Buttons (`Button.js`)
+- **Variants:**
+  - **Primary:** Primary accent background, `textOnPrimary` text.
+  - **Secondary:** Secondary brand color background.
+  - **Outline:** Transparent background, primary accent border.
+  - **Ghost:** No background or border, primary text.
+  - **Danger:** Red error background (`#EF4444`), `errorText` text.
+- **Sizes:** `sm` (min-h 36px), `md` (min-h 48px), `lg` (min-h 52px).
+- **States:** `loading` (Shows `ActivityIndicator`), `disabled` (Opacity 0.5).
 
-| Variant | Use | Disabled state |
-|---------|-----|----------------|
-| Primary | Main action on the page | `opacity: 0.5; cursor: not-allowed` |
-| Secondary | Secondary actions | same |
-| Danger | Destructive actions (delete) | same |
-| Ghost | Tertiary actions, links | same |
+### Forms (`TextInput.js`)
+- **Input Types:** Text, email, password, number, phone.
+- **Validation Feedback:**
+  - **Error:** Red border, red label, and error message below the field. Includes a **"Shake"** animation.
+  - **Success:** Green border and `check-circle` icon on the right.
+  - **Warning:** Orange border and label.
+  - **Progress:** Subtle progress bar in the primary color along the border.
 
-**Usage rules:**
-- Only one Primary action per view
-- Danger only with modal confirmation ("Are you sure?")
-- Buttons have a loading state for async operations
+### Feedback and Notifications
+- **Toasts:** Supports `success`, `error`, `warning`, and `info` types with automatic fade-out.
+- **Alerts:** Contextual alerts with icons and a close button.
+- **Modals:** `BaseModal` and `ConfirmModal` for critical actions with style variants (default, danger, warning).
+- **Loading:** Implementation of `Loader.js`, `Skeleton.js`, and `ProgressBar.js`.
 
-### Forms
-
-| Component | When to use |
-|-----------|-------------|
-| Input text | Single-line free text |
-| Textarea | Multi-line free text |
-| Select | Fixed list of options (< 15 items) |
-| Combobox | List with search (> 15 items or dynamic loading) |
-| Checkbox | Independent binary option |
-| Radio | Select one option from a few (2-5) |
-| Toggle | Enable/disable a feature |
-| DatePicker | Date selection |
-
-**Error messages in forms:**
-- The message appears below the field, in red
-- The field border turns red
-- The message says how to fix the error, not just that there is an error
-
-```
-✓ "The email must have the format user@domain.com"
-✗ "Invalid email"
-```
-
-### Feedback
-
-| Component | When | Duration |
-|-----------|------|---------|
-| Toast/Snackbar | Action confirmations | 4 seconds |
-| Inline alert | Form errors | Until corrected |
-| Modal | Destructive confirmations, irreversible actions | Until the user decides |
-| Loading spinner | Operations > 200ms | Until finished |
-| Skeleton | Loading list content / cards | Until loaded |
-
-### Data table
-
-| Aspect | Behavior |
-|--------|---------|
-| Pagination | Maximum 20 rows per page (user-configurable) |
-| Sorting | Click on column, toggle asc/desc |
-| Filters | Side panel or filter row above the table |
-| Selection | Checkbox in the first column |
-| Actions | Final column with actions menu (edit, delete, etc.) |
-| Empty state | Illustration + message + primary action CTA |
+### Data Tables (`CoursesTable.js`, `UsersTable.js`)
+- **Features:** Pagination, sorting, and advanced filtering via `FilterBar`.
 
 ---
 
-## UX patterns
+## UX Patterns
 
 ### Principles
+- **Critical Confirmation:** Irreversible actions (e.g., delete) must require the `ConfirmModal` in the "danger" variant.
+- **Immediate Feedback:** Real-time validation with color changes and visual animations.
+- **Empty States:** Use `EmptyState.js` to guide the user when there is no data.
 
-1. **Confirm before destroying:** Any action that permanently deletes or modifies data requires a confirmation modal.
-
-2. **Immediate feedback:** Every action must have a visual response in < 100ms (even if it is just the loading state).
-
-3. **Prevent rather than correct:** Validate in real time in the form, not only on submit.
-
-4. **Empty state as a feature:** The screen without data is the new user's first impression — guide them to the first action.
-
-### Error handling
-
-| Scenario | What to show |
-|----------|-------------|
-| Network error | Toast "No connection. Retrying..." with automatic retry |
-| 401 error | Redirect to login with message "Your session expired" |
-| 403 error | Screen "You do not have permission to view this" with link to support |
-| 404 error | 404 screen with back navigation |
-| 500 error | Error toast + "Retry" button |
-| Timeout | Toast "This is taking longer than normal" with cancel option |
+### Error Handling (`apiClient.js`)
+- **Network Errors:** Reported as `NetworkError` with user-friendly messages about the gateway.
+- **Timeouts:** Managed via `AbortController`.
+- **Unauthorized (401):** The global `unauthorizedHandler` clears the local session and redirects to login automatically.
+- **API Errors:** `ApiError` wrapper that includes `status`, `code`, and `message`.
 
 ---
 
-## Accessibility guide (minimums)
+## Accessibility Guide
 
-| Aspect | Minimum required |
-|--------|-----------------|
-| Text contrast | WCAG AA (4.5:1 for normal text, 3:1 for large text) |
-| Keyboard navigation | All interactive elements accessible with Tab |
-| Form labels | All fields with associated label (`for` / `aria-label`) |
-| Images | Descriptive alt text on all non-decorative images |
-| Visible focus | Visible focus indicator on all interactive elements |
-
----
-
-## Correlations
-
-- Navigation map → `12-ux-ui/navigation-map.md`
-- Wireframes → `12-ux-ui/wireframes.md`
-- UX non-functional requirements → `04-requirements/non-functional.md`
+- **Contrast:** Use of the `tinycolor2` library in `generateTheme.js` to ensure a minimum contrast ratio of **WCAG AA (4.5:1)**.
+- **Vision Modes:** Specific presets for **Deuteranopia, Protanopia, Tritanopia, and Achromatopsia** (`colorPresets.js`).
+- **Interactive Elements:** Clear focus indicators (the border changes to `text.primary` when focused).
+- **Form Labels:** All inputs have explicit labels for screen reader compatibility.

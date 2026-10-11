@@ -1,0 +1,161 @@
+classDiagram
+    direction LR
+
+    class Person {
+        <<external — identity>>
+    }
+
+    class School {
+        +Int schoolId
+        +String code
+        +String name
+        +String cityId
+        +String address
+        +String phone
+        +String email
+        +Boolean status
+    }
+
+    class Program {
+        +Int programId
+        +Int schoolId
+        +String code
+        +String name
+        +Boolean status
+    }
+
+    class AcademicPeriod {
+        +Int academicPeriodId
+        +Int schoolId
+        +String name
+        +Date startsOn
+        +Date endsOn
+        +Boolean isActive
+    }
+
+    class Cohort {
+        +Long cohortId
+        +Int programId
+        +Int academicPeriodId
+        +String code
+        +Boolean status
+        +register()
+        +activate()
+        +finish()
+    }
+
+    class Course {
+        +Int courseId
+        +Int programId
+        +String code
+        +String name
+        +Int creditHours
+        +Boolean status
+    }
+
+    class AcademicActorType {
+        +Int actorTypeId
+        +String code
+        +String name
+    }
+
+    class AcademicActor {
+        +Long academicActorId
+        +UUID personId
+        +Int actorTypeId
+        +Int schoolId
+        +String actorCode
+        +Date startedOn
+        +Date endedOn
+        +Boolean status
+    }
+
+    class Enrollment {
+        +Long enrollmentId
+        +Long academicActorId
+        +Long cohortId
+        +Date enrolledOn
+        +EnrollmentStatus enrollmentStatus
+        +enroll()
+        +withdraw()
+        +complete()
+    }
+
+    class EnrollmentStatus {
+        <<enumeration>>
+        Active
+        Withdrawn
+        Completed
+    }
+
+    class Environment {
+        +Int environmentId
+        +Int schoolId
+        +String code
+        +String name
+        +Int capacity
+        +Boolean status
+    }
+
+    class ScheduleBlock {
+        +Long scheduleBlockId
+        +Long cohortId
+        +Int courseId
+        +Int environmentId
+        +Long instructorActorId
+        +Int dayOfWeek
+        +Time startsAt
+        +Time endsAt
+        +create()
+    }
+
+    class ClassSession {
+        +Long classSessionId
+        +Long scheduleBlockId
+        +Date sessionDate
+        +Long openedBy
+        +DateTime openedAt
+        +Long closedBy
+        +DateTime closedAt
+        +SessionStatus sessionStatus
+        +open()
+        +close(closedBy)
+        +cancel()
+    }
+
+    class SessionStatus {
+        <<enumeration>>
+        Open
+        Closed
+        Cancelled
+    }
+
+    School "1" --> "0..*" Program : program.school_id FK
+    School "1" --> "0..*" AcademicPeriod : academic_period.school_id FK
+    Program "1" --> "0..*" Cohort : cohort.program_id FK
+    AcademicPeriod "1" --> "0..*" Cohort : cohort.academic_period_id FK
+    Program "1" --> "0..*" Course : course.program_id FK
+    AcademicActorType "1" --> "0..*" AcademicActor : academic_actor.actor_type_id FK
+    School "1" --> "0..*" AcademicActor : academic_actor.school_id FK
+    AcademicActor "1" --> "0..*" Enrollment : enrollment.academic_actor_id FK
+    Cohort "1" --> "0..*" Enrollment : enrollment.cohort_id FK
+    Enrollment --> EnrollmentStatus
+    Environment "1" --> "0..*" ScheduleBlock : schedule_block.environment_id FK
+    ScheduleBlock "1" --> "0..*" ClassSession : class_session.schedule_block_id FK
+    ClassSession --> SessionStatus
+
+    AcademicActor ..> Person : person_id — cross-context, no FK
+    Environment ..> School : environment.school_id — cross-context, no FK
+    ScheduleBlock ..> Cohort : schedule_block.cohort_id — cross-context, no FK
+    ScheduleBlock ..> Course : schedule_block.course_id — cross-context, no FK
+    ScheduleBlock ..> AcademicActor : schedule_block.instructor_actor_id — cross-context, no FK
+    ClassSession ..> AcademicActor : opened_by / closed_by — cross-context, no FK
+
+    note for School "RN-11: all academic data belongs to a School (multi-tenant root). city_id comes from the external countriesnow.space catalog, no FK — identity.city is deprecated."
+    note for Program "RN-12: a Program may be added only if it does not already exist in the same School (uq_program_code_school)."
+    note for Cohort "RN-14: must have a valid instructor (via ScheduleBlock) before attendance recording begins. code is globally unique."
+    note for AcademicActor "Unified Student/Instructor representation. RN-16: must reference a valid Person. uq_actor_person_type_school prevents duplicates."
+    note for Enrollment "uq_enrollment_actor_cohort: one enrollment per actor per cohort."
+    note for ScheduleBlock "RN-18/RN-20: no overlap for the same environment or instructor at the same day_of_week + starts_at; starts_at < ends_at (chk_block_time)."
+    note for ClassSession "RN-22/RN-23: one attendance per actor per session; the session must be Open. open() can never succeed in practice — see ST-01 in diagram-index.md."
+    note "All classes also carry the standard audit block (created_at/updated_at/deleted_at/created_by/updated_by/deleted_by/row_version) — omitted here for readability. See AGENTS.md §2.2 and `06-data/domains/03-academic.md` / `04-scheduling.md` for the column-level ER view."

@@ -19,18 +19,18 @@ can work in parallel (frontend, backend, other services) with an agreed contract
 
 | # | Service | Port | Stack | Contract | Auth at Kong |
 |---|---------|------|-------|----------|--------------|
-| 01 | Identity | 8081 | Java Spring | `contracts/openapi/01-identity-service.yaml` | public (cors + rate-limit 60/min) |
-| 02 | Authorization | 8082 | Java Spring | `contracts/openapi/02-authorization-service.yaml` | rate-limit 100/min |
-| 03 | Academic | 8083 | TS Fastify | `contracts/openapi/03-academic-service.yaml` | — (MS-side auth) |
-| 04 | Scheduling | 8084 | Java Spring | `contracts/openapi/04-scheduling-service.yaml` | — (MS-side auth) |
-| 05 | Attendance | 8085 | Java Spring | `contracts/openapi/05-attendance-service.yaml` | rate-limit 200/min |
-| 06 | Biometric | 8086 | Python FastAPI | `contracts/openapi/06-biometric-service.yaml` | — (MS-side auth) |
-| 07 | Configuration | 8087 | TS Fastify | `contracts/openapi/07-configuration-service.yaml` | — (MS-side auth) |
-| 08 | Notification | 8088 | Go Gin | `contracts/openapi/08-notification-service.yaml` | — (MS-side auth) |
-| 09 | Quality | 8089 | TS Fastify | `contracts/openapi/09-quality-service.yaml` | rate-limit 100/min |
+| 01 | Identity | 8081 | Java Spring | `contracts/openapi/01-identity-service.yaml` | edge session check (auth routes public; rate-limit 60/min) |
+| 02 | Authorization | 8082 | Java Spring | `contracts/openapi/02-authorization-service.yaml` | edge session check (rate-limit 100/min) |
+| 03 | Academic | 8083 | TS Fastify | `contracts/openapi/03-academic-service.yaml` | edge session check (no MS-side auth) |
+| 04 | Scheduling | 8084 | Java Spring | `contracts/openapi/04-scheduling-service.yaml` | edge session check + MS-side auth |
+| 05 | Attendance | 8085 | Java Spring | `contracts/openapi/05-attendance-service.yaml` | edge session check (rate-limit 200/min) |
+| 06 | Biometric | 8086 | Python FastAPI | `contracts/openapi/06-biometric-service.yaml` | edge session check (no MS-side auth) |
+| 07 | Configuration | 8087 | TS Fastify | `contracts/openapi/07-configuration-service.yaml` | edge session check (no MS-side auth) |
+| 08 | Notification | 8088 | Go Gin | `contracts/openapi/08-notification-service.yaml` | edge session check (no MS-side auth) |
+| 09 | Quality | 8089 | TS Fastify | `contracts/openapi/09-quality-service.yaml` | edge session check (rate-limit 100/min) |
 
-> Decisions 2026-10-03: Quality 09 is tooling owned by `11-quality`, not a DDD bounded context (00-06 stay at 8 contexts). Ports frozen from `FULL/back-end/docker-compose.yml` + `99-api-gateway/kong/kong.yml` + `COMPOSE.md`. Kong has **no jwt plugin and no consumers** (removed 2026-10-05): session validation is enforced per-MS via `AuthTokenFilter`; Kong only applies cors + rate-limiting.
-| 99 | Gateway | 8080/8001 | Kong + Redis | `contracts/openapi/api-gateway.yaml` | global cors + rate-limit 300/min |
+> Decisions 2026-10-03: Quality 09 is tooling owned by `11-quality`, not a DDD bounded context (00-06 stay at 8 contexts). Ports frozen from `FULL/back-end/docker-compose.yml` + `99-api-gateway/kong/kong.yml` + `COMPOSE.md`. Kong has **no `jwt` plugin and no consumers** (removed 2026-10-05), but it **does authenticate at the edge**: a global `pre-function` requires `Authorization: Bearer <sessionId>` on every non-public route and introspects identity (`authentication.md` §1, `endpoint-matrix.md` §10.1). Permissions (RBAC) stay per-MS in `AuthTokenFilter` (01/02/04/05); Kong also applies cors + rate-limiting.
+| 99 | Gateway | 8080/8001 | Kong + Redis | `contracts/openapi/api-gateway.yaml` | global `pre-function` session check + cors + rate-limit 300/min |
 | — | frontend-web (SPA) | 8090→80 | Expo + nginx | `docker-compose.yml` (root) | — (consumes Kong :8080) |
 
 Shared: `contracts/openapi/_shared.yaml`. Template: `_template-service.yaml`. Lint: `redocly.yaml`.
@@ -45,8 +45,8 @@ REST standards grounded in real code: versioning `/api/v1`, kebab-case plurals, 
 health/quality probes, contract-first checklist. **Read before designing any endpoint.**
 
 ### `authentication.md` ⭐
-Opaque session tokens (not JWT) issued by identity, validated per-MS (`AuthTokenFilter`); Kong only rate-limits.
-Identifier login (email or username), RBAC (`/auth/evaluate`), Web + Mobile real API login, refresh/logout gaps.
+Opaque session tokens (not JWT) issued by identity, validated **at the edge** by Kong's global `pre-function` (introspection against identity) and re-checked per-MS by `AuthTokenFilter`, which also applies RBAC; Kong additionally rate-limits.
+Identifier login (email or username), session rotation (`/auth/refresh`), password recovery, RBAC (`/auth/evaluate`), Web + Mobile real API login.
 
 ### `versioning.md`
 URL-only `/api/v1`, breaking vs non-breaking, deprecation policy, current `1.0.0`.

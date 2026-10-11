@@ -56,12 +56,15 @@ Docker: the compose stack publishes the gateway on `KONG_PROXY_PORT` (8080) and 
    real grant there is no login.
 5. `AuthResponse{token,user{…roles,person}}` → `getHighestRole()` (`admin > teacher > student`) →
    theme/language by role.
-6. Refresh: **none** (`refreshToken()` throws "Sesión no renovable").
+6. Refresh: the backend has `POST api/v1/auth/refresh {sessionId}` (returns a new session id and
+   closes the previous one), but Mobile's `refreshToken()` still throws "Sesión no renovable:
+   vuelve a iniciar sesión" — the client never calls it.
    Logout: `POST api/v1/auth/logout?sessionId` (best-effort) + clear storage.
 7. Recovery: `POST auth/forgot-password|verify-code|reset-password`
    (`verificationService.js|passwordService.js`, 15s timeout, `VerificationError`,
-   `MAX_CODE_ATTEMPTS=5`, 30s lockout, 600s expiry, 60s resend) — **the backend does not
-   implement these routes yet (404)**; see §6.
+   `MAX_CODE_ATTEMPTS=5`, 30s lockout, 600s expiry, 60s resend) — **implemented server-side**
+   (`01-ms-identity`, same values: 6-digit code, 10 min TTL, 5 attempts, 60s resend; verified
+   2026-10-07); delivery depends on SMTP (`ms-notification`), see §6.
 
 ### Web (`context/AuthContext.js` + `services/api/authApi.js`)
 
@@ -115,8 +118,9 @@ of `POST /api/v1/biometric/facial/enroll|verify`).
 
 ## 6. Pending gaps (Web + Mobile → backend)
 
-1. Recovery endpoints `auth/forgot-password|verify-code|reset-password` are called by Mobile but
-   not implemented server-side.
+1. Recovery is implemented server-side, but the e2e email delivery is unverified: with `SMTP_HOST`
+   empty, `POST ms-notification:8088/api/v1/emails` answers `202 {status:"skipped"}` and the flow
+   stalls — verify SMTP delivery end to end.
 2. `POST attendance_report` has no backend route.
 3. Remove the `?_limit` JSON-Server leftovers (§5) and keep `page/limit` (identity) or
    `limit/offset` elsewhere.
@@ -124,4 +128,5 @@ of `POST /api/v1/biometric/facial/enroll|verify`).
    (`/class-sessions/{id}/attendance`, `/cohorts/{id}/blocks`, `/schools/{id}/actors`, …).
 5. Replace anonymous `face/register` with `POST /api/v1/biometric/facial/enroll|verify` +
    `Authorization: Bearer`.
-6. Keep sending `Bearer` on every call; 401 → clear session → login (no refresh endpoint exists).
+6. Keep sending `Bearer` on every call; 401 → try `POST /api/v1/auth/refresh` once, otherwise
+   clear session → login (Mobile does not implement the refresh call yet).

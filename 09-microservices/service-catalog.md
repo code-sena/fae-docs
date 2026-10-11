@@ -10,7 +10,7 @@
                      ┌──────────────────────┐
   External clients    │ API Gateway / Edge   │
   (Web, Mobile, API) ─▶│ Kong :8080           │
-                     │ CORS + rate limiting │
+                     │ Session check + CORS │
                      │ (no jwt plugin)      │
                      └──────────┬───────────┘
                                 │
@@ -50,7 +50,7 @@
 | 07 | `ms-configuration` | Academic and security configuration values, biometric update cases | 8087 | PostgreSQL | Relational | 🟢 Active |
 | 08 | `ms-notification` | Alert types and alert lifecycle management | 8088 | PostgreSQL | Relational | 🟢 Active |
 | 09 | `ms-quality` (tooling) | ISO 25010/29110/ISTQB quality metrics | 8089 | PostgreSQL (`quality`) | Relational | 🟢 Active |
-| 99 | `kong-gateway` | Edge routing, CORS and rate limiting (**no jwt**) | 8080 / 8001 | Redis | Rate-limit store | 🟢 Active |
+| 99 | `kong-gateway` | Edge routing, session check, CORS and rate limiting (**no jwt**) | 8080 / 8001 | Redis | Rate-limit store | 🟢 Active |
 
 **Status legend:** 🟢 Active | 🟡 In development | 🔴 Planned | ⏸ Deprecated
 
@@ -83,9 +83,10 @@
 
 **Authentication reality:**
 - Login returns an **opaque `sessionId`** (row in `identity.user_session`); it is sent back as
-  `Authorization: Bearer <sessionId>` and validated per service by `AuthTokenFilter`
-  (Java services 01/02/04/05). There are **no JWT access/refresh tokens and no Redis session
-  store** — Kong carries no `jwt` plugin. See `07-api/authentication.md`.
+  `Authorization: Bearer <sessionId>` and checked **at the edge** by Kong's global `pre-function`
+  (introspection against identity) and then per service by `AuthTokenFilter`
+  (Java services 01/02/04/05), which also applies RBAC. There are **no JWT access/refresh tokens
+  and no Redis session store** — Kong carries no `jwt` plugin. See `07-api/authentication.md`.
 
 **Cross-context rule:**
 - `Person` has no `school_id` — multi-tenancy via `Academic.academic_actor`.
@@ -318,9 +319,11 @@ vector search requirements of biometric embedding data.
 
 **Notes:**
 - The gateway is not a business owner in the bounded-context model.
-- **Authentication is not enforced here**: only the `cors` and `rate-limiting` plugins are
-  configured — no `jwt` plugin and no consumers. Session validation happens inside the Java
-  services (`AuthTokenFilter`); see `07-api/authentication.md`.
+- **Authentication is enforced at the edge here**: a global `pre-function` (Lua) requires a valid
+  active session on every non-public route — no `jwt` plugin and no consumers, the token is an
+  opaque `sessionId` introspected against identity. The Java services (`AuthTokenFilter`) check it
+  again and add RBAC; services 03/06/07/08/09 do not check it on their own (R-003); see
+  `07-api/authentication.md`.
 - The only health route routed at the edge is `GET /health/quality` → `ms-academic:8083`.
 - Routes match by path prefix (`/api/v1/persons`, `/api/v1/users`, `/api/v1/auth`, …); there is
   no gateway-level `/health`.

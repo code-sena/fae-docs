@@ -16,8 +16,18 @@ info:
       `AttendanceRelationsController`, `HealthController`, `QualityHealthController`
     - Enums: `attendanceStatus Present/Absent/Late/Justified`, `captureMethod FACIAL/MANUAL/IOT/IMPORT`
     - Bulk: `POST /api/v1/attendance-records/bulk`
+    - Summary: `GET /api/v1/attendance-records/summary?academicActorIds` → per-actor counts
+      (SQL aggregation; `{}` without ids, max 300 ids per request)
     - Review: `PATCH /api/v1/justifications/{id}/review {reviewStatus,reviewedBy,resolutionNotes}`
-    - Gateway `rate-limiting 200/min` (sin plugin jwt; el MS valida el bearer con `AuthTokenFilter`) (`kong.yml:68-86`).
+    - Gateway: the edge `pre-function` (Lua) validates the opaque session UUID against identity
+      before the request reaches this service, plus `rate-limiting 200/min` and the global
+      `cors`; no `jwt` plugin. The MS validates the bearer again with `AuthTokenFilter`
+      (`kong.yml:68-86, 150-192`).
+    - Legacy alias: routes are also declared **without** the `/api/v1` prefix
+      (`/attendance-records`, `/attendance-records/bulk`, `/attendance-records/summary`,
+      `/justifications`, `/justification-types`, `/supporting-documents`). Kong routes only the
+      `/api/v1/...` form; the alias works on the direct port only, where `AuthTokenFilter` does
+      not run (it guards paths starting with `/api/`). Not part of the contract.
 
 servers:
   - url: http://localhost:8085
@@ -157,6 +167,47 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/AttendanceRecordResponse'
+
+  /api/v1/attendance-records/summary:
+    get:
+      summary: Per-actor attendance counts (SQL aggregation)
+      description: |
+        Counts per `academicActorId` so a view does not have to download every record
+        (~81k rows) to compute attendance percentages. The response carries counts and not a
+        pre-computed percentage: deciding what counts as attended is a view decision.
+        Without `academicActorIds` the answer is `{}`; at most 300 ids per request.
+      operationId: summarizeAttendanceRecords
+      tags: [AttendanceRecord]
+      parameters:
+        - name: academicActorIds
+          in: query
+          required: false
+          style: form
+          explode: true
+          description: Repeated or comma-separated actor ids, at most 300 per request
+          schema:
+            type: array
+            maxItems: 300
+            items:
+              type: integer
+              format: int64
+      responses:
+        '200':
+          description: '`{academicActorId: AttendanceSummaryResponse}`'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/AttendanceSummaryResponse'
+        '400':
+          description: More than 300 `academicActorIds` in one request
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
 
   /api/v1/attendance-records/{id}:
     parameters:
@@ -560,6 +611,26 @@ components:
               type: number
               format: double
               nullable: true
+    AttendanceSummaryResponse:
+      type: object
+      description: Counts per actor. Deliberately counts and not a percentage — what counts as
+        attended is a view decision, not an API decision.
+      properties:
+        present:
+          type: integer
+          format: int64
+        late:
+          type: integer
+          format: int64
+        absent:
+          type: integer
+          format: int64
+        justified:
+          type: integer
+          format: int64
+        total:
+          type: integer
+          format: int64
     CreateJustificationRequest:
       type: object
       required: [attendanceRecordId, justificationTypeId, reason]

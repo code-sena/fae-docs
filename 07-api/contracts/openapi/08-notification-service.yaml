@@ -7,7 +7,8 @@ info:
     Tipos de alerta y alertas sobre `academic_actor`.
 
     ## Fuente real
-    - Handlers: `alert_handler.go`, `alert_type_handler.go`, `quality_middleware.go`, `cmd/server/main.go:55-101`
+    - Handlers: `alert_handler.go`, `alert_type_handler.go`, `email_handler.go`,
+      `quality_middleware.go`, `cmd/server/main.go:55-101`
     - Dominio: `Alert{alert_id,academic_actor_id,alert_type_id,raised_at,resolved_at?,created_at,updated_at?,row_version}`,
       `AlertType{alert_type_id,code,name,severity,channel,…}`
     - Comandos: `CreateAlertCommand{academic_actor_id*,alert_type_id*}`,
@@ -15,7 +16,13 @@ info:
     - Filtros: `?actorId&?typeId&?resolved|?status=open|resolved|pending`; `?limit&offset` (types default 50/0)
     - Envelopes: `{alerts:[]}`, `{alert_types:[]}`; errores `{error:string}` (`ErrValidation→400,ErrNotFound→404,ErrDuplicate→409`)
     - Seeds: `ABSENCE_THRESHOLD,SCHEDULE_CONFLICT`. `notification-preferences` documentado en SERVICE.md NO existe.
-    - Gateway sin plugins propios (`kong.yml:104-110`); el MS no valida el bearer hoy (tech-debt).
+    - Gateway: no per-upstream plugins (`kong.yml:104-110`). The edge `pre-function` validates
+      the opaque session UUID for `/api/v1/alerts` and `/api/v1/alert-types`; the MS itself
+      validates nothing (tech-debt `AT-004`).
+    - **Internal only:** `POST /api/v1/emails` has **no Kong route** — it is reachable only
+      inside the compose network (01-ms-identity calls it after issuing a recovery code).
+      Optional shared secret `X-Internal-Token` (`EMAIL_INTERNAL_TOKEN`; when empty the route
+      is open inside the network).
 
 servers:
   - url: http://localhost:8088
@@ -39,6 +46,8 @@ security:
 tags:
   - name: Alert
   - name: AlertType
+  - name: Email
+    description: Internal email channel (no Kong route)
   - name: Health
 
 paths:
@@ -275,6 +284,84 @@ paths:
       responses:
         '204':
           description: Eliminado
+
+  /api/v1/emails:
+    post:
+      summary: Send a templated email — INTERNAL ONLY (no Kong route)
+      description: |
+        Internal endpoint: 01-ms-identity posts here after generating a password-recovery code,
+        and this service owns the SMTP transport plus the templates. The payload is deliberately
+        narrow (template + data, no free-form subject/body) so the route cannot be used as an
+        open relay. **Kong does not expose it** — it is reachable only inside the compose
+        network, so it is documented here for completeness and not as part of the public API.
+        With `SMTP_HOST` empty the answer is `202 {status:"skipped"}` and the gap is only
+        logged.
+      operationId: sendEmail
+      tags: [Email]
+      security: []
+      parameters:
+        - name: X-Internal-Token
+          in: header
+          required: false
+          description: Shared secret from `EMAIL_INTERNAL_TOKEN`. When the variable is unset the route stays open inside the compose network.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, template]
+              properties:
+                to:
+                  type: string
+                  format: email
+                template:
+                  type: string
+                  enum: [verification_code]
+                  description: Only `verification_code` is supported (no free-form subject/body)
+                data:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Template variables (`code` is required for `verification_code`)
+            example:
+              to: apprentice@example.com
+              template: verification_code
+              data:
+                code: '482913'
+      responses:
+        '202':
+          description: '`{status:"accepted"}` when delivered, or `{status:"skipped",reason:"smtp_not_configured"}` when SMTP is not configured'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [accepted, skipped]
+                  reason:
+                    type: string
+        '400':
+          description: '`VALIDATION_ERROR` — malformed body, invalid `to`, unsupported template or missing template data'
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: '`FORBIDDEN` — missing or invalid `X-Internal-Token` (only when `EMAIL_INTERNAL_TOKEN` is set)'
+          content:
+            application/json:
+              schema:
+                type: object
+        '502':
+          description: '`DELIVERY_FAILED` — SMTP transport error'
+          content:
+            application/json:
+              schema:
+                type: object
 
 components:
   schemas:

@@ -83,7 +83,7 @@ Canonical (see `pagination.md`):
 | 201 | Created | Created resource (+ `Location` where Java/TS set it) |
 | 204 | Success without body | Empty |
 | 400 | Validation (`Zod`, `Bean Validation`, `Pydantic`, `Gin binding`) | `ErrorResponse` |
-| 401 | Missing/invalid/expired session bearer (checked by `AuthTokenFilter` in the Java MSs; Kong does not authenticate) | `ErrorResponse` |
+| 401 | Missing/invalid/expired session bearer (checked first by Kong's `pre-function`, then by `AuthTokenFilter` in the Java MSs) | `ErrorResponse` |
 | 403 | Authenticated but RBAC denies (`GET /auth/evaluate → allowed:false`, or required permission missing) | `ErrorResponse` |
 | 404 | Not found (`SchoolNotFound`, `no active facial template`, `no match found`) | `ErrorResponse` |
 | 409 | Conflict/duplicate (email exists, person document exists) | `ErrorResponse` |
@@ -119,11 +119,15 @@ All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_b
 ## 9. Security
 
 - All inter-service and frontend traffic goes through Kong `:8080`. See `authentication.md`.
-- Auth is **per-MS, not at the edge**: Kong has no `jwt` plugin and no consumers. Java services
-  (`01,02,04,05`) require `Authorization: Bearer <sessionId>` (opaque UUID from
-  `POST /api/v1/auth/login`) on every `/api/**` route; bootstrap routes (`login`, `logout`,
-  `me`, `GET /sessions/*`) and health/docs are public. TS/Python/Go services (`03,06,07,08,09`)
-  do not validate the bearer yet.
+- Auth has **two layers**: the edge and the MS. Kong has no `jwt` plugin and no consumers, but a
+  global `pre-function` rejects every non-public route without `Authorization: Bearer <sessionId>`
+  (opaque UUID from `POST /api/v1/auth/login`) by introspecting identity — public at the edge are
+  health probes, `OPTIONS`, `login`, `logout`, `refresh`, `forgot-password`, `verify-code`,
+  `reset-password` and `GET /api/v1/auth/me`. Behind that, Java services (`01,02,04,05`) repeat the
+  check in `AuthTokenFilter` on every `/api/**` route and add RBAC (`GET /api/v1/auth/evaluate`);
+  bootstrap routes (`me`, `GET /sessions/*`) and health/docs are public there. TS/Python/Go
+  services (`03,06,07,08,09`) do **not** validate the bearer on their own — they rely on the edge
+  (and stay reachable on their published direct ports: `risks.md` R-003).
 - Local service-to-service calls use UUID cross-references, never cross-schema FKs.
 - CORS: global Kong plugin `http://localhost:3000,http://localhost:5173,http://localhost:8090`;
   the identity service also declares `*` on its own plugin for local dev. TLS terminates at Kong in prod.

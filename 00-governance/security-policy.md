@@ -20,11 +20,14 @@
 
 ### JWT (JSON Web Tokens)
 
-> **Status (2026-10-05):** this table is the **target state**, not the current one. Today the
+> **Status (2026-10-07):** this table is the **target state**, not the current one. Today the
 > platform issues **opaque session ids** (`identity.user_session`) sent as
-> `Authorization: Bearer <sessionId>`; Kong has **no `jwt` plugin** and no refresh tokens exist.
-> Each Java service validates the bearer with `AuthTokenFilter` (TS/Python/Go services do not
-> yet — tech debt `AT-004`). Edge JWT with RS256 is the ADR-007 goal (`AT-007`).
+> `Authorization: Bearer <sessionId>`; Kong has **no `jwt` plugin**, but it **does authenticate at
+> the edge**: a global `pre-function` validates the session id by introspecting identity on every
+> non-public route. There is no refresh token — `POST /api/v1/auth/refresh` only rotates the
+> session id. Each Java service (01/02/04/05) validates the bearer again with `AuthTokenFilter`
+> and adds RBAC (TS/Python/Go services do not — tech debt `AT-004`). Edge JWT with RS256 is the
+> ADR-007 goal (`AT-007`).
 > Current behavior: `07-api/authentication.md`.
 
 | Property | Required value (target state) |
@@ -42,8 +45,10 @@
 
 ### Refresh Token
 
-> **Not implemented today** — there are no refresh tokens to store or rotate; sessions are rows
-> in `identity.user_session`. The rules below are the target state once ADR-007 lands.
+> **Not implemented today** — there is no refresh token entity to store or rotate; sessions are
+> rows in `identity.user_session`. The closest thing implemented is `POST /api/v1/auth/refresh`,
+> which rotates the opaque session id (single use: the previous row is closed). The rules below
+> are the target state once ADR-007 lands.
 
 - Stored in the database (with bcrypt hash)
 - Mandatory rotation on each use (one refresh token = one use)
@@ -83,8 +88,9 @@ Examples:
 ```
 
 **Validation (current vs target):**
-- Today: the API Gateway does **not** authenticate — Kong runs only `cors` + `rate-limiting`;
-  each Java service validates the opaque bearer with `AuthTokenFilter`
+- Today: the API Gateway **authenticates at the edge** — a global `pre-function` requires a valid
+  active session on every non-public route (plus `cors` + `rate-limiting`), while each Java
+  service validates the opaque bearer again with `AuthTokenFilter` and checks permissions
 - Target (ADR-007): the API Gateway validates the JWT (signature and expiration)
 - Each service validates the role permissions for the specific operation
 - Target (ADR-007): roles travel as claim `roles: ["Administrador"]`

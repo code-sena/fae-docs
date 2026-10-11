@@ -16,7 +16,7 @@
 | `error` code | HTTP | When |
 |--------------|------|------|
 | `VALIDATION_ERROR` / `BadRequest` | 400 | Zod / Bean Validation / Pydantic / Gin binding fails |
-| `UNAUTHORIZED` | 401 | Missing/invalid/expired session bearer (checked by the Java `AuthTokenFilter`; Kong does not authenticate) |
+| `UNAUTHORIZED` | 401 | Missing/invalid/expired session bearer (rejected first by Kong's `pre-function`, then by the Java `AuthTokenFilter`) |
 | `FORBIDDEN` | 403 | `GET /auth/evaluate → allowed:false` |
 | `NOT_FOUND` / `NotFound` | 404 | `SchoolNotFound`, `no active facial template`, `no match found` |
 | `CONFLICT` / `Duplicate` | 409 | Email/document already exists |

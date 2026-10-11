@@ -14,7 +14,15 @@ info:
       `CreatePermissionRequest{permissionName*,description}`, `UpdatePermissionRequest`,
       `PermissionResponse{permissionId,permissionName,description}`,
       `AssignRoleRequest{roleId}`, `AssignPermissionRequest{permissionId}`
-    - Gateway: `rate-limiting 100/min` (sin plugin jwt; el MS valida el bearer con `AuthTokenFilter`) (`kong.yml:31-49`).
+    - Gateway: the edge `pre-function` (Lua) validates the opaque session UUID against identity
+      before the request reaches this service, plus `rate-limiting 100/min` and the global
+      `cors`; no `jwt` plugin. The MS then validates the bearer again with `AuthTokenFilter`
+      and resolves RBAC (`kong.yml:31-49, 150-192`).
+    - Legacy alias: every route is also declared **without** the `/api/v1` prefix (`/roles`,
+      `/permissions`, `/user-roles`, `/users/{id}/roles`, `/auth/evaluate`). Kong routes only
+      the `/api/v1/...` form; the alias works on the direct port only (and there
+      `AuthTokenFilter` does not run, because it guards paths starting with `/api/`). Not part
+      of the contract — do not use it.
 
 servers:
   - url: http://localhost:8082
@@ -350,6 +358,46 @@ paths:
       responses:
         '204':
           description: Rol removido
+
+  /api/v1/user-roles:
+    get:
+      summary: Batch roles for many users
+      description: One request for the whole users screen. Users without a role assignment are
+        absent from the map; without `userIds` the answer is `{}`. Legacy alias without the
+        `/api/v1` prefix exists in code but is not routed by the gateway.
+      operationId: listUserRolesBatch
+      tags: [UserRole]
+      parameters:
+        - name: userIds
+          in: query
+          required: false
+          style: form
+          explode: true
+          description: Repeated or comma-separated UUIDs, at most 300 per request
+          schema:
+            type: array
+            maxItems: 300
+            items:
+              $ref: './_shared.yaml#/components/schemas/UUID'
+      responses:
+        '200':
+          description: '`{userId: RoleResponse[]}`'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: More than 300 `userIds` in one request
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
 
   /api/v1/auth/evaluate:
     get:

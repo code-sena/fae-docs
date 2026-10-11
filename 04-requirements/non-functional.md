@@ -174,7 +174,7 @@ Proposed strategy:
 
 - All private endpoints must require an authenticated user.
 - Authentication must be performed before accessing protected functionality.
-- **Adopted mechanism:** opaque session ids (`identity.user_session`) sent as `Authorization: Bearer <sessionId>` and validated per Java service by `AuthTokenFilter`; Kong carries no `jwt` plugin (edge JWT is the ADR-007 target state).
+- **Adopted mechanism:** opaque session ids (`identity.user_session`) sent as `Authorization: Bearer <sessionId>`, validated **at the edge** by Kong's global `pre-function` (introspection against identity) and again per Java service by `AuthTokenFilter` with RBAC; Kong carries no `jwt` plugin (edge JWT is the ADR-007 target state).
 - Session lifetime: closed by logout (`session_status = Closed`); `password_policy.expiration_days` = 90 for passwords. There are no access/refresh tokens today — see `07-api/authentication.md`.
 - Role-Based Access Control (RBAC) must be implemented.
 - Roles considered in the SRS:
@@ -197,8 +197,10 @@ Proposed strategy:
 - **Adopted:** bcrypt with cost factor **12** and the `$2b` prefix (ADR-008, `SecurityConfig`).
 - Password change must verify the user identity.
 - Password recovery must use a secure, time-limited mechanism.
-  > **Gap:** the Web/Mobile clients call `auth/forgot-password`, `auth/verify-code` and
-  > `auth/reset-password`, but those endpoints are **not implemented server-side** (AT-005).
+  > **Status (2026-10-07):** `auth/forgot-password`, `auth/verify-code` and `auth/reset-password`
+  > are implemented in `01-ms-identity` (6-digit code, 10 min TTL, 5 attempts, 60 s resend
+  > cooldown, SHA-256-hashed code, constant-time comparison). What is still open is the end-to-end
+  > email delivery (AT-005): with `SMTP_HOST` empty the notifier answers `202 {status:"skipped"}`.
 
 ### Data transmission
 

@@ -10,15 +10,32 @@ info:
     - Proxy `:8080` (contenedor `8000`), Admin `:8001`.
     - Frontends MUST usar `:8080/api/v1/...`. Acceso directo a `8081-8089` solo para dev/debug.
 
-    ## Autenticación
+    ## Authentication
     ```
     Authorization: Bearer <sessionId>
     ```
-    `sessionId` opaco (UUID) de `POST /api/v1/auth/login` (identity 8081; `identifier` = email o
-    username). Ver `../authentication.md`.
-    **Kong NO tiene plugin `jwt` ni consumers** (solo `cors` + `rate-limiting`): la validación de
-    la sesión la hace cada MS Java (`01/02/04/05`, `AuthTokenFilter`). Los servicios TS/Python/Go
-    (`03/06/07/08/09`) no validan el bearer hoy (tech-debt). Objetivo: `jwt` RS256 de identity (ADR-007).
+    Opaque `sessionId` (UUID) issued by `POST /api/v1/auth/login` (identity 8081; `identifier` =
+    email or username). See `../authentication.md`.
+
+    **Kong validates the session at the edge.** A global `pre-function` (Lua) requires the bearer
+    on every non-public route and calls `GET ms-identity:8081/api/v1/sessions/{id}` demanding
+    `sessionStatus = "Active"`:
+    - `401` when the header is missing, there is no `Bearer`, the token is not an 8-4-4-4-12 UUID,
+      or the session is invalid/closed/expired (`Missing or invalid bearer token` |
+      `Invalid or expired session`).
+    - `503` when identity does not answer (`Cannot verify session`).
+    - No cache: **one identity call per authenticated request**. Requires
+      `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`.
+    - Public routes (no token): `OPTIONS` (CORS), `/health*`, `/api/v1/health`, `/api/health`,
+      `POST /api/v1/auth/{login,logout,refresh,forgot-password,verify-code,reset-password}` and
+      `GET /api/v1/auth/me`.
+
+    The bearer is an **opaque session, not a JWT**: Kong has no `jwt` plugin and no consumers
+    (only `pre-function` + `cors` + `rate-limiting`), and `jwt` RS256 issued by identity remains
+    a future evolution (ADR-007). The gateway **only authenticates**: permissions (RBAC) are
+    still evaluated by the Java services (`01/02/04/05`, `AuthTokenFilter`). The TS/Python/Go
+    services (`03/06/07/08/09`) check nothing on their own — direct access on their internal
+    ports validates nothing (tech-debt `AT-004`, risk `R-003`).
 
     ## Rate limits (Redis)
     Global 300/min; identity 60/min; authorization 100/min; attendance 200/min; quality 100/min.
@@ -48,27 +65,30 @@ servers:
       domain:
         default: example.com
 
+security:
+  - bearerAuth: []
+
 tags:
   - name: Health
     description: Estado de los upstreams (solo `/health/quality` está ruteado)
   - name: Identity
-    description: Proxied → ms-identity:8081 (rutas de bootstrap públicas; el resto exige bearer)
+    description: Proxied → ms-identity:8081 (public bootstrap routes; the rest require the bearer)
   - name: Authorization
-    description: Proxied → ms-authorization:8082 (bearer validado en el MS)
+    description: Proxied → ms-authorization:8082 (bearer checked at the edge and in the MS)
   - name: Academic
-    description: Proxied → ms-academic:8083 (sin validación en el MS hoy)
+    description: Proxied → ms-academic:8083 (gateway-only session check; the MS validates nothing)
   - name: Scheduling
-    description: Proxied → ms-scheduling:8084 (bearer validado en el MS)
+    description: Proxied → ms-scheduling:8084 (bearer checked at the edge and in the MS)
   - name: Attendance
-    description: Proxied → ms-attendance:8085 (bearer validado en el MS)
+    description: Proxied → ms-attendance:8085 (bearer checked at the edge and in the MS)
   - name: Biometric
-    description: Proxied → ms-biometric:8086 (sin validación en el MS hoy)
+    description: Proxied → ms-biometric:8086 (gateway-only session check; the MS serves raw embeddings)
   - name: Configuration
-    description: Proxied → ms-configuration:8087 (sin validación en el MS hoy)
+    description: Proxied → ms-configuration:8087 (gateway-only session check; the MS validates nothing)
   - name: Notification
-    description: Proxied → ms-notification:8088 (sin validación en el MS hoy)
+    description: Proxied → ms-notification:8088 (gateway-only session check; the MS validates nothing)
   - name: Quality
-    description: Proxied → ms-quality:8089 (sin validación en el MS hoy)
+    description: Proxied → ms-quality:8089 (gateway-only session check; the MS validates nothing)
 
 paths:
   /health/quality:
@@ -86,9 +106,8 @@ paths:
 
   /api/v1/persons:
     get:
-      summary: Proxy → identity (ver 01-identity-service.yaml)
+      summary: Proxy → identity (ver 01-identity-service.yaml; edge bearer required)
       tags: [Identity]
-      security: []
       responses:
         '200':
           description: Proxied
@@ -98,9 +117,8 @@ paths:
                 type: object
   /api/v1/users:
     get:
-      summary: Proxy → identity
+      summary: Proxy → identity (edge bearer required)
       tags: [Identity]
-      security: []
       responses:
         '200':
           description: Proxied
@@ -123,7 +141,7 @@ paths:
               properties:
                 identifier:
                   type: string
-                  description: Email o username (alias aceptados: `email`, `username`)
+                  description: "Email o username (alias aceptados: `email`, `username`)"
                 email:
                   type: string
                   description: Alias de `identifier`
@@ -148,9 +166,8 @@ paths:
                 $ref: './_shared.yaml#/components/schemas/ErrorResponse'
   /api/v1/sessions:
     post:
-      summary: Proxy → identity sessions (público)
+      summary: Proxy → identity sessions (edge bearer required)
       tags: [Identity]
-      security: []
       responses:
         '201':
           description: Proxied
@@ -160,9 +177,8 @@ paths:
                 type: object
   /api/v1/password-policies:
     get:
-      summary: Proxy → identity password-policies (público)
+      summary: Proxy → identity password-policies (edge bearer required)
       tags: [Identity]
-      security: []
       responses:
         '200':
           description: Proxied
@@ -190,7 +206,7 @@ paths:
           $ref: './_shared.yaml#/components/responses/Unauthorized'
   /api/v1/permissions:
     get:
-      summary: Proxy → authorization (401 sin bearer en el MS)
+      summary: "Proxy → authorization (401 without bearer: gateway + MS)"
       tags: [Authorization]
       responses:
         '200':
@@ -203,7 +219,7 @@ paths:
                   type: object
   /api/v1/auth/evaluate:
     get:
-      summary: Proxy → authorization RBAC check (401 sin bearer en el MS)
+      summary: "Proxy → authorization RBAC check (401 without bearer: gateway + MS)"
       tags: [Authorization]
       parameters:
         - name: userId
@@ -226,7 +242,7 @@ paths:
 
   /api/v1/schools:
     get:
-      summary: Proxy → academic (sin auth en el MS hoy)
+      summary: Proxy → academic (gateway-only session check)
       tags: [Academic]
       parameters:
         - $ref: './_shared.yaml#/components/parameters/LimitParam'
@@ -242,7 +258,7 @@ paths:
                   type: object
   /api/v1/programs:
     get:
-      summary: Proxy → academic (sin auth en el MS hoy)
+      summary: Proxy → academic (gateway-only session check)
       tags: [Academic]
       responses:
         '200':
@@ -268,7 +284,7 @@ paths:
                   type: object
   /api/v1/cohorts:
     get:
-      summary: Proxy → academic (sin auth en el MS hoy)
+      summary: Proxy → academic (gateway-only session check)
       tags: [Academic]
       responses:
         '200':
@@ -281,7 +297,7 @@ paths:
                   type: object
   /api/v1/courses:
     get:
-      summary: Proxy → academic (sin auth en el MS hoy)
+      summary: Proxy → academic (gateway-only session check)
       tags: [Academic]
       responses:
         '200':
@@ -294,7 +310,7 @@ paths:
                   type: object
   /api/v1/academic-actors:
     get:
-      summary: Proxy → academic (sin auth en el MS hoy)
+      summary: Proxy → academic (gateway-only session check)
       tags: [Academic]
       responses:
         '200':
@@ -307,7 +323,7 @@ paths:
                   type: object
   /api/v1/enrollments:
     get:
-      summary: Proxy → academic (sin auth en el MS hoy)
+      summary: Proxy → academic (gateway-only session check)
       tags: [Academic]
       responses:
         '200':
@@ -321,7 +337,7 @@ paths:
 
   /api/v1/environments:
     get:
-      summary: Proxy → scheduling (401 sin bearer en el MS)
+      summary: "Proxy → scheduling (401 without bearer: gateway + MS)"
       tags: [Scheduling]
       responses:
         '200':
@@ -334,7 +350,7 @@ paths:
                   type: object
   /api/v1/schedule-blocks:
     get:
-      summary: Proxy → scheduling (401 sin bearer en el MS)
+      summary: "Proxy → scheduling (401 without bearer: gateway + MS)"
       tags: [Scheduling]
       responses:
         '200':
@@ -347,7 +363,7 @@ paths:
                   type: object
   /api/v1/class-sessions:
     get:
-      summary: Proxy → scheduling (401 sin bearer en el MS)
+      summary: "Proxy → scheduling (401 without bearer: gateway + MS)"
       tags: [Scheduling]
       responses:
         '200':
@@ -374,7 +390,7 @@ paths:
                   type: object
   /api/v1/justifications:
     get:
-      summary: Proxy → attendance (401 sin bearer en el MS)
+      summary: "Proxy → attendance (401 without bearer: gateway + MS)"
       tags: [Attendance]
       responses:
         '200':
@@ -387,7 +403,7 @@ paths:
                   type: object
   /api/v1/justification-types:
     get:
-      summary: Proxy → attendance (401 sin bearer en el MS)
+      summary: "Proxy → attendance (401 without bearer: gateway + MS)"
       tags: [Attendance]
       responses:
         '200':
@@ -400,7 +416,7 @@ paths:
                   type: object
   /api/v1/supporting-documents:
     get:
-      summary: Proxy → attendance (401 sin bearer en el MS)
+      summary: "Proxy → attendance (401 without bearer: gateway + MS)"
       tags: [Attendance]
       responses:
         '200':
@@ -414,7 +430,7 @@ paths:
 
   /api/v1/biometric/facial/verify:
     post:
-      summary: Proxy → biometric verify (sin auth en el MS hoy)
+      summary: Proxy → biometric verify (gateway-only session check)
       tags: [Biometric]
       requestBody:
         required: true
@@ -431,7 +447,7 @@ paths:
                 type: object
   /api/v1/biometric/facial/identify:
     post:
-      summary: Proxy → biometric identify (sin auth en el MS hoy)
+      summary: Proxy → biometric identify (gateway-only session check)
       tags: [Biometric]
       requestBody:
         required: true
@@ -449,7 +465,7 @@ paths:
 
   /api/v1/academic-configurations:
     get:
-      summary: Proxy → configuration (sin auth en el MS hoy)
+      summary: Proxy → configuration (gateway-only session check)
       tags: [Configuration]
       responses:
         '200':
@@ -462,7 +478,7 @@ paths:
                   type: object
   /api/v1/security-configurations:
     get:
-      summary: Proxy → configuration (sin auth en el MS hoy)
+      summary: Proxy → configuration (gateway-only session check)
       tags: [Configuration]
       responses:
         '200':
@@ -475,7 +491,7 @@ paths:
                   type: object
   /api/v1/biometric-update-cases:
     get:
-      summary: Proxy → configuration cases (sin auth en el MS hoy)
+      summary: Proxy → configuration cases (gateway-only session check)
       tags: [Configuration]
       responses:
         '200':
@@ -488,7 +504,7 @@ paths:
                   type: object
   /api/v1/configurations:
     get:
-      summary: Proxy → configuration base (sin auth en el MS hoy)
+      summary: Proxy → configuration base (gateway-only session check)
       tags: [Configuration]
       responses:
         '200':
@@ -502,7 +518,7 @@ paths:
 
   /api/v1/alerts:
     get:
-      summary: Proxy → notification (sin auth en el MS hoy)
+      summary: Proxy → notification (gateway-only session check)
       tags: [Notification]
       responses:
         '200':
@@ -513,7 +529,7 @@ paths:
                 type: object
   /api/v1/alert-types:
     get:
-      summary: Proxy → notification types (sin auth en el MS hoy)
+      summary: Proxy → notification types (gateway-only session check)
       tags: [Notification]
       responses:
         '200':
@@ -536,7 +552,7 @@ paths:
                 type: object
   /api/v1/quality/evaluations:
     get:
-      summary: Proxy → quality evaluations (sin auth en el MS hoy)
+      summary: Proxy → quality evaluations (gateway-only session check)
       tags: [Quality]
       responses:
         '200':

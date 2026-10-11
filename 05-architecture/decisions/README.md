@@ -51,7 +51,7 @@ Decisions are unchanged; each ADR file carries its own `Implementation note` lin
 | ADR-004 | Events published to Kafka, but no outbox / DLQ / compensation (AT-006) |
 | ADR-005 | Stack as decided (Java 21 + **Spring Boot 4.1**, TS Fastify, Python 3.12, Go 1.22) + ninth service `ms-quality` :8089 |
 | ADR-006 | Kafka (KRaft `:9092`) is live with wired producers; no DLQ yet |
-| ADR-007 | Kong 3.6 DB-less, cors + rate-limiting only — **no `jwt` plugin**; opaque `sessionId` bearer validated per MS |
+| ADR-007 | Kong 3.6 DB-less, global `pre-function` session check at the edge + cors + rate-limiting — **no `jwt` plugin**; opaque `sessionId` bearer, re-checked per MS |
 | ADR-008 | `BCryptPasswordEncoder($2B, 12)` in `SecurityConfig` |
 | ADR-010 | Liquibase 4.29 as 8 chained containers; YAML changesets (SQL inside); no Flyway |
 | ADR-012 | Structured logs only — no Prometheus/Grafana/Jaeger deployed |

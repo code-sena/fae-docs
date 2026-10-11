@@ -333,5 +333,6 @@ components:
         sessionId opaco (UUID) obtenido en POST /api/v1/auth/login (identity 8081).
         Incluir en el header: Authorization: Bearer <sessionId>.
         Kong valida el token en el edge con un pre-function (introspección de la sesión contra
-        identity; sin plugin jwt ni consumers): lo vuelven a validar los MS Java
-        (01/02/04/05) con su AuthTokenFilter; los MS TS/Python/Go no lo validan por sí mismos.
+        identity; sin plugin jwt ni consumers): cada microservicio lo vuelve a validar por su
+        cuenta — los Java (01/02/04/05) con AuthTokenFilter, los TS (03/07/09) con
+        registerAuthGuard, el Python (06) con require_permission, el Go (08) con AuthMiddleware.

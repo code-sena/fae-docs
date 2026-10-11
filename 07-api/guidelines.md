@@ -123,11 +123,12 @@ All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_b
   global `pre-function` rejects every non-public route without `Authorization: Bearer <sessionId>`
   (opaque UUID from `POST /api/v1/auth/login`) by introspecting identity — public at the edge are
   health probes, `OPTIONS`, `login`, `logout`, `refresh`, `forgot-password`, `verify-code`,
-  `reset-password` and `GET /api/v1/auth/me`. Behind that, Java services (`01,02,04,05`) repeat the
-  check in `AuthTokenFilter` on every `/api/**` route and add RBAC (`GET /api/v1/auth/evaluate`);
-  bootstrap routes (`me`, `GET /sessions/*`) and health/docs are public there. TS/Python/Go
-  services (`03,06,07,08,09`) do **not** validate the bearer on their own — they rely on the edge
-  (and stay reachable on their published direct ports: `risks.md` R-003).
+  `reset-password` and `GET /api/v1/auth/me`. Behind that, every service repeats the check on its
+  own and adds RBAC (`GET /api/v1/auth/evaluate`) — Java (`01,02,04,05`) in `AuthTokenFilter`, TS
+  (`03,07,09`) in `registerAuthGuard`, Python (`06`) in `require_permission`, Go (`08`) in
+  `AuthMiddleware`; bootstrap routes (`me`, `GET /sessions/*`) and health/docs are public there
+  too. Four separate implementations of the same contract, not a gap (`risks.md` R-003,
+  corrected 2026-10-11).
 - Local service-to-service calls use UUID cross-references, never cross-schema FKs.
 - CORS: global Kong plugin `http://localhost:3000,http://localhost:5173,http://localhost:8090`;
   the identity service also declares `*` on its own plugin for local dev. TLS terminates at Kong in prod.

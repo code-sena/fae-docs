@@ -32,10 +32,11 @@ info:
 
     The bearer is an **opaque session, not a JWT**: Kong has no `jwt` plugin and no consumers
     (only `pre-function` + `cors` + `rate-limiting`), and `jwt` RS256 issued by identity remains
-    a future evolution (ADR-007). The gateway **only authenticates**: permissions (RBAC) are
-    still evaluated by the Java services (`01/02/04/05`, `AuthTokenFilter`). The TS/Python/Go
-    services (`03/06/07/08/09`) check nothing on their own — direct access on their internal
-    ports validates nothing (tech-debt `AT-004`, risk `R-003`).
+    a future evolution (ADR-007). The gateway authenticates at the edge; permissions (RBAC) are
+    then evaluated again by every service's own guard, not just Java — `AuthTokenFilter`
+    (`01/02/04/05`), `registerAuthGuard` (`03/07/09`), `require_permission` (`06`),
+    `AuthMiddleware` (`08`). Corrected 2026-10-11, re-verified against `FULL/`: `AT-004` is four
+    duplicated implementations of the same contract, not a missing check (`R-003`).
 
     ## Rate limits (Redis)
     Global 300/min; identity 60/min; authorization 100/min; attendance 200/min; quality 100/min.

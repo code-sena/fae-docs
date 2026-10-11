@@ -14,17 +14,34 @@ stateDiagram-v2
     Rejected --> Approved : PATCH .../review — accepted, the current state is never checked
 
     note right of Pending
-        The review endpoint only validates the target value against
-        In_Review|Approved|Rejected (zod enum / regex); it never reads
-        the current update_status, so any transition above is possible.
-        FINGERPRINT cases additionally require fingerNumber (400 otherwise).
+        This diagram follows the canonical store (ms-configuration,
+        /api/v1/biometric-update-cases). Its review endpoint only validates
+        the target value against In_Review|Approved|Rejected (zod enum /
+        regex); it never reads the current update_status, so any transition
+        above is possible. FINGERPRINT cases additionally require
+        fingerNumber (400 otherwise). The independent ms-biometric
+        implementation (see note on Approved) follows the same transitions
+        with no ordering guard either, but skips the fingerNumber check.
     end note
 
     note right of Approved
-        Two stores with the same API shape:
-        - configuration (canonical): MemoryStore, soft delete sets deletedAt
-        - biometric mirror: MongoDB biometric_update_cases, sets
-          is_active=false + deleted_at, never removes the document
+        Verified 2026-10 against FULL — NOT a mirror, two fully independent
+        implementations with different paths and payloads, never synced:
+        - configuration (canonical): Postgres biometric_update_case,
+          POST/GET/PUT/PATCH review/DELETE /biometric-update-cases,
+          requestedBy mandatory, fingerNumber enforced for FINGERPRINT,
+          caller scoped to their own person unless they hold
+          biometric.case:review. Soft delete sets deletedAt.
+        - biometric (independent, not a mirror): MongoDB
+          biometric_update_cases, POST/GET/PATCH review/DELETE
+          /biometric/update-request*, no requestedBy field at all, no
+          fingerNumber field (FINGERPRINT cases are not validated), only one
+          coarse permission gates create/list/review. Soft delete sets
+          is_active=false + deleted_at, never removes the document.
+        A case created through one path is invisible on the other — see
+        SEQ-04. endpoint-matrix.md calls the biometric side a "thin proxy of
+        the canonical case" — it is not: there is no HTTP call between the
+        two services anywhere in this flow.
     end note
 
     Pending --> [*] : DELETE (soft delete: deletedAt / is_active=false)

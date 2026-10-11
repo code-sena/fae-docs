@@ -14,18 +14,26 @@
 
 ## Chosen format and workflow (decision)
 
-> **Format: Mermaid only.** Every diagram lives as a `.mmd` file in `diagrams/source/`, one diagram
-> per file, and is registered in `diagram-index.md`.
+> **Format: Mermaid, with one deliberate exception — class diagrams are PlantUML.** C4, sequence,
+> state and ER diagrams live as `.mmd` files; class diagrams live as `.puml` files. Both go in
+> `diagrams/source/`, one diagram per file, and are registered in `diagram-index.md`. The
+> exception exists because Mermaid's `classDiagram` renders loosely (no real visibility markers,
+> weak multiplicity placement); PlantUML reads like an actual textbook UML class diagram. Every
+> other diagram type stays Mermaid-only — do not also move sequence/state/C4 diagrams to
+> PlantUML.
 >
-> **How they are viewed (accurate):** GitHub/GitLab do **not** render standalone `.mmd` files — they
-> only render ` ```mermaid ` blocks inside Markdown. So preview the sources in **VS Code** (Markdown
-> Preview Mermaid Support / Mermaid extension) or paste them into [mermaid.live](https://mermaid.live).
-> When a diagram must be visible *on GitHub* (PR review, README), export it once with `mmdc` to
-> `diagrams/exports/*.svg` and link the SVG — never duplicate the diagram in a Markdown file, because
-> two copies are two things to keep updated.
+> **How they are viewed (accurate):** GitHub/GitLab do **not** render standalone `.mmd` or `.puml`
+> files — they only render ` ```mermaid ` / ` ```plantuml ` fenced blocks inside Markdown. So
+> preview `.mmd` sources in **VS Code** (Markdown Preview Mermaid Support / Mermaid extension) or
+> [mermaid.live](https://mermaid.live), and `.puml` sources in VS Code (PlantUML extension) or
+> [plantuml.com/plantuml](https://www.plantuml.com/plantuml). When a diagram must be visible *on
+> GitHub* (PR review, README), export it once — `mmdc` for `.mmd`, `node-plantuml` for `.puml`
+> (needs a local Graphviz `dot`, see `diagram-index.md`) — to `diagrams/exports/*.svg` and link
+> the SVG; never duplicate the diagram in a Markdown file, because two copies are two things to
+> keep updated.
 >
-> PlantUML and draw.io below are kept as reference for the day a diagram outgrows Mermaid; new
-> diagrams should not start in those tools.
+> draw.io below is kept as reference for the day a diagram outgrows both tools; new diagrams
+> should not start there.
 
 ---
 
@@ -51,9 +59,9 @@
 
 ---
 
-## Reference tools (Mermaid is the adopted one)
+## Reference tools (Mermaid for everything except class diagrams, PlantUML for those)
 
-### Mermaid (supported on GitHub/GitLab)
+### Mermaid — adopted for C4, sequence, state, ER
 ```mermaid
 sequenceDiagram
     User->>Gateway: POST /orders
@@ -64,22 +72,23 @@ sequenceDiagram
     Gateway-->>User: 201 Created
 ```
 
-### PlantUML (not adopted — reference only)
+### PlantUML — adopted for class diagrams only
 ```plantuml
 @startuml
-actor User
-participant "API Gateway" as GW
-participant "IAM Service" as IAM
-participant "Orders Service" as Orders
-
-User -> GW: POST /orders
-GW -> IAM: Validate token
-IAM --> GW: Valid token
-GW -> Orders: Create order
-Orders --> GW: 201 Created
-GW --> User: 201 Created
+class Order {
+  +orderId: UUID
+  +status: OrderStatus
+  +create()
+}
+enum OrderStatus <<enumeration>> {
+  Draft
+  Confirmed
+}
+Order --> OrderStatus
 @enduml
 ```
+Do not use PlantUML for sequence, state, C4 or ER diagrams — those stay Mermaid, even though
+PlantUML can technically draw them too. One tool per diagram type keeps the toolchain simple.
 
 ### Draw.io / Lucidchart
 For more complex diagrams requiring free placement. Export as SVG to `diagrams/exports/`.
@@ -92,7 +101,7 @@ For more complex diagrams requiring free placement. Export as SVG to `diagrams/e
 08-uml/
 ├── diagram-index.md          ← Registry of all diagrams
 ├── diagrams/
-│   ├── source/               ← Source files (.mmd — Mermaid)
+│   ├── source/               ← Source files (.mmd — Mermaid; .puml — PlantUML, class diagrams only)
 │   └── exports/              ← Optional exported images (.svg, .png)
 ```
 
@@ -100,7 +109,7 @@ For more complex diagrams requiring free placement. Export as SVG to `diagrams/e
 - `c1-system-context.mmd` — C4 Level 1 diagram (✅ done)
 - `c2-container-diagram.mmd` — C4 Level 2 diagram (✅ done)
 - `c3-attendance-service.mmd` — C4 Level 3 diagram of a service (✅ done)
-- `cls-identity-authorization.mmd` — Class diagram for a bounded-context cluster (✅ done)
+- `cls-identity-authorization.puml` — Class diagram for a bounded-context cluster, PlantUML (✅ done)
 - `seq-login.mmd` — Sequence diagram for the login flow (✅ done)
 - `state-justification.mmd` — State diagram for a justification (✅ done)
 - ER diagrams are **not** stored here: each domain already has one in `06-data/domains/*.md`
@@ -114,6 +123,7 @@ Registry of all diagrams with their purpose and location.
 | ID | Name | Type | Tool | Source file | Status | Description |
 |----|------|------|------|-------------|--------|-------------|
 | C4-02 | Container Diagram | C4 L2 | Mermaid | `source/c2-container-diagram.mmd` | ✅ Done | Clients, Kong, 9 services, data stores |
+| CLS-01 | Identity & Authorization domain model | Class | PlantUML | `source/cls-identity-authorization.puml` | ✅ Done | Person, AppUser, UserSession, Role, Permission, UserRole |
 | SEQ-01 | Facial attendance capture | Sequence | Mermaid | `source/seq-facial-attendance.mmd` | ✅ Done | Scan → match → record (unwired gaps called out) |
 ```
 

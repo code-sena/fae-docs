@@ -36,6 +36,11 @@
 - **C4 — Container (Level 2):** the microservices, DBs, and frontends of the system
 - **C4 — Component (Level 3):** the internal components of a specific service
 
+### For structure
+- **Class:** domain classes, attributes, methods and the relationships between them — the OO
+  view of the model (aggregates, invariants, which cross-context refs are deliberately not FKs),
+  distinct from the column-level ER view
+
 ### For data
 - **ER (Entity-Relationship):** tables and their relationships — one per service or one global
 
@@ -95,6 +100,7 @@ For more complex diagrams requiring free placement. Export as SVG to `diagrams/e
 - `c1-system-context.mmd` — C4 Level 1 diagram (✅ done)
 - `c2-container-diagram.mmd` — C4 Level 2 diagram (✅ done)
 - `c3-attendance-service.mmd` — C4 Level 3 diagram of a service (✅ done)
+- `cls-identity-authorization.mmd` — Class diagram for a bounded-context cluster (✅ done)
 - `seq-login.mmd` — Sequence diagram for the login flow (✅ done)
 - `state-justification.mmd` — State diagram for a justification (✅ done)
 - ER diagrams are **not** stored here: each domain already has one in `06-data/domains/*.md`
@@ -119,5 +125,6 @@ Registry of all diagrams with their purpose and location.
 |-----------|----------------------|
 | `05-architecture/overview.md` | C4 Level 1 and 2 diagrams |
 | `06-data/models.md` | ER diagrams per service |
+| `02-domain/entities-and-rules.md` | Class diagrams per bounded-context cluster |
 | `09-microservices/communication-patterns.md` | Sequence diagrams for flows |
 | `02-domain/domain-map.md` | Bounded contexts diagram |

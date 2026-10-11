@@ -31,6 +31,7 @@ Examples (match the registry below):
   c1-system-context.mmd
   c2-container-diagram.mmd
   c3-attendance-service.mmd
+  cls-identity-authorization.mmd
   seq-facial-attendance.mmd
   state-class-session.mmd
   erd-attendance.mmd
@@ -47,6 +48,21 @@ Examples (match the registry below):
 | C4-01 | System Context | C4 L1 | Mermaid | `source/c1-system-context.mmd` | ✅ Done | Students, instructors and admins vs. FaceAttend EDU and its external systems |
 | C4-02 | Container Diagram | C4 L2 | Mermaid | `source/c2-container-diagram.mmd` | ✅ Done | Clients, Kong, the 9 microservices and PostgreSQL / MongoDB / Redis / Kafka |
 | C4-03 | ms-attendance components | C4 L3 | Mermaid | `source/c3-attendance-service.mmd` | ✅ Done | Internal components of the critical-path service (hexagonal ports & adapters) |
+
+### Class diagrams
+
+| ID | Name | Tool | Source file | Status | Description |
+|----|------|------|-------------|--------|-------------|
+| CLS-01 | Identity & Authorization domain model | Mermaid | `source/cls-identity-authorization.mmd` | ✅ Done | Person, AppUser, UserSession, Role, Permission, UserRole — OO structure and invariants behind `01-identity` / `02-authorization` |
+| CLS-02 | Academic & Scheduling domain model | Mermaid | `source/cls-academic-scheduling.mmd` | ✅ Done | School → Program → Cohort/Course, AcademicActor, Enrollment, Environment, ScheduleBlock, ClassSession, with cross-context refs marked no-FK |
+| CLS-03 | Attendance & Biometric domain model | Mermaid | `source/cls-attendance-biometric.mmd` | ✅ Done | AttendanceRecord, Justification(Type), SupportingDocument, AttendanceReport, BiometricUpdateCase and the two MongoDB embedding collections |
+| CLS-04 | Notification & Configuration domain model | Mermaid | `source/cls-notification-configuration.mmd` | ✅ Done | AlertType/Alert, AcademicConfiguration, SecurityConfiguration |
+
+> Class diagrams show the OO/domain structure (aggregates, methods, invariants, and which
+> cross-context references are deliberately **not** FKs) — a different concern from the ER
+> diagrams below, which show the column-level SQL shape. Grouped by bounded-context cluster
+> (not one per context) to avoid near-duplicate files; see `02-domain/entities-and-rules.md` for
+> the full prose version these were built from.
 
 ### Sequence diagrams
 

@@ -4,13 +4,14 @@ sequenceDiagram
     participant CL as Client app (face-api.js)
     participant GW as Kong :8080
     participant ID as ms-identity :8081
+    participant AZ as ms-authorization :8082
     participant BIO as ms-biometric :8086
     participant M as MongoDB faceattend_biometric
     participant ATT as ms-attendance :8085
     participant PG as PostgreSQL schema attendance
     participant K as Kafka topic attendance-events
 
-    Note over GW: Kong's global pre-function validates the opaque sessionId against identity on every non-public route (401/503 at the edge), plus cors + rate-limiting — no jwt plugin. ms-biometric (06) has no local auth check of its own (gateway-only auth, see SEQ-02)
+    Note over GW: Kong's global pre-function validates the opaque sessionId against identity on every non-public route (401/503 at the edge), plus cors + rate-limiting — no jwt plugin. ms-biometric (06) also re-validates on its own: every /api/v1/biometric/facial/* route requires session + permission attendance.record:write (see SEQ-02)
 
     rect rgb(238, 245, 238)
     Note over CL,M: 1. Enrollment (once per student)
@@ -19,7 +20,11 @@ sequenceDiagram
     CL->>GW: POST /api/v1/biometric/facial/enroll {person_id, encoding}
     GW->>ID: edge pre-function: GET /api/v1/sessions/{sessionId}
     ID-->>GW: 200 Active
-    GW->>BIO: forward (ms-biometric trusts the edge check — no filter of its own)
+    GW->>BIO: forward
+    BIO->>ID: GET /api/v1/sessions/{sessionId} (its own guard re-validates)
+    ID-->>BIO: Active
+    BIO->>AZ: GET /api/v1/auth/evaluate?permission=attendance.record:write
+    AZ-->>BIO: allowed
     BIO->>M: upsert active template and deactivate the previous one
     M-->>BIO: ok
     BIO-->>CL: 201 Created
@@ -33,6 +38,8 @@ sequenceDiagram
     GW->>ID: edge pre-function: GET /api/v1/sessions/{sessionId}
     ID-->>GW: 200 Active
     GW->>BIO: forward
+    BIO->>ID: GET /api/v1/sessions/{sessionId} + GET /auth/evaluate (same guard as enroll)
+    ID-->>BIO: Active, allowed
     BIO->>M: list active templates (cap identify_scan_limit = 10000)
     M-->>BIO: templates
     BIO->>BIO: cosine similarity of every template against the capture

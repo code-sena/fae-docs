@@ -25,9 +25,10 @@
 > `Authorization: Bearer <sessionId>`; Kong has **no `jwt` plugin**, but it **does authenticate at
 > the edge**: a global `pre-function` validates the session id by introspecting identity on every
 > non-public route. There is no refresh token — `POST /api/v1/auth/refresh` only rotates the
-> session id. Each Java service (01/02/04/05) validates the bearer again with `AuthTokenFilter`
-> and adds RBAC (TS/Python/Go services do not — tech debt `AT-004`). Edge JWT with RS256 is the
-> ADR-007 goal (`AT-007`).
+> session id. Every service validates the bearer again on its own and adds RBAC — Java
+> `AuthTokenFilter` (01/02/04/05), TS `registerAuthGuard` (03/07/09), Python `require_permission`
+> (06), Go `AuthMiddleware` (08) — four duplicated implementations of the same contract, not a
+> gap (`AT-004`, corrected 2026-10-11). Edge JWT with RS256 is the ADR-007 goal (`AT-007`).
 > Current behavior: `07-api/authentication.md`.
 
 | Property | Required value (target state) |
@@ -89,8 +90,9 @@ Examples:
 
 **Validation (current vs target):**
 - Today: the API Gateway **authenticates at the edge** — a global `pre-function` requires a valid
-  active session on every non-public route (plus `cors` + `rate-limiting`), while each Java
-  service validates the opaque bearer again with `AuthTokenFilter` and checks permissions
+  active session on every non-public route (plus `cors` + `rate-limiting`), while every service
+  validates the opaque bearer again on its own (`AuthTokenFilter` in Java, an equivalent guard in
+  TS/Python/Go) and checks permissions
 - Target (ADR-007): the API Gateway validates the JWT (signature and expiration)
 - Each service validates the role permissions for the specific operation
 - Target (ADR-007): roles travel as claim `roles: ["Administrador"]`

@@ -25,53 +25,64 @@ The key operations questions are:
 
 ---
 
+## Operational Overview: FaceAttend-Edu
+
+FaceAttend-Edu operates as a **Polyglot Modular Monolith** deployed via Docker Compose, utilizing a tiered network strategy for security and isolation.
+
+### Infrastructure Topology
+The system is divided into three isolated network tiers to ensure that the data layer is never directly exposed to the public internet:
+- **`faceattend-edge`**: Handles traffic between the Frontend (Expo Web/Nginx) and the API Gateway (Kong).
+- **`faceattend-app`**: Internal communication between the API Gateway and the microservices (Java, TS, Python, Go) and Redis cache.
+- **`faceattend-data`**: Restricted access for microservices to reach PostgreSQL, MongoDB, Kafka, and Liquibase migration tools.
+
+**Security Note:** This design ensures that the database and message broker are unreachable from the `faceattend-edge` network, preventing direct external access to the data tier.
+
+### Component Stack
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Edge/Gateway** | Kong OSS + Redis | Routing, JWT RS256, Rate-limiting, CORS |
+| **Backend (Java)** | Spring Boot 4.1.1 | Identity, Authorization, Scheduling, Attendance |
+| **Backend (TS)** | Fastify + Drizzle | Academic, Configuration, Quality |
+| **Backend (Python)**| FastAPI | Biometric (Face/Fingerprint embeddings) |
+| **Backend (Go)** | Gin | Notifications/Alerts |
+| **Persistence** | PostgreSQL 17, MongoDB 7 | Relational data (8 schemas) and Vector data |
+| **Migrations** | Liquibase | Sequential DB schema evolution |
+
+---
+
 ## What is here and how to fill it in
 
 ### `observability.md` ⭐
 How the system makes its internal state visible.
 **The 3 pillars of observability:**
-- **Logs:** what each service records, in what format (structured JSON recommended), where they go
-- **Metrics:** what each service measures (latency, error rate, throughput), with what tool (Prometheus)
-- **Traces:** how a request that passes through multiple services is tracked (OpenTelemetry, Jaeger)
+- **Logs:** What each service records, in what format (structured JSON recommended), where they go.
+- **Metrics:** What each service measures (latency, error rate, throughput), with what tool (Prometheus).
+- **Traces:** How a request that passes through multiple services is tracked (OpenTelemetry, Jaeger).
 
-**Fill in:**
-```markdown
-## Logs
-- Format: structured JSON with fields: timestamp, service, level, traceId, message, [contextual data]
-- Tool: [ELK Stack / Loki + Grafana / CloudWatch]
-- Retention: [30 days hot, 1 year cold]
-
-## Metrics
-- Tool: Prometheus + Grafana
-- Main dashboard: [URL]
-- Required metrics per service:
-  - http_request_duration_seconds (histogram)
-  - http_requests_total (counter by status code)
-  - [specific business metrics]
-
-## Distributed traces
-- Tool: OpenTelemetry + Jaeger
-- How to propagate traceId between services: X-Trace-Id header
-```
+**Fill in based on current stack:**
+- **Gateway Logs:** Kong `kong.yml` declarative config provides the routing logic; logs should be captured from the Kong container.
+- **Service Logs:** Standard output from Spring Boot, Fastify, FastAPI, and Gin containers.
+- **Health Checks:** Use the `/health` endpoints (as seen in the `frontend-web` healthcheck) to monitor service availability.
 
 ### `incident-management.md` ⭐
 Incident response process.
-**Fill in:** how severity is classified (P0/P1/P2/P3), who responds, communication channel,
-when to escalate, post-mortem process.
+**Fill in:** how severity is classified (P0/P1/P2/P3), who responds, communication channel, when to escalate, post-mortem process.
 
-**Severities:**
-```markdown
+**Proposed Severities for FaceAttend-Edu:**
 | Level | Description | Response SLA | Resolution SLA |
 |-------|-------------|-------------|----------------|
-| P0 | System completely down | 5 min | 1 hour |
-| P1 | Critical functionality degraded | 15 min | 4 hours |
-| P2 | Non-critical functionality affected | 1 hour | 24 hours |
-| P3 | Minor issue, workaround available | 4 hours | 1 week |
-```
+| P0 | Biometric or Attendance system completely down | 5 min | 1 hour |
+| P1 | Critical API failure (e.g., Identity/Auth) | 15 min | 4 hours |
+| P2 | Non-critical service degraded (e.g., Notification/Quality) | 1 hour | 24 hours |
+| P3 | Minor UI bug or documentation error | 4 hours | 1 week |
 
 ### `backup-and-recovery.md`
 Data backup and recovery strategy.
 **Fill in:** backup frequency, where they are stored, how they are tested, target recovery time (RTO/RPO).
+- **PostgreSQL:** Backup of the `faceattend_db` (8 schemas) and the separate `face_auth` database.
+- **MongoDB:** Backup of the `biometric` collections and the `faceattend_face_auth` database.
+- **Liquibase:** All schema changes are versioned in the `database/` directory, allowing for deterministic recovery of the DB state.
+- **Existing Tools:** The project includes `database/scripts/backup.sh` and `database/scripts/restore.sh` for manual dumps and restoration of all three databases.
 
 ---
 
@@ -79,16 +90,16 @@ Data backup and recovery strategy.
 
 | This section is fed by... | And feeds into... |
 |---------------------------|-------------------|
-| `09-microservices/[service]/runbook.md` | Specific runbooks consolidated here |
-| `05-architecture/overview.md` | What to monitor in each service |
-| `10-devops/environments.md` | Alert configuration per environment |
+| `back-end/SERVICES.md` | Mapping of services to monitoring targets |
+| `docker-compose.yml` | Network tiering and healthcheck definitions |
+| `database/ESTRUCTURA.md` | Backup requirements per schema |
 | Incidents documented here | `15-project-control/technical-backlog.md` → post-incident improvements |
 
 ---
 
 ## Questions this section must answer
 
-- How do we know the system is failing before users report it?
-- What exactly do we do when service X fails at 3am?
-- How much downtime can we have per month?
-- How do we recover data if the DB fails?
+- **How do we know the system is failing before users report it?** Through Kong Gateway logs and container healthchecks.
+- **What exactly do we do when service X fails at 3am?** Check the specific microservice logs and verify the `faceattend-data` network connectivity.
+- **How much downtime can we have per month?** Defined by the SLO (e.g., 99.9%).
+- **How do we recover data if the DB fails?** Restore PG/Mongo backups and re-run the Liquibase migration chain.

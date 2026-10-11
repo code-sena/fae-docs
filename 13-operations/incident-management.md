@@ -1,192 +1,124 @@
-# Incident Management
+# Incident Management — FaceAttend-Edu
 
-> An incident is any unplanned event that interrupts or degrades service.
-> Effective incident response is trained before incidents occur, not during.
-> Follow this playbook in order — in an incident, stress blocks free thinking.
-
----
-
-## Severity classification
-
-| Level | Name | Definition | Example | Response time |
-|-------|------|------------|---------|---------------|
-| **P0** | Critical | System completely down. Total impact to all users. | API Gateway down, DB inaccessible | **Immediate** (<5 min) |
-| **P1** | High | Core functionality degraded. Impact to > 50% of users. | Login not working, payments failing | **15 minutes** |
-| **P2** | Medium | Secondary functionality degraded. Workaround available. | Report export slow | **1 hour** |
-| **P3** | Low | Minor nuisance. No impact on business operations. | Button with incorrect label | **Next sprint** |
+> An incident is any unplanned event that interrupts or degrades service. In a biometric system like FaceAttend-Edu, incidents can range from API timeouts to hardware failures (biometric readers) or database inconsistencies.
+> Effective incident response is trained before incidents occur, not during. Follow this playbook in order — in an incident, stress blocks free thinking.
 
 ---
 
-## Roles during an incident
+## Severity Classification
+
+We classify incidents based on the impact on the academic process (attendance recording) and the number of affected users.
+
+| Level | Name | Definition | FaceAttend-Edu Example | Response time |
+|-------|------|------------|---------------------|---------------|
+| **P0** | Critical | System completely down. Total impact to all users. | Kong Gateway down, PostgreSQL inaccessible, or `ms-attendance` failing entirely. | **Immediate** (<5 min) |
+| **P1** | High | Core functionality degraded. Impact to > 50% of users. | `ms-biometric` failing to match faces (biometric failure), Identity service unable to issue tokens. | **15 minutes** |
+| **P2** | Medium | Secondary functionality degraded. Workaround available. | `ms-notification` alerts not sending, `ms-quality` reports failing, or slow Academic queries. | **1 hour** |
+| **P3** | Low | Minor nuisance. No impact on business operations. | UI glitches in the dashboard, typos in reports. | **Next sprint** |
+
+---
+
+## Roles during an Incident
 
 | Role | Responsibility | When activated |
 |------|----------------|----------------|
-| **Incident Commander (IC)** | Coordinates response. Makes decisions. Communicates. | P0 and P1 always |
-| **Tech Lead** | In-depth technical diagnosis | P0 and P1 always |
-| **On-Call Engineer** | First responder. Executes technical actions | All incidents |
-| **Comms Lead** | Communicates to external stakeholders | P0 and P1 |
+| **Incident Commander (IC)** | Coordinates response, manages the "War Room", and makes final decisions on mitigation. | P0 and P1 always |
+| **Tech Lead** | Leads the technical diagnosis across the polyglot stack (Java, TS, Python, Go). | P0 and P1 always |
+| **On-Call Engineer** | First responder. Executes technical actions (restarts, rollbacks, config changes). | All incidents |
+| **Comms Lead** | Communicates updates to institution administrators and users. | P0 and P1 |
 
 ---
 
-## Response playbook
+## Response Playbook
 
 ### Step 1: DETECT (0-5 min)
+**How do we know there is an incident in FaceAttend-Edu?**
+- **Automated:** Prometheus alerts $\rightarrow$ PagerDuty (e.g., `HighErrorRate` in `ms-attendance`).
+- **Manual:** Reports from instructors that the "Take Attendance" button is not working.
+- **Infrastructure:** Docker container healthcheck failure (seen in `docker ps`).
 
-```
-How do you know there is an incident?
-  → Alert from Prometheus / PagerDuty
-  → User report
-  → Proactive monitoring on the dashboard
-
-Immediate action:
-  1. Acknowledge the alert in PagerDuty (to silence it and mark that someone responded)
-  2. Go to the Slack #incidents channel and write: "Investigating [brief description] — [your name]"
-  3. Open the runbook for the affected service: `09-microservices/services/[service]/runbook.md`
-```
+**Immediate Action:**
+1. Acknowledge the alert to stop the notification loop.
+2. Notify the team in Slack `#incidents`: *"Investigating P[N] - [Brief Description] - [Your Name]"*.
+3. Check the general health of the three networks (`faceattend-edge`, `app`, `data`).
 
 ### Step 2: CLASSIFY (5-10 min)
-
-```
 Determine severity:
-  → How many users are affected?
-  → What features are down?
-  → Is there a workaround available?
+- Is the biometric recognition failing? $\rightarrow$ **P1**
+- Is the entire API unreachable via Kong? $\rightarrow$ **P0**
+- Is only the Notification service down? $\rightarrow$ **P2**
 
-If P0 or P1:
-  → Activate the Incident Commander
-  → Create the incident ticket in [Jira/Linear]: INC-XXX
-  → Open the War Room (temporary Slack channel or video call)
-```
+**If P0 or P1:**
+- Activate the Incident Commander and Tech Lead.
+- Create an incident ticket (e.g., `INC-XXXX`).
+- Open a War Room (Slack channel or Zoom call).
 
 ### Step 3: COMMUNICATE (10-15 min)
-
-Initial update in the team channel and to stakeholders:
-
-```
-Initial communication template:
-─────────────────────────────────
-🔴 INCIDENT P[N] — [INC-XXX]
-Affected service: [name]
-Impact: [What is not working for whom]
-Status: Investigating
-Next update: in 30 minutes
-IC: [Incident Commander Name]
-─────────────────────────────────
-```
+Initial update template for stakeholders:
+> 🔴 **INCIDENT P[N] — [INC-XXXX]**
+> **Affected Service:** [e.g., ms-biometric]
+> **Impact:** Students cannot record attendance via facial recognition.
+> **Status:** Investigating.
+> **Next update:** in 30 minutes.
+> **IC:** [Name]
 
 ### Step 4: DIAGNOSE (10-30 min)
-
-```
-Diagnostic tools (in order):
-  1. Grafana → When did the problem start? Which service has a high error rate?
-  2. Logs (Kibana/CloudWatch) → What does the affected service say?
-  3. Jaeger/Zipkin → Where does the trace break?
-  4. kubectl get pods / docker ps → Is the pod/container running?
-  5. Manual health check → curl http://[service]/health
-
-Key question: What changed in the last 2 hours?
-  → Last deploy
-  → Configuration change
-  → Traffic spike
-  → Change in an external system
-```
-
-**See specific decision tree:** `09-microservices/services/[service]/runbook.md`
+**Diagnostic path for FaceAttend-Edu:**
+1. **Kong Gateway:** Check `kong.yml` and logs. Is the request reaching the microservice?
+2. **Microservice Logs:** Check the specific runtime log (Spring Boot, Fastify, FastAPI, or Gin).
+3. **Network Connectivity:** Verify if the service can reach the data tier (`faceattend-data` network).
+4. **Biometric Hardware:** If the issue is only with fingerprints, check if the *DigitalPersona Runtime* is installed on the client machines (see `COMPOSE.md` §9).
+5. **Database State:** Check for locked rows in PostgreSQL or high CPU in MongoDB.
 
 ### Step 5: MITIGATE (15-60 min)
-
-```
-Mitigation options (from safest to riskiest):
-  1. Rollback to the last stable deploy (if a deploy caused the problem)
-  2. Disable the feature flag that introduced the problem
-  3. Scale horizontally if it is a capacity issue
-  4. Temporarily increase timeout / circuit breaker
-  5. Redirect traffic to an alternative region (if available)
-  6. Activate maintenance mode (last resort)
-```
-
-**Before each change during an incident:**
-- Announce in the War Room what you are going to do
-- Wait for the IC's confirmation
-- Execute the change
-- Report the result within 2 minutes
+**Mitigation Options (Safe $\rightarrow$ Risky):**
+1. **Container Restart:** `docker compose restart [service]` (fixes transient memory leaks or deadlocks).
+2. **Rollback:** Revert to a previous stable image version.
+3. **Scaling:** Increase resources if the JVM services (`ms-identity`, `ms-attendance`) are hitting RAM limits.
+4. **Bypass Biometrics:** Temporarily allow manual attendance (if business logic allows) to avoid blocking the academic process.
+5. **Maintenance Mode:** Activate via Kong Gateway to show a "System Under Maintenance" page.
 
 ### Step 6: RESOLVE AND COMMUNICATE
-
-```
 The incident is resolved when:
-  - Error metrics return to normal levels
-  - Health checks respond 200 on all services
-  - The PO / stakeholder confirms users can operate normally
+- All `/health` endpoints return `200 OK`.
+- Biometric matching latency returns to normal (P95 < 2s).
+- Users confirm they can record attendance.
 
-Resolution communication:
-─────────────────────────
-✅ RESOLVED — [INC-XXX]
-Root cause: [brief description]
-Resolution: [what was done]
-Total duration: [X] minutes
-Post-mortem: [meeting date]
-─────────────────────────
-```
+**Resolution Message:**
+> ✅ **RESOLVED — [INC-XXXX]**
+> **Root cause:** [e.g., MongoDB connection pool exhausted in ms-biometric]
+> **Resolution:** [e.g., Increased maxPoolSize and restarted service]
+> **Total duration:** [X] minutes.
+> **Post-mortem:** [Date]
 
 ---
 
 ## Post-Mortem (Incident Retrospective)
 
-The post-mortem is not to blame anyone — it is to understand and prevent.
-Held within 2 business days after resolving the incident.
+Held within 2 business days after resolution. Focus on **Why**, not **Who**.
 
-### Post-mortem structure
-
-**INC-XXX — [Incident title]**
-
-**Key data:**
-- Start date and time: 
-- Resolution date and time: 
-- Total duration: 
-- Severity: P[N]
-- Affected users: [N]
-
-**Timeline:**
-
-| Time | Event | Action taken |
-|------|-------|-------------|
-| HH:MM | [What happened] | [Who did what] |
-
-**Root cause:**
-> Why did it happen? (5 Why's — get to the real cause, not the symptom)
-
-**Contributing factors:**
-> Factors that facilitated the incident (without blaming people)
-
-**What went well:**
-> [What part of the incident response was effective]
-
-**What did not work:**
-> [What part failed or could be improved]
-
-**Action items:**
-
-| Action | Owner | Deadline | Status |
-|--------|-------|---------|--------|
-| [Concrete action to prevent recurrence] | [Name] | [date] | Pending |
+**Structure:**
+- **Timeline:** From first alert to resolution.
+- **Root Cause Analysis:** The "5 Whys" technique.
+- **Contributing Factors:** (e.g., "Lack of connection pool monitoring in the Quality dashboard").
+- **Action Items:** Concrete tasks to prevent recurrence (e.g., "Add MongoDB pool metrics to Grafana").
 
 ---
 
-## Communication channels
+## Communication Channels
 
 | Channel | Purpose |
 |---------|---------|
-| Slack `#incidents` | Main channel for all incidents |
-| Slack `#war-room-[INC-XXX]` | Temporary channel created for P0/P1 incidents |
-| PagerDuty | Alerts and on-call rotation |
-| [Ticketing system] | Official record: INC-XXX |
-| Status Page | Public communication to users (if applicable) |
+| Slack `#incidents` | General alerts and awareness. |
+| Slack `#war-room-[INC-XXXX]` | High-intensity technical coordination for P0/P1. |
+| PagerDuty / Email | On-call notification. |
+| Institution Admin Portal | Status updates for academic coordinators. |
 
 ---
 
 ## Correlations
 
-- Observability alerts → `13-operations/observability.md`
-- Service runbooks → `09-microservices/services/XX/runbook.md`
-- SLOs and Error Budget → `13-operations/README.md`
+- **Detection** $\rightarrow$ `13-operations/observability.md`
+- **Recovery** $\rightarrow$ `13-operations/README.md` (Backup & Restore scripts)
+- **Service Mapping** $\rightarrow$ `back-end/SERVICES.md`
+- **Hardware Requirements** $\rightarrow$ `back-end/COMPOSE.md` (DigitalPersona Runtime)

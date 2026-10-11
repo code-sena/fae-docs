@@ -1,0 +1,156 @@
+@startuml cls-identity-authorization
+title Class Diagram — Identity & Authorization
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+hide circle
+
+enum AuthenticationType <<enumeration>> {
+  Local
+  Windows
+  External
+}
+
+enum SessionStatus <<enumeration>> {
+  Active
+  Closed
+}
+
+class Credentials <<value object>> {
+  +identifier: String
+  +password: String
+}
+
+class Person {
+  +personId: UUID
+  +documentType: String
+  +documentNumber: String
+  +name: String
+  +lastName: String
+  +email: String
+  +phone: String
+  +bloodType: String
+  +birthDate: Date
+  +status: Boolean
+  +activate()
+  +deactivate()
+}
+
+class AppUser {
+  +userId: UUID
+  +personId: UUID
+  +username: String
+  +passwordHash: String
+  +authenticationType: AuthenticationType
+  +status: Boolean
+  +lastAccess: DateTime
+  +authenticate(credentials: Credentials): UserSession
+  +activate()
+  +deactivate()
+}
+
+class UserSession {
+  +sessionId: UUID
+  +userId: UUID
+  +startDate: DateTime
+  +endDate: DateTime
+  +sourceIp: String
+  +sessionStatus: SessionStatus
+  +close()
+  +refresh(): UserSession
+}
+
+class PasswordPolicy {
+  +policyId: Int
+  +minLength: Int
+  +maxLength: Int
+  +requiresUppercase: Boolean
+  +requiresNumbers: Boolean
+  +requiresSymbols: Boolean
+  +expirationDays: Int
+}
+
+class Role {
+  +roleId: Int
+  +roleName: String
+  +description: String
+}
+
+class Permission {
+  +permissionId: Int
+  +permissionName: String
+  +description: String
+}
+
+class RolePermission {
+  +roleId: Int
+  +permissionId: Int
+  +assignmentDate: DateTime
+}
+
+class UserRole {
+  +userId: UUID
+  +roleId: Int
+  +assignmentDate: DateTime
+}
+
+Person "1" -- "0..1" AppUser : app_user.person_id FK\nUNIQUE
+AppUser "1" -- "0..*" UserSession : user_session.user_id FK
+Role "1" -- "0..*" RolePermission : role_permission.role_id FK
+Permission "1" -- "0..*" RolePermission : role_permission.permission_id FK
+Role "1" -- "0..*" UserRole : user_role.role_id FK
+AppUser "1" ..> "0..*" UserRole : user_role.user_id\n(cross-context, no FK)
+AppUser ..> Credentials : authenticate() consumes
+AppUser --> AuthenticationType
+UserSession --> SessionStatus
+
+note right of Person
+  RN-01/RN-02: a Person may exist without an
+  active AppUser, but an AppUser cannot exist
+  without a Person. RN-03: cannot be deleted
+  with active records. No school_id — identity
+  is school-agnostic.
+end note
+
+note right of AppUser
+  RN-04/RN-06: must authenticate before use;
+  admins may deactivate without deleting
+  history. person_id is UNIQUE — one account
+  per person.
+end note
+
+note right of UserSession
+  sessionId is the opaque bearer token (never
+  a JWT). refresh() rotates it: closes this row
+  and returns a new UserSession — single use.
+end note
+
+note right of Role
+  RN-07: roles are global, no school_id. Seeds:
+  Administrador, Instructor, Aprendiz (legacy
+  SUPER_ADMIN/SCHOOL_ADMIN/INSTRUCTOR/STUDENT
+  merged).
+end note
+
+note right of Permission
+  Format context.resource:action, e.g.
+  attendance.justification:approve.
+  RN-09/RN-10: access depends on the assigned
+  role's permissions.
+end note
+
+note bottom of UserRole
+  PK (user_id, role_id). RN-07: every AppUser
+  must have at least one role.
+end note
+
+note as N1
+  All classes also carry the standard audit block
+  (created_at/updated_at/deleted_at/created_by/
+  updated_by/deleted_by/row_version) — omitted
+  here for readability. See AGENTS.md §2.2 and
+  06-data/domains/01-identity.md /
+  02-authorization.md for the column-level ER view.
+end note
+
+@enduml

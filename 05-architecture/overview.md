@@ -127,13 +127,16 @@ graph TB
 > Full detail per service in `09-microservices/service-catalog.md`; ports and routes are frozen
 > from `FULL/COMPOSE.md` + `FULL/back-end/99-api-gateway/kong/kong.yml`.
 
-> **Known risk (2026-10-07):** services **03 (academic), 06 (biometric), 07 (configuration),
-> 08 (notification) and 09 (quality) have no authentication or authorization filter of their
-> own** — they depend exclusively on Kong's edge session check. Compose publishes every internal
-> port on `127.0.0.1:8083-8089`, so anything reaching those ports (or any container on the
-> compose network) bypasses validation completely, and `ms-biometric` returns raw facial and
-> fingerprint embeddings. **The internal ports must never be exposed outside the Docker
-> network.** See `15-project-control/risks.md` R-003 and §8 AT-004.
+> **Corrected (2026-10-11, re-verified against `FULL/`):** services **03 (academic), 06
+> (biometric), 07 (configuration), 08 (notification) and 09 (quality) each run their own
+> session+RBAC guard** (`registerAuthGuard` in TS, `require_permission` in Python,
+> `AuthMiddleware` in Go — same contract as the Java `AuthTokenFilter`, duplicated per service, no
+> shared module), applied to every `/api/**` route except `/health`. A call that reaches a
+> service's port directly (compose publishes them on `127.0.0.1:8083-8089`) still has to pass
+> that service's own check. Internal ports should still stay inside the Docker network as
+> defense in depth — one less layer to rely on is still a real risk, just not an open bypass. See
+> `15-project-control/risks.md` R-003 and §8 AT-004 (both corrected to match) and
+> `07-api/authentication.md` §1.
 
 > **Note:** `_future-iot-service` (IoT_Device, Device_Assignment) exists as a *future* external supporting module for classroom hardware; it is not part of the 8 core business contexts in `02-domain` and is excluded from the v1.1 scope.
 
@@ -205,7 +208,7 @@ Transversal concerns that apply to ALL services:
 | AT-001 | Single PostgreSQL instance is SPOF for all schemas — no per-schema HA | Medium (single institution, but blocks HA) | P2 | Sprint 6 — evaluate per-schema backup + read replica |
 | AT-002 | No import-boundary lint rule: `domain/` of one module can still import another module's `domain/` | Medium — erodes future extractability | P1 | Sprint 3 — add eslint import-boundary + CI check |
 | AT-003 | Notification-service Go runtime adds 4th runtime for 2 tables — ops overhead | Low — isolated, low churn | P3 | Evaluate consolidating to TS/Fastify if Go learning cost > benefit |
-| AT-004 | No authentication/authorization inside the TS/Python/Go services (03/06/07/08/09) — only `01/02/04/05` run `AuthTokenFilter`; Kong checks the session at the edge only | **High** — direct access to ports 8083/8086/8087/8088/8089 (published on loopback by compose) bypasses every check and biometric serves raw embeddings (risk `R-003`) | P0 | Next sprint: shared validation middleware; keep internal ports inside the Docker network |
+| AT-004 | **Corrected 2026-10-11:** all 9 services do run their own session+RBAC guard (`AuthTokenFilter` Java, `registerAuthGuard` TS, `require_permission` Python, `AuthMiddleware` Go) — the real debt is that it is 4 independent, hand-maintained implementations of the same contract, not a missing check | Medium — maintenance/drift risk (a fix to one does not propagate to the other three), not an open bypass; keep internal ports inside the Docker network as defense in depth regardless | P2 | Extract a shared validation library per stack (or a Kong/OPA authorizer) to remove the duplication |
 | AT-005 | Password-recovery endpoints (`auth/forgot-password`, `verify-code`, `reset-password`) implemented in `01-ms-identity` (verified 2026-10-07); the end-to-end email delivery is not verified yet | Low — with `SMTP_HOST` empty the service answers `202 {status:"skipped"}` and the flow stalls | P3 | Verify the e2e flow (SMTP delivery) |
 | AT-006 | No circuit breaker, no transactional outbox, no Kafka DLQ (producers ignore publish errors) | Medium — silent event loss | P2 | With ADR-004/006 hardening |
 | AT-007 | Session check is HTTP introspection, not a signed token: Kong's `pre-function` and each `AuthTokenFilter` call identity on every request (no cache), and Kong has no `jwt` plugin nor consumers | Medium — duplicated auth code plus one extra internal hop per request; ADR-007 target not reached | P2 | Replace introspection with edge JWT (RS256) per ADR-007 |
@@ -221,7 +224,7 @@ Transversal concerns that apply to ALL services:
 | v1.1 | Remove Audit bounded context; Configuration becomes 08 | Simplify domain, infra logging instead | 2026-09 (done) | `refactor/remove-audit-domain` |
 | v1.1 | Services already deployed as 9 independent containers + Kong (was "1 process") | Each stack ships its own image/healthcheck | 2026-10 (done) | ADR-002 (implementation note) |
 | v1.2 | Add per-module import-boundary CI check | Preserve extractability (AT-002) | Sprint 3 | ADR-002 |
-| v1.2 | Add a shared auth/authorization check inside the TS/Python/Go services (AT-004); password recovery (AT-005) implemented 2026-10-07, e2e pending | Close the authorization gap behind the edge check | Next sprint | ADR-007 |
+| v1.2 | Each service already has its own auth/authorization check (AT-004, done, 4 duplicated implementations); next is extracting a shared module per stack instead. Password recovery (AT-005) implemented 2026-10-07, e2e pending | Remove the duplication/drift risk behind the edge check | Next sprint | ADR-007 |
 | v2.0 | Replace edge session introspection with an RS256 JWT issued by identity | Drop the per-request identity call and the duplicated per-MS checks (AT-007) | Q1 2027 | ADR-007 |
 | v2.1 | gRPC for hot internal paths if latency >50ms P95 | Reduce JSON overhead internal | Q2 2027 | TBD |
 

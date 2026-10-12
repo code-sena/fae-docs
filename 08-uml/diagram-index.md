@@ -54,6 +54,7 @@ Examples (match the registry below):
 | C4-01 | System Context | C4 L1 | Mermaid | `source/c1-system-context.mmd` | ✅ Done | Students, instructors and admins vs. FaceAttend EDU and its external systems |
 | C4-02 | Container Diagram | C4 L2 | Mermaid | `source/c2-container-diagram.mmd` | ✅ Done | Clients, Kong, the 9 microservices and PostgreSQL / MongoDB / Redis / Kafka |
 | C4-03 | ms-attendance components | C4 L3 | Mermaid | `source/c3-attendance-service.mmd` | ✅ Done | Internal components of the critical-path service (hexagonal ports & adapters) |
+| C4-04 | ms-biometric components | C4 L3 | Mermaid | `source/c4-biometric-service.mmd` | ✅ Done | FastAPI routers calling repository ports directly (flatter than the Java hexagon, one dead use-case port) — the service where the biometric-update-case duplication from SEQ-04 physically lives |
 
 ### Class diagrams
 
@@ -86,6 +87,19 @@ Examples (match the registry below):
 | SEQ-02 | Login flow | Mermaid | `source/seq-login.mmd` | ✅ Done | Login → opaque `sessionId` → edge check at Kong + per-service validation |
 | SEQ-03 | Justification approval | Mermaid | `source/seq-justification-approval.mmd` | ✅ Done | Submit → attachments → review → Approved/Rejected |
 | SEQ-04 | Biometric update case duplication | Mermaid | `source/seq-biometric-update-duplication.mmd` | ✅ Done | Two independent request/review implementations (ms-configuration/Postgres vs. ms-biometric/MongoDB), never synced — see ST-03 |
+| SEQ-05 | Password recovery | Mermaid | `source/seq-password-recovery.mmd` | ✅ Done | forgot-password → verify-code → reset-password, the internal identity → notification e-mail call, and the anti-enumeration/cooldown/single-use details |
+
+### Activity diagrams
+
+| ID | Name | Tool | Source file | Status | Description |
+|----|------|------|-------------|--------|-------------|
+| ACT-01 | Justification submission and review | Mermaid | `source/act-justification-process.mmd` | ✅ Done | The intended business process (Student / System / Reviewer swimlanes) per RN-32..36, with the unenforced-attachment and no-cascade gaps marked inline — complements SEQ-03 (API calls) and ST-02 (state transitions) without duplicating either |
+
+> This is the diagram type the README names as part of this folder's scope that had zero
+> examples until now. Mermaid has no native "activity diagram" keyword, so this uses
+> `flowchart TD` with `subgraph` blocks as swimlanes — the standard way to represent a UML
+> activity diagram with Mermaid. Dotted red edges mark a step that the business rules call for
+> but the real implementation does not do.
 
 ### State diagrams
 

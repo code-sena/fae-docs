@@ -15,7 +15,7 @@ C4Component
     Container_Boundary(domain, "Domain layer (dataclasses + ports)") {
         Component(facialEntity, "FacialEmbedding / FingerprintEmbedding", "dataclass", "Encoding vector, model/template version, isActive — built directly inside the router handlers")
         Component(matchLogEntity, "BiometricMatchLog", "dataclass", "Every verify/identify attempt, matched or not, with score and threshold")
-        Component(caseEntity, "BiometricUpdateCase", "dataclass", "The independent update-case entity — no requestedBy field, no fingerNumber validation (see cls-attendance-biometric.puml)")
+        Component(caseEntity, "BiometricUpdateCase", "dataclass", "The independent update-case entity — no requestedBy field, no fingerNumber validation (see cls-biometric.puml)")
         Component(outPorts, "Repository ports", "ABC interfaces", "BiometricRepositoryPort, MatchLogRepositoryPort, UpdateCaseRepositoryPort")
         Component(deadPort, "EnrollFacialUseCase", "ABC interface, unused", "Declared under domain/ports/in_ but no implementation and no caller exists — routers call the repository ports directly, skipping this port entirely")
     }

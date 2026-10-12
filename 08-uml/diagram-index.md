@@ -37,7 +37,7 @@ Examples (match the registry below):
   c1-system-context.mmd
   c2-container-diagram.mmd
   c3-attendance-service.mmd
-  cls-identity-authorization.puml
+  cls-identity.puml
   seq-facial-attendance.mmd
   state-class-session.mmd
   erd-attendance.mmd
@@ -60,11 +60,23 @@ Examples (match the registry below):
 
 | ID | Name | Tool | Source file | Status | Description |
 |----|------|------|-------------|--------|-------------|
-| CLS-01 | Identity & Authorization domain model | PlantUML | `source/cls-identity-authorization.puml` | ✅ Done | Person, AppUser, UserSession, Role, Permission, UserRole — OO structure and invariants behind `01-identity` / `02-authorization` |
-| CLS-02 | Academic & Scheduling domain model | PlantUML | `source/cls-academic-scheduling.puml` | ✅ Done | School → Program → Cohort/Course, AcademicActor, Enrollment, Environment, ScheduleBlock, ClassSession, with cross-context refs marked no-FK |
-| CLS-03 | Attendance & Biometric domain model | PlantUML | `source/cls-attendance-biometric.puml` | ✅ Done | AttendanceRecord, Justification(Type), SupportingDocument, AttendanceReport, BiometricUpdateCase and the two MongoDB embedding collections |
-| CLS-04 | Notification & Configuration domain model | PlantUML | `source/cls-notification-configuration.puml` | ✅ Done | AlertType/Alert, AcademicConfiguration, SecurityConfiguration |
+| CLS-01 | Identity domain model | PlantUML | `source/cls-identity.puml` | ✅ Done | Person, AppUser, UserSession, PasswordPolicy, Credentials — `01-identity` |
+| CLS-02 | Authorization domain model | PlantUML | `source/cls-authorization.puml` | ✅ Done | Role, Permission, RolePermission, UserRole — `02-authorization` |
+| CLS-03 | Academic domain model | PlantUML | `source/cls-academic.puml` | ✅ Done | School → Program → Cohort/Course, AcademicActorType, AcademicActor, Enrollment — `03-academic` |
+| CLS-04 | Scheduling domain model | PlantUML | `source/cls-scheduling.puml` | ✅ Done | Environment, ScheduleBlock, ClassSession, with every cross-context ref to Academic marked no-FK — `04-scheduling` |
+| CLS-05 | Attendance domain model | PlantUML | `source/cls-attendance.puml` | ✅ Done | AttendanceRecord, Justification(Type), SupportingDocument, AttendanceReport — `05-attendance` |
+| CLS-06 | Biometric domain model | PlantUML | `source/cls-biometric.puml` | ✅ Done | BiometricUpdateCase plus the two MongoDB embedding collections — `06-biometric` |
+| CLS-07 | Notification domain model | PlantUML | `source/cls-notification.puml` | ✅ Done | AlertType, Alert — `08-notification` (service 08; Notification is the 7th bounded context) |
+| CLS-08 | Configuration domain model | PlantUML | `source/cls-configuration.puml` | ✅ Done | AcademicConfiguration, SecurityConfiguration — `07-configuration` (service 07; Configuration is the 8th bounded context) |
 
+> **One per bounded context, matching `06-data/domains/*.md`'s own granularity** (7 ER files, one
+> per context, plus a documented reason Biometric has no 8th) — not one per cluster and not one
+> per microservice. `09-ms-quality` has no entry here: it is tooling, not a bounded context (see
+> `02-domain/domain-map.md`'s 8-context table and `c2-container-diagram.mmd`'s own description of
+> it). Cross-context classes a diagram depends on are drawn as empty `<<external — context>>`
+> stubs, never duplicated with their own attributes — the owning diagram is the only place that
+> attribute list lives.
+>
 > **Format exception:** class diagrams are PlantUML (`.puml`), not Mermaid — by explicit request,
 > for real UML class notation (`+`/`-` visibility, typed attributes, associations with
 > multiplicities on both ends, true `enum` blocks, `<<stereotype>>` markers) that reads closer to
@@ -75,8 +87,7 @@ Examples (match the registry below):
 >
 > Class diagrams show the OO/domain structure (aggregates, methods, invariants, and which
 > cross-context references are deliberately **not** FKs) — a different concern from the ER
-> diagrams below, which show the column-level SQL shape. Grouped by bounded-context cluster
-> (not one per context) to avoid near-duplicate files; see `02-domain/entities-and-rules.md` for
+> diagrams below, which show the column-level SQL shape. See `02-domain/entities-and-rules.md` for
 > the full prose version these were built from.
 
 ### Sequence diagrams
@@ -203,8 +214,8 @@ erDiagram
 ### Class diagram (PlantUML — the one exception to Mermaid-only)
 
 ```plantuml
-@startuml cls-[cluster-name]
-title Class Diagram — [Bounded Context A] & [Bounded Context B]
+@startuml cls-[context-name]
+title Class Diagram — [Bounded Context Name]
 
 skinparam classAttributeIconSize 0
 hide circle
@@ -282,8 +293,8 @@ Get-ChildItem 08-uml/diagrams/source/*.mmd | ForEach-Object {
 }
 
 # One PlantUML class diagram
-npx -y node-plantuml generate 08-uml/diagrams/source/cls-identity-authorization.puml \
-  -o 08-uml/diagrams/exports/cls-identity-authorization.svg --svg
+npx -y node-plantuml generate 08-uml/diagrams/source/cls-identity.puml \
+  -o 08-uml/diagrams/exports/cls-identity.svg --svg
 
 # All PlantUML sources (PowerShell)
 Get-ChildItem 08-uml/diagrams/source/*.puml | ForEach-Object {

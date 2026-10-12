@@ -109,7 +109,7 @@ For more complex diagrams requiring free placement. Export as SVG to `diagrams/e
 - `c1-system-context.mmd` — C4 Level 1 diagram (✅ done)
 - `c2-container-diagram.mmd` — C4 Level 2 diagram (✅ done)
 - `c3-attendance-service.mmd` — C4 Level 3 diagram of a service (✅ done)
-- `cls-identity-authorization.puml` — Class diagram for a bounded-context cluster, PlantUML (✅ done)
+- `cls-identity.puml` — Class diagram for a bounded context, PlantUML (✅ done)
 - `seq-login.mmd` — Sequence diagram for the login flow (✅ done)
 - `state-justification.mmd` — State diagram for a justification (✅ done)
 - `act-justification-process.mmd` — Activity diagram, `flowchart TD` + `subgraph` swimlanes (✅ done)
@@ -124,7 +124,7 @@ Registry of all diagrams with their purpose and location.
 | ID | Name | Type | Tool | Source file | Status | Description |
 |----|------|------|------|-------------|--------|-------------|
 | C4-02 | Container Diagram | C4 L2 | Mermaid | `source/c2-container-diagram.mmd` | ✅ Done | Clients, Kong, 9 services, data stores |
-| CLS-01 | Identity & Authorization domain model | Class | PlantUML | `source/cls-identity-authorization.puml` | ✅ Done | Person, AppUser, UserSession, Role, Permission, UserRole |
+| CLS-01 | Identity domain model | Class | PlantUML | `source/cls-identity.puml` | ✅ Done | Person, AppUser, UserSession, PasswordPolicy |
 | SEQ-01 | Facial attendance capture | Sequence | Mermaid | `source/seq-facial-attendance.mmd` | ✅ Done | Scan → match → record (unwired gaps called out) |
 ```
 
@@ -136,6 +136,6 @@ Registry of all diagrams with their purpose and location.
 |-----------|----------------------|
 | `05-architecture/overview.md` | C4 Level 1 and 2 diagrams |
 | `06-data/models.md` | ER diagrams per service |
-| `02-domain/entities-and-rules.md` | Class diagrams per bounded-context cluster |
+| `02-domain/entities-and-rules.md` | Class diagrams per bounded context |
 | `09-microservices/communication-patterns.md` | Sequence diagrams for flows |
 | `02-domain/domain-map.md` | Bounded contexts diagram |

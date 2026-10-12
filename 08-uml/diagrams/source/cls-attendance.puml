@@ -1,5 +1,5 @@
-@startuml cls-attendance-biometric
-title Class Diagram — Attendance & Biometric
+@startuml cls-attendance
+title Class Diagram — Attendance
 
 skinparam classAttributeIconSize 0
 hide circle
@@ -11,8 +11,6 @@ class AcademicActor <<external — academic>> {
 class School <<external — academic>> {
 }
 class Cohort <<external — academic>> {
-}
-class Person <<external — identity>> {
 }
 class AppUser <<external — identity>> {
 }
@@ -33,18 +31,6 @@ enum CaptureMethod <<enumeration>> {
 
 enum ReviewStatus <<enumeration>> {
   Pending
-  Approved
-  Rejected
-}
-
-enum BiometricType <<enumeration>> {
-  FACIAL
-  FINGERPRINT
-}
-
-enum UpdateStatus <<enumeration>> {
-  Pending
-  In_Review
   Approved
   Rejected
 }
@@ -104,56 +90,12 @@ class AttendanceReport <<derived projection, no FKs>> {
   +generatedAt: DateTime
 }
 
-class BiometricUpdateCase {
-  +caseId: UUID
-  +personId: UUID
-  +biometricType: BiometricType
-  +fingerNumber: Int
-  +currentEmbeddingRef: String
-  +reason: String
-  +updateStatus: UpdateStatus
-  +requestedBy: UUID
-  +requestedAt: DateTime
-  +reviewedBy: UUID
-  +reviewedAt: DateTime
-  +resolutionNotes: String
-  +request()
-  +review(decision)
-}
-
-class FacialEmbedding <<MongoDB document>> {
-  +_id: ObjectId
-  +personId: UUID
-  +templateVersion: Int
-  +encoding: Float[]
-  +modelVersion: String
-  +enrolledAt: DateTime
-  +isActive: Boolean
-  +enroll()
-  +deactivate()
-}
-
-class FingerprintEmbedding <<MongoDB document>> {
-  +_id: ObjectId
-  +personId: UUID
-  +fingerNumber: Int
-  +templateVersion: Int
-  +encoding: Float[]
-  +modelVersion: String
-  +enrolledAt: DateTime
-  +isActive: Boolean
-  +enroll()
-  +deactivate()
-}
-
 AttendanceRecord "1" -- "0..1" Justification : justification.attendance_record_id FK\nUNIQUE one-to-one
 JustificationType "1" -- "0..*" Justification : justification.justification_type_id FK
 Justification "1" -- "0..*" SupportingDocument : supporting_document.justification_id FK
 AttendanceRecord --> AttendanceStatus
 AttendanceRecord --> CaptureMethod
 Justification --> ReviewStatus
-BiometricUpdateCase --> BiometricType
-BiometricUpdateCase --> UpdateStatus
 
 AttendanceRecord ..> ClassSession : class_session_id\n(cross-context, no FK)
 AttendanceRecord ..> AcademicActor : academic_actor_id\n(cross-context, no FK)
@@ -161,12 +103,6 @@ Justification ..> AppUser : reviewed_by\n(cross-context, no FK)
 AttendanceReport ..> School : school_id\n(no FK, derived projection)
 AttendanceReport ..> Cohort : cohort_id\n(no FK, derived projection)
 AttendanceReport ..> AppUser : generated_by\n(no FK, derived projection)
-BiometricUpdateCase ..> Person : person_id\n(cross-context, no FK)
-BiometricUpdateCase ..> AppUser : requested_by / reviewed_by\n(cross-context, no FK)
-BiometricUpdateCase ..> FacialEmbedding : current_embedding_ref\n(cross-paradigm Mongo _id, no FK)
-BiometricUpdateCase ..> FingerprintEmbedding : current_embedding_ref\n(cross-paradigm Mongo _id, no FK)
-FacialEmbedding ..> Person : person_id\n(cross-context, no FK)
-FingerprintEmbedding ..> Person : person_id\n(cross-context, no FK)
 
 note right of AttendanceRecord
   RN-22: one record per academic_actor per
@@ -191,7 +127,9 @@ note right of Justification
   approval without a document — not enforced
   server-side today. RN-36 (intended): approval
   should cascade attendance_status to Justified
-  — it does not (see ST-02 / SEQ-03).
+  — it does not (see ST-02 / SEQ-03). See
+  act-justification-process.mmd for the full
+  intended-vs-real process.
 end note
 
 note bottom of SupportingDocument
@@ -199,35 +137,17 @@ note bottom of SupportingDocument
   this endpoint with a real file, see SEQ-03.
 end note
 
-note left of BiometricUpdateCase
-  Logically owned by Biometric, physically
-  hosted in the configuration schema (transient,
-  see AGENTS.md §4.6). chk_finger_number: 1..10
-  only if biometricType=FINGERPRINT, else NULL.
-  requestedBy/requestedAt are mandatory. This is
-  the canonical shape — ms-biometric also runs
-  its own independent MongoDB implementation of
-  the same feature with no requestedBy, no
-  fingerNumber check, and no sync to this one.
-  See SEQ-04.
-end note
-
-note right of FacialEmbedding
-  RN-28: only one active embedding per person
-  at a time (isActive flag) — enroll()
-  deactivates the previous template.
-end note
-
 note as N1
-  All SQL classes also carry the standard audit
-  block (created_at/updated_at/deleted_at/
-  created_by/updated_by/deleted_by/row_version)
-  — omitted here for readability. See
-  AGENTS.md §2.2 and 06-data/domains/
-  05-attendance.md / 06-biometric.md for the
-  column-level ER view. The two MongoDB
-  collections have no FKs by nature
-  (cross-paradigm).
+  All classes also carry the standard audit block
+  (created_at/updated_at/deleted_at/created_by/
+  updated_by/deleted_by/row_version) — omitted
+  here for readability. See AGENTS.md §2.2 and
+  06-data/domains/05-attendance.md for the
+  column-level ER view. Biometric entities
+  (FacialEmbedding, FingerprintEmbedding,
+  BiometricUpdateCase) live in
+  cls-biometric.puml — ms-attendance never calls
+  ms-biometric directly, see SEQ-01.
 end note
 
 @enduml

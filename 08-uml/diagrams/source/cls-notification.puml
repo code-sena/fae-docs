@@ -1,12 +1,10 @@
-@startuml cls-notification-configuration
-title Class Diagram — Notification & Configuration
+@startuml cls-notification
+title Class Diagram — Notification
 
 skinparam classAttributeIconSize 0
 hide circle
 
 class AcademicActor <<external — academic>> {
-}
-class School <<external — academic>> {
 }
 
 enum Severity <<enumeration>> {
@@ -39,27 +37,11 @@ class Alert {
   +resolve()
 }
 
-class AcademicConfiguration {
-  +configurationId: Int
-  +schoolId: Int
-  +configurationName: String
-  +configurationValue: String
-  +description: String
-}
-
-class SecurityConfiguration {
-  +configurationId: Int
-  +configurationName: String
-  +configurationValue: String
-  +description: String
-}
-
 AlertType "1" -- "0..*" Alert : alert.alert_type_id FK
 Alert --> Severity
 AlertType --> Channel
 
 Alert ..> AcademicActor : academic_actor_id\n(cross-context, no FK)
-AcademicConfiguration ..> School : school_id\n(cross-context, no FK)
 
 note right of Alert
   RN-42: alerts are system-generated for
@@ -67,22 +49,12 @@ note right of Alert
   requires the appropriate permission.
   resolvedAt NULL = unresolved. No code raises
   channel=EMAIL alerts today — only the
-  password-recovery e-mail flow sends mail
-  (see c1-system-context.mmd).
-end note
-
-note bottom of AcademicConfiguration
-  Scoped per school (uq_academic_configuration
-  on school_id + configuration_name), e.g.
-  tardy_tolerance_minutes.
-end note
-
-note bottom of SecurityConfiguration
-  Global (no school_id), uq on
-  configuration_name, e.g. max_login_attempts,
-  session_timeout_minutes,
-  lockout_duration_minutes. Password policy
-  lives in identity.password_policy, not here.
+  password-recovery e-mail flow sends mail (see
+  c1-system-context.mmd and
+  seq-password-recovery.mmd). An optional
+  outbound webhook also fires on every alert
+  create when WEBHOOK_URL is configured — see
+  09-microservices/communication-patterns.md §1.
 end note
 
 note as N1
@@ -90,9 +62,8 @@ note as N1
   (created_at/updated_at/deleted_at/created_by/
   updated_by/deleted_by/row_version) — omitted
   here for readability. See AGENTS.md §2.2 and
-  06-data/domains/07-notification.md /
-  08-configuration.md for the column-level ER
-  view.
+  06-data/domains/07-notification.md for the
+  column-level ER view.
 end note
 
 @enduml

@@ -8,7 +8,7 @@ C4Component
         Component(fingerprintCtrl, "FingerprintRouter", "FastAPI APIRouter /api/v1/biometric/fingerprint", "enroll, verify, identify, get, delete, per finger. Same router-level permission guard as facial")
         Component(summaryCtrl, "SummaryRouter", "FastAPI APIRouter", "GET /api/v1/biometric/{person_id}/summary -> {has_face, has_fingerprint}, reads both repositories")
         Component(updateCtrl, "UpdateRouter", "FastAPI APIRouter /api/v1/biometric/update-request", "Independent biometric-update-case workflow — NOT a proxy of the configuration one, see SEQ-04")
-        Component(wsCtrl, "WsRouter", "FastAPI WebSocket /api/v1/biometric/ws", "Real-time channel: dispatches identify/enroll frames and broadcasts attendance.event to other connected clients")
+        Component(wsCtrl, "WsRouter", "FastAPI WebSocket /api/v1/biometric/ws", "Real-time channel: dispatches identify/enroll frames and broadcasts attendance.event to other connected clients. Fully built, idempotent, but no frontend client ever opens it — see SEQ-06")
         Component(guard, "require_permission / authenticate_websocket", "FastAPI dependency", "Re-validates the bearer sessionId against identity, evaluates a permission against authorization — same contract as the Java AuthTokenFilter, independently implemented (see 07-api/authentication.md §1)")
     }
 

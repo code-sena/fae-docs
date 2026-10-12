@@ -22,7 +22,7 @@ C4Container
         Container(notification, "ms-notification", "Go 1.22 + Gin", "Alert types, alert lifecycle and the internal e-mail channel. Port 8088")
         Container(quality, "ms-quality", "TypeScript + Fastify", "ISO 25010 / 29110 / ISTQB quality tooling (not a bounded context). Port 8089")
 
-        ContainerDb(postgres, "PostgreSQL 17", "faceattend_db", "One schema per bounded context: identity, authorization, academic, scheduling, attendance, biometric, configuration, notification (+ quality). No cross-schema FK. Not on any faceattend-* Docker network — each database/NN-ms-*-db compose file runs it on the default bridge, reached over its published host port")
+        ContainerDb(postgres, "PostgreSQL 17", "faceattend_db", "One schema per bounded context: identity, authorization, academic, scheduling, attendance, biometric, configuration, notification (+ quality). No cross-schema FK. On the faceattend-data network via database/docker-compose.yml, merged into the root compose with Docker Compose's include: — also published on 127.0.0.1:5432 for local dev")
         ContainerDb(mongodb, "MongoDB 7", "Document store with vector search", "Facial and fingerprint embeddings and match logs (ADR-003 — only polyglot exception). On the faceattend-data network")
         ContainerDb(redis, "Redis 7", "Rate-limit store", "Kong rate-limiting counters. On the faceattend-app network")
         ContainerDb(kafka, "Kafka 3.x (KRaft) :9092", "Message broker", "Domain events between services (ADR-006). Producers only — no consumer exists yet (AT-006). On the faceattend-data network")

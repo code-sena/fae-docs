@@ -166,13 +166,13 @@ distributed traces with Jaeger/Zipkin. It is not optional or a story for "later"
 ### P5: Security & Privacy by Design
 Biometric vectors are encrypted at rest (ADR-016), PII minimized in logs/traces per `00-governance/security-policy.md` and Law 1581 (ADR-017). Authentication issues **opaque session ids** (`user_session`) validated **at the edge** by Kong's global `pre-function` (introspection against identity) and checked again by every service's own guard (`AuthTokenFilter` in Java, `registerAuthGuard` in TS, `require_permission` in Python, `AuthMiddleware` in Go), which also applies RBAC (evaluation endpoint `GET /api/v1/auth/evaluate` in ms-authorization); Kong carries no `jwt` plugin. Target state (ADR-007): signed JWT RS256 at the edge — see `07-api/authentication.md`.
 
-Network segmentation reinforces this in depth at the Docker level (`back-end/docker-compose.yml`,
-re-verified 2026-10 against `FULL/`): three bridge networks, **`faceattend-edge`** (Kong +
-frontend-web only), **`faceattend-app`** (Kong + all 9 services + Redis), and **`faceattend-data`**
-(all 9 services + MongoDB + Kafka) — a client can reach Kong but never a service's or a data
-store's port directly from the edge network. PostgreSQL is not on any `faceattend-*` network: each
-`database/NN-ms-*-db/docker-compose.yml` runs it on the default bridge, reached over the published
-host port, the same way a direct-port bypass would be.
+Network segmentation reinforces this in depth at the Docker level (root `docker-compose.yml`,
+which `include:`-merges `database/docker-compose.yml` and `back-end/docker-compose.yml` into one
+project — re-verified 2026-10 against `FULL/`): three bridge networks, **`faceattend-edge`** (Kong
++ frontend-web only), **`faceattend-app`** (Kong + all 9 services + Redis), and **`faceattend-data`**
+(all 9 services + PostgreSQL + MongoDB + Kafka) — a client can reach Kong but never a service's or
+a data store's port directly from the edge network. PostgreSQL is also published on
+`127.0.0.1:5432` for local dev, same loopback-only pattern as the 9 services' own ports.
 
 ---
 

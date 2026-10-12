@@ -10,7 +10,7 @@ info:
     - `src/infrastructure/http/routes.ts:46 registerAcademicRoutes`, `src/main.ts:70`
     - Stores `schoolId,programId,academicPeriodId,cohortId,courseId,actorTypeId,academicActorId,enrollmentId`
     - Paginación `?limit=20&offset=0` cap 100 + header `x-total-count`; errores `{error:BadRequest|NotFound|SchoolNotFound,message,details?,timestamp}`
-    - Gateway sin plugins propios (`kong.yml:50-56`); el MS no valida el bearer hoy (tech-debt).
+    - Gateway sin plugins propios (`kong.yml:50-56`) además del `pre-function` global de sesión; el propio MS también revalida la sesión y evalúa permisos en `src/infrastructure/http/authGuard.ts` (`registerAuthGuard`, corregido 2026-10-11).
 
 servers:
   - url: http://localhost:8083

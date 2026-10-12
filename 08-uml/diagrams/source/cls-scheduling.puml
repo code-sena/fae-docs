@@ -65,13 +65,16 @@ ScheduleBlock ..> AcademicActor : schedule_block.instructor_actor_id\n(cross-con
 ClassSession ..> AcademicActor : opened_by / closed_by\n(cross-context, no FK)
 
 note left of ScheduleBlock
-  RN-18/RN-20: no overlap for the same
-  environment or instructor at the same
-  day_of_week + starts_at; starts_at < ends_at
-  (chk_block_time). Neither cohort_id, course_id
-  nor instructor_actor_id is ever verified
-  against Academic before saving — see
-  09-microservices/communication-patterns.md §3.
+  RN-18/RN-20: starts_at < ends_at (chk_block_time).
+  The DB unique constraints only catch an identical
+  starts_at; real interval overlap (touching ranges
+  are fine, e.g. 10:00 end / 10:00 start) is checked
+  in application code by ScheduleBlockOverlapGuard
+  before every create/update — one query for the
+  environment, one for the instructor. Neither
+  cohort_id, course_id nor instructor_actor_id is
+  ever verified against Academic before saving —
+  see 09-microservices/communication-patterns.md §3.
 end note
 
 note right of ClassSession

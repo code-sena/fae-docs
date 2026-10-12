@@ -99,6 +99,7 @@ Examples (match the registry below):
 | SEQ-03 | Justification approval | Mermaid | `source/seq-justification-approval.mmd` | ✅ Done | Submit → attachments → review → Approved/Rejected |
 | SEQ-04 | Biometric update case duplication | Mermaid | `source/seq-biometric-update-duplication.mmd` | ✅ Done | Two independent request/review implementations (ms-configuration/Postgres vs. ms-biometric/MongoDB), never synced — see ST-03 |
 | SEQ-05 | Password recovery | Mermaid | `source/seq-password-recovery.mmd` | ✅ Done | forgot-password → verify-code → reset-password, the internal identity → notification e-mail call, and the anti-enumeration/cooldown/single-use details |
+| SEQ-06 | Biometric real-time WebSocket channel | Mermaid | `source/seq-biometric-websocket.mmd` | ✅ Done | `/api/v1/biometric/ws` — idempotent frame replay and multi-client broadcast fan-out, fully built and completely unused by any client |
 
 ### Activity diagrams
 

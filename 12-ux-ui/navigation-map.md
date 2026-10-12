@@ -167,7 +167,7 @@ DashboardScreen ................. Panel principal (rol + nombre, acciones rápid
 
 ### Flujo 1 — Autenticación (Login Mobile)
 
-1. `HomesScreen` → usuario ingresa credenciales → `AuthService` → JWT de Kong.
+1. `HomesScreen` → usuario ingresa credenciales → `AuthService` → `sessionId` opaco (Kong no tiene plugin `jwt`; valida la sesión en el edge y cada servicio la revalida por su cuenta, ver `07-api/authentication.md`).
 2. **Credenciales válidas** → `DashboardScreen` (guarda `userRole` + token en AsyncStorage; muestra rol, nombre y acciones rápidas por rol).
 3. **Credenciales inválidas** → Login con mensaje de error.
 4. **Olvidé contraseña** → `ForgotPasswordScreen` → `VerifyCodeScreen` (código de recuperación → nueva contraseña → volver a login).
@@ -255,9 +255,9 @@ DashboardScreen ................. Panel principal (rol + nombre, acciones rápid
 
 | Regla | Detalle |
 |-------|---------|
-| **Autenticación requerida** | Todas las pantallas privadas requieren sesión activa (JWT Kong). Web: deep link a `/dashboard` sin sesión renderiza `NotAuthorized`. Mobile: el stack raíz solo expone la rama pública cuando `isAuthenticated === false`. |
+| **Autenticación requerida** | Todas las pantallas privadas requieren sesión activa (`sessionId` opaco validado por el edge de Kong y de nuevo por cada servicio — no hay JWT, ver `07-api/authentication.md`). Web: deep link a `/dashboard` sin sesión renderiza `NotAuthorized`. Mobile: el stack raíz solo expone la rama pública cuando `isAuthenticated === false`. |
 | **Excepciones de autorización** | `NotAuthorized.js` define 5 tipos: `no_session`, `session_expired`, `no_role`, `invalid_token`, `insufficient_permissions`; renderiza un modal bloqueante sobre toda la pantalla y redirige a login al aceptar. |
-| **Rol desconocido = cero acceso** | `getVisibleTabs(role)` devuelve lista vacía para cualquier rol no reconocido (*"Vacío a propósito, no queremos fugas"*). Defensa en profundidad: filtrado UI + JWT Kong + validaciones de `02-ms-authorization`. |
+| **Rol desconocido = cero acceso** | `getVisibleTabs(role)` devuelve lista vacía para cualquier rol no reconocido (*"Vacío a propósito, no queremos fugas"*). Defensa en profundidad: filtrado UI + validación de sesión en el edge de Kong + validaciones de `02-ms-authorization`. |
 | **Acceso por rol** | Mismas rutas/pestañas para todos los roles en Web filtradas por `useRolePermissions`; en Mobile el dashboard muestra menús de acción rápida por rol (`menuAccionesAdmin` / `Docente` / `Estudiante`). |
 | **Barra lateral persistente (Web)** | Vive fuera del stack interno; la pestaña/sub-pestaña seleccionada se sincroniza con el estado de navegación (incluida entrada por URL), evitando pérdida de estado. |
 | **Diálogos de confirmación** | Acciones destructivas/críticas usan `ConfirmModal` antes de ejecutar. |
@@ -275,7 +275,7 @@ DashboardScreen ................. Panel principal (rol + nombre, acciones rápid
 
 | Servicio | Host interno | Responsabilidades |
 |----------|-------------|-------------------|
-| `01-ms-identity` | `ms-identity:8081` | Login, registro, sesiones JWT, restablecimiento de contraseña con código de recuperación, CRUD de usuarios y personas |
+| `01-ms-identity` | `ms-identity:8081` | Login, registro, sesiones (`sessionId` opaco, no JWT), restablecimiento de contraseña con código de recuperación, CRUD de usuarios y personas |
 | `02-ms-authorization` | `ms-authorization:8082` | Roles, permisos, validación de control de acceso |
 | `03-ms-academic` | `ms-academic:8083` | Colegios, programas, cohortes/fichas, cursos, ambientes, actores académicos |
 | `04-ms-scheduling` | `ms-scheduling:8084` | Sesiones de clase, bloques de horario, asignación de docentes por ficha/ambiente/día/curso |
@@ -284,7 +284,7 @@ DashboardScreen ................. Panel principal (rol + nombre, acciones rápid
 | `07-ms-configuration` | `ms-configuration:8087` | Idioma, tema/apariencia, ajustes de alertas y seguridad, umbrales biométricos |
 | `08-ms-notification` | `ms-notification:8088` | Alertas/feed de noticias, notificaciones de resultado de justificaciones, notificar-a-todos (admin) |
 | `09-ms-quality` | `quality-service` | Instrumentos/métricas de calidad consumidos por widgets del dashboard |
-| `99-api-gateway` | Kong OSS `:8080` | Punto de entrada único para ambas apps: plugin JWT + rate-limit 100 req/min; rutas anidadas para sub-recursos |
+| `99-api-gateway` | Kong OSS `:8080` | Punto de entrada único para ambas apps: `pre-function` de validación de sesión en el edge (sin plugin `jwt`) + rate-limit por ruta; rutas anidadas para sub-recursos |
 
 ---
 

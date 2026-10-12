@@ -112,6 +112,7 @@ For more complex diagrams requiring free placement. Export as SVG to `diagrams/e
 - `cls-identity-authorization.puml` — Class diagram for a bounded-context cluster, PlantUML (✅ done)
 - `seq-login.mmd` — Sequence diagram for the login flow (✅ done)
 - `state-justification.mmd` — State diagram for a justification (✅ done)
+- `act-justification-process.mmd` — Activity diagram, `flowchart TD` + `subgraph` swimlanes (✅ done)
 - ER diagrams are **not** stored here: each domain already has one in `06-data/domains/*.md`
   (see the note in `diagram-index.md`)
 

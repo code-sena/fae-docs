@@ -22,12 +22,13 @@ flowchart TD
         sys3[("publish justification-events\nbest-effort, no consumer exists")]
         sys5["Save SupportingDocument row\nstoreUri saved as-is, no file content in the request"]
         sys6[["No upload step exists anywhere:\nno multipart, no MinIO/S3 SDK call\nADR-009 was never implemented"]]
-        sys4{"requires_attachment checked\nbefore approval? RN-33"}
+        sys4{"Approving? Type requires\nan attachment? RN-33"}
+        stop4(["400: requires at least one\nsupporting document"])
     end
 
     subgraph Reviewer["Reviewer (instructor / admin)"]
         r1["Open Pending queue\nGET /justifications?reviewStatus=Pending"]
-        r2{"Review decision\nPATCH /justifications/id/review"}
+        r2{"Review decision\nPATCH /justifications/id/review\n(rejected if the justification is\nnot Pending anymore, or if the\ntarget itself is Pending)"}
         r3["reviewStatus = Approved"]
         r4["reviewStatus = Rejected"]
     end
@@ -53,13 +54,14 @@ flowchart TD
     s8 --> sys5
     sys5 -. "the file itself" .-> sys6
     sys5 --> r1
-    r1 --> sys4
-    sys4 -. "not implemented —\napproval can proceed with\nzero documents, real or not" .-> r2
-    r2 -- "Approve" --> r3
+    r1 --> r2
+    r2 -- "Approve" --> sys4
     r2 -- "Reject" --> r4
+    sys4 -- "yes, and no SupportingDocument row exists" --> stop4
+    sys4 -- "no, or a row exists -- even one whose file was never uploaded" --> r3
     r3 -. "does not happen: no event is published\non review, nothing sets attendance_status" .-> o1
     r3 --> stop3
     r4 --> stop2
 
     classDef gap stroke:#c0392b,stroke-dasharray: 4 3,color:#c0392b
-    class sys6,sys4,o1 gap
+    class sys6,o1 gap

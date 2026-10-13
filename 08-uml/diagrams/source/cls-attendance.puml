@@ -106,12 +106,17 @@ AttendanceReport ..> AppUser : generated_by\n(no FK, derived projection)
 
 note right of AttendanceRecord
   RN-22: one record per academic_actor per
-  class_session (uq_attendance_session_actor).
-  RN-23: the session must be Open when
-  recorded. Only captureMethod=MANUAL is wired
-  for the alternative path (RN-26) — FACIAL
-  capture is designed but no client calls the
-  write yet, see SEQ-01.
+  class_session (uq_attendance_session_actor),
+  the only real guard -- RecordAttendanceUseCaseImpl
+  only depends on AttendanceRecordRepository, so
+  RN-23 (the session must be Open) is NOT checked
+  server-side (corrected 2026-10-12 against FULL/):
+  a record can be written against a Closed or
+  Cancelled class_session with no error. Absent
+  records leave capturedAt NULL. Only
+  captureMethod=MANUAL is wired for the alternative
+  path (RN-26) — FACIAL capture is designed but no
+  client calls the write yet, see SEQ-01.
 end note
 
 note left of JustificationType

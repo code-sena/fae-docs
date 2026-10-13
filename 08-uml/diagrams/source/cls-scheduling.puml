@@ -78,10 +78,14 @@ note left of ScheduleBlock
 end note
 
 note right of ClassSession
-  RN-22/RN-23: one attendance per actor per
-  session; the session must be Open. open()
-  can never succeed in practice — see ST-01 in
-  diagram-index.md.
+  RN-22: one attendance per actor per session,
+  enforced in attendance (uq_attendance_session_actor).
+  RN-23 (intended): the session should be Open
+  when attendance is recorded -- ms-attendance
+  never checks this session's status at all, so
+  it is not enforced (corrected 2026-10-12 against
+  FULL/). open() can never succeed in practice —
+  see ST-01 in diagram-index.md.
 end note
 
 note as N1

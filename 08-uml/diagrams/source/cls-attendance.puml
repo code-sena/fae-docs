@@ -122,12 +122,18 @@ end note
 
 note right of Justification
   RN-32: exactly one justification per
-  attendance_record (1:1, UNIQUE). RN-33
-  (intended): requires_attachment should block
-  approval without a document — not enforced
-  server-side today. RN-36 (intended): approval
-  should cascade attendance_status to Justified
-  — it does not (see ST-02 / SEQ-03). See
+  attendance_record (1:1, UNIQUE). Review is a
+  one-shot transition: Pending -> Approved or
+  Rejected only, a resolved justification cannot
+  be reviewed again (corrected 2026-10-12 against
+  FULL/). RN-33 IS enforced: approving a type
+  that requires an attachment 400s unless a
+  SupportingDocument row exists -- it only checks
+  the row exists, not that its file was really
+  uploaded (see the SupportingDocument note).
+  RN-36 (intended): approval should cascade
+  attendance_status to Justified
+  -- it does not (see ST-02 / SEQ-03). See
   act-justification-process.mmd for the full
   intended-vs-real process.
 end note

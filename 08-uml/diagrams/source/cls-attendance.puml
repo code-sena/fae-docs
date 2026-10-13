@@ -133,8 +133,13 @@ note right of Justification
 end note
 
 note bottom of SupportingDocument
-  Designed but not wired: no client ever calls
-  this endpoint with a real file, see SEQ-03.
+  Both Web and Mobile call this endpoint with
+  real metadata right after a justification is
+  created, but storageUri is fabricated
+  client-side -- no multipart upload, no MinIO
+  or S3 SDK call exists anywhere, ADR-009 was
+  never implemented. The row is real, the file
+  it names was never transmitted. See SEQ-03.
 end note
 
 note as N1

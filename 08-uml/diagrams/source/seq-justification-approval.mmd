@@ -33,19 +33,30 @@ sequenceDiagram
     ATT->>ATT: validate() + touchCreated -> save, no byte content anywhere in the request
     ATT->>K: publish document-events (best-effort)
     ATT-->>S: 201 {supportingDocumentId}
-    Note right of S: storageUri is fabricated client-side, a path built from the current year, month and a random uuid — no multipart upload, no MinIO or S3 SDK call exists anywhere, ADR-009 was never implemented. The row exists, but the file it names was never transmitted. The server still never enforces requires_attachment before approval
+    Note right of S: storageUri is fabricated client-side, a path built from the current year, month and a random uuid — no multipart upload, no MinIO or S3 SDK call exists anywhere, ADR-009 was never implemented. The row exists, but the file it names was never transmitted
     end
 
     rect rgb(240, 245, 255)
-    Note over R,ATT: 3. Review — PATCH /justifications/{id}/review
+    Note over R,ATT: 3. Review — PATCH /justifications/{id}/review (corrected 2026-10-12 against FULL/)
     R->>GW: GET /api/v1/justifications?reviewStatus=Pending
     GW->>ATT: forward
     ATT-->>R: pending queue
     R->>GW: PATCH /api/v1/justifications/{id}/review {reviewStatus: Approved|Rejected, reviewedBy, resolutionNotes}
     GW->>ATT: forward
-    ATT->>ATT: only "Cannot review to Pending" is guarded — no ordering check, no re-review guard
-    ATT->>ATT: reviewedBy, reviewedAt, resolutionNotes, touchUpdated -> save
-    ATT-->>R: 200 {reviewStatus: Approved}
+    ATT->>ATT: reviewStatus=Pending as a target is rejected -- Cannot review to Pending
+    ATT->>ATT: current reviewStatus must already be Pending, or 400 -- a resolved justification cannot be reviewed again
+    alt target is Approved and the type requires an attachment
+        ATT->>ATT: look up any SupportingDocument row for this justification
+        alt no row exists
+            ATT-->>R: 400 requires at least one supporting document
+        else a row exists -- its storageUri may point at nothing real, see step 2
+            ATT->>ATT: reviewedBy, reviewedAt, resolutionNotes, touchUpdated -> save
+            ATT-->>R: 200 {reviewStatus: Approved}
+        end
+    else target is Rejected, or Approved with no attachment required
+        ATT->>ATT: reviewedBy, reviewedAt, resolutionNotes, touchUpdated -> save
+        ATT-->>R: 200 {reviewStatus}
+    end
     end
 
     Note over ATT: No event is published on review (only create publishes), and attendance_record.attendance_status is never set to Justified — approval does not cascade to attendance

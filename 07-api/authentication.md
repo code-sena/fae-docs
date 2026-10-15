@@ -142,14 +142,14 @@ GET /api/v1/auth/evaluate?userId&permission → {userId,permission,allowed}
 
 Seed roles (changeset `02-ms-authorization-db/02-dml/004-unify-mobile-roles`):
 **`Administrador | Instructor | Aprendiz`** (the older `SUPER_ADMIN/SCHOOL_ADMIN/INSTRUCTOR/STUDENT`
-names are migrated away; clients still accept them as legacy aliases). 12 permissions
+names are migrated away; clients still accept them as legacy aliases). 13 permissions
 (`contexto.recurso:acción`, e.g. `attendance.record:read`) with per-role grants — see
 `database/SEEDS.md`.
 
-Kong does **not** call `/auth/evaluate`; fine-grained checks live only inside the Java
-`AuthTokenFilter` (coarse `identity.person:read|write`) and in the clients (Mobile calls
-`evaluate(userId, 'attendance.record:read')` right after login). Wire evaluate into the
-non-Java services — tech-debt, §10.
+Kong does **not** call `/auth/evaluate`; every service evaluates the permission of each
+route itself (Java `AuthTokenFilter`, TS `authGuard.ts`, Python `security.py`, Go
+`auth_middleware.go`). The per-route map is in `endpoint-matrix.md` §11. Mobile also calls
+`evaluate(userId, 'attendance.record:read')` right after login.
 
 ### Roles vs frontend
 
@@ -261,12 +261,8 @@ check is the global `pre-function`.
   session id is valid until logout/expiry and there is no revocation list besides the
   `user_session` row. Replacing the introspection with `jwt` RS256 + JWKS from identity
   (ADR-007, `AT-007`) is pending.
-- **TS/Python/Go services are open:** `03/06/07/08/09` accept any request that reaches them.
-  Kong authenticates them at the edge, but direct access to their published ports (or from any
-  container on the compose network) bypasses the gateway entirely — biometric even serves raw
-  embeddings. Internal ports must stay inside the Docker network (`risks.md` R-003).
-- **Coarse permission only:** `AuthTokenFilter` checks `identity.person:read|write`; a full
-  per-route permission map (or Kong/OPA authorizer wired to `/auth/evaluate`) is missing.
+- **Direct ports bypass the edge check, not RBAC:** every service validates the session and the
+  permission itself, but internal ports must still stay inside the Docker network (`risks.md` R-003).
 - **Recovery flow is implemented but unverified end to end:** the three routes
   (`auth/forgot-password|verify-code|reset-password`) exist in `01-ms-identity` (2026-10-07);
   delivery goes through `POST ms-notification:8088/api/v1/emails`, which answers

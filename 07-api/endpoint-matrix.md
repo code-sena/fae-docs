@@ -2,7 +2,6 @@
 
 > Cross-service canonical table. `Kong` = path via `:8080`; `Direct` = `http://localhost:<port>`.
 > `Auth`: `public` (no session required) · `session` (Bearer opaque `sessionId`) ·
-> `gateway only` (only Kong checks the session — the MS itself has no auth filter) ·
 > `—` (route not implemented).
 >
 > **Kong authenticates at the edge.** A global `pre-function` (Lua) requires
@@ -13,8 +12,8 @@
 > request costs one call to identity, and the container needs
 > `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`. The bearer is an **opaque session id, not a
 > JWT**; `jwt` RS256 issued by identity stays a future evolution (ADR-007) and Kong carries no
-> `jwt` plugin nor consumers. The gateway **only authenticates**: permissions (RBAC) are still
-> evaluated by the Java services (01/02/04/05) with `AuthTokenFilter`. Full rules and public-route
+> `jwt` plugin nor consumers. The gateway **only authenticates**: permissions (RBAC) are
+> evaluated by every service (see §11). Full rules and public-route
 > list in `authentication.md`; details per contract in `contracts/openapi/`.
 
 > **Legacy alias (not a contract):** the Java services also answer paths **without** the
@@ -35,6 +34,7 @@
 | GET /api/v1/auth/me?username\|email | ✅ | public | Current user → `UserDto` (params optional) |
 | POST /api/v1/auth/forgot-password | ✅ | public | Issue + email a 6-digit code → 202 `{status:"accepted"}` (anti-enumeration) |
 | POST /api/v1/auth/verify-code | ✅ | public | Validate `{email,code}` (6 digits, 10 min, 5 attempts, 60 s resend cooldown) → 200 `{status:"verified"}` |
+| POST /api/v1/auth/change-password | ✅ | session | `{currentPassword,newPassword}` → 200 `{status:"updated"}`; closes the other sessions |
 | POST /api/v1/auth/reset-password | ✅ | public | `{email,password}` after a verified challenge → 200 `{status:"updated"}` |
 | POST /api/v1/users | ✅ | session | Create user → 201 |
 | GET /api/v1/users?page&limit | ✅ | session | List → `{data,meta{page,limit,total,totalPages}}` |
@@ -87,24 +87,24 @@
 
 | METHOD path | Kong | Auth | Description |
 |-------------|------|------|-------------|
-| POST/GET /api/v1/schools, GET/PUT/DELETE /api/v1/schools/{id} | ✅ | gateway only | CRUD + `?limit&offset` + `x-total-count` |
-| PATCH /api/v1/schools/{id}/status | ✅ | gateway only | Status |
-| POST /api/v1/schools/{schoolId}/programs, GET …/programs | ✅ nested | gateway only | By school |
-| POST/GET /api/v1/programs, GET/PUT/DELETE /api/v1/programs/{id} | ✅ | gateway only | CRUD |
-| POST/GET /api/v1/academic-periods (+alias /periods), GET/PUT/DELETE /{id} | ✅ | gateway only | CRUD per alias |
-| POST/GET /api/v1/schools/{schoolId}/periods | ✅ nested | gateway only | By school |
-| POST/GET /api/v1/cohorts, GET/PUT/DELETE /api/v1/cohorts/{id} | ✅ | gateway only | CRUD |
-| GET /api/v1/programs/{programId}/cohorts | ✅ nested | gateway only | By program |
-| POST /api/v1/programs/{programId}/courses, POST/GET /api/v1/courses, GET/PUT/DELETE /{id} | ✅ | gateway only | CRUD + by program |
-| GET /api/v1/programs/{programId}/courses | ✅ nested | gateway only | By program |
-| POST/GET /api/v1/actor-types, GET/PUT/DELETE /{id} | ✅ | gateway only | CRUD |
-| POST/GET /api/v1/academic-actors, GET/PUT/DELETE /{id} | ✅ | gateway only | CRUD |
-| PATCH /api/v1/academic-actors/{id}/status | ✅ | gateway only | Status |
-| GET /api/v1/schools/{schoolId}/actors | ✅ nested | gateway only | By school |
-| POST/GET /api/v1/enrollments, GET/PUT/DELETE /{id} | ✅ | gateway only | CRUD |
-| PATCH /api/v1/enrollments/{id}/status | ✅ | gateway only | `Active\|Withdrawn\|Completed` |
-| GET /api/v1/cohorts/{cohortId}/enrollments | ✅ nested | gateway only | By cohort |
-| GET /api/v1/academic-actors/{actorId}/enrollments | ✅ nested | gateway only | By actor |
+| POST/GET /api/v1/schools, GET/PUT/DELETE /api/v1/schools/{id} | ✅ | session | CRUD + `?limit&offset` + `x-total-count` |
+| PATCH /api/v1/schools/{id}/status | ✅ | session | Status |
+| POST /api/v1/schools/{schoolId}/programs, GET …/programs | ✅ nested | session | By school |
+| POST/GET /api/v1/programs, GET/PUT/DELETE /api/v1/programs/{id} | ✅ | session | CRUD |
+| POST/GET /api/v1/academic-periods (+alias /periods), GET/PUT/DELETE /{id} | ✅ | session | CRUD per alias |
+| POST/GET /api/v1/schools/{schoolId}/periods | ✅ nested | session | By school |
+| POST/GET /api/v1/cohorts, GET/PUT/DELETE /api/v1/cohorts/{id} | ✅ | session | CRUD |
+| GET /api/v1/programs/{programId}/cohorts | ✅ nested | session | By program |
+| POST /api/v1/programs/{programId}/courses, POST/GET /api/v1/courses, GET/PUT/DELETE /{id} | ✅ | session | CRUD + by program |
+| GET /api/v1/programs/{programId}/courses | ✅ nested | session | By program |
+| POST/GET /api/v1/actor-types, GET/PUT/DELETE /{id} | ✅ | session | CRUD |
+| POST/GET /api/v1/academic-actors, GET/PUT/DELETE /{id} | ✅ | session | CRUD |
+| PATCH /api/v1/academic-actors/{id}/status | ✅ | session | Status |
+| GET /api/v1/schools/{schoolId}/actors | ✅ nested | session | By school |
+| POST/GET /api/v1/enrollments, GET/PUT/DELETE /{id} | ✅ | session | CRUD |
+| PATCH /api/v1/enrollments/{id}/status | ✅ | session | `Active\|Withdrawn\|Completed` |
+| GET /api/v1/cohorts/{cohortId}/enrollments | ✅ nested | session | By cohort |
+| GET /api/v1/academic-actors/{actorId}/enrollments | ✅ nested | session | By actor |
 
 ## 4. Scheduling 04 (`04-ms-scheduling`, Java 8084 → `04-scheduling-service.yaml`)
 
@@ -154,71 +154,71 @@
 
 | METHOD path | Kong | Auth | Description |
 |-------------|------|------|-------------|
-| POST /api/v1/biometric/facial/enroll | ✅ | gateway only | Enroll → 201 (0.85 threshold) |
-| GET /api/v1/biometric/facial/{person_id} | ✅ | gateway only | Active / 404 |
-| GET /api/v1/biometric/facial/{person_id}/history | ✅ | gateway only | Versions |
-| DELETE /api/v1/biometric/facial/{person_id} | ✅ | gateway only | Deactivate → 204 |
-| POST /api/v1/biometric/facial/verify | ✅ | gateway only | 1:1 `{match,score}` |
-| POST /api/v1/biometric/facial/identify | ✅ | gateway only | 1:N / 404 |
-| POST /api/v1/biometric/fingerprint/enroll | ✅ | gateway only | Enroll → 201 |
-| GET /api/v1/biometric/fingerprint/{person_id} | ✅ | gateway only | Active `{templates}` |
-| GET /api/v1/biometric/fingerprint/{person_id}/{finger} | ✅ | gateway only | Single finger |
-| DELETE /api/v1/biometric/fingerprint/{person_id}/{finger} | ✅ | gateway only | Deactivate → 204 |
-| POST /api/v1/biometric/fingerprint/verify | ✅ | gateway only | 1:1 |
-| POST /api/v1/biometric/fingerprint/identify | ✅ | gateway only | 1:N + finger filter |
-| POST /api/v1/biometric/update-request | ✅ | gateway only | Mirror → 201 Pending (thin proxy of canonical case in configuration) |
-| GET /api/v1/biometric/update-requests/{person_id} | ✅ | gateway only | By person |
-| PATCH /api/v1/biometric/update-request/{request_id}/review | ✅ | gateway only | Review |
-| DELETE /api/v1/biometric/update-request/{request_id} | ✅ | gateway only | Delete → 204 |
+| POST /api/v1/biometric/facial/enroll | ✅ | session | Enroll → 201 (0.85 threshold) |
+| GET /api/v1/biometric/facial/{person_id} | ✅ | session | Active / 404 |
+| GET /api/v1/biometric/facial/{person_id}/history | ✅ | session | Versions |
+| DELETE /api/v1/biometric/facial/{person_id} | ✅ | session | Deactivate → 204 |
+| POST /api/v1/biometric/facial/verify | ✅ | session | 1:1 `{match,score}` |
+| POST /api/v1/biometric/facial/identify | ✅ | session | 1:N / 404 |
+| POST /api/v1/biometric/fingerprint/enroll | ✅ | session | Enroll → 201 |
+| GET /api/v1/biometric/fingerprint/{person_id} | ✅ | session | Active `{templates}` |
+| GET /api/v1/biometric/fingerprint/{person_id}/{finger} | ✅ | session | Single finger |
+| DELETE /api/v1/biometric/fingerprint/{person_id}/{finger} | ✅ | session | Deactivate → 204 |
+| POST /api/v1/biometric/fingerprint/verify | ✅ | session | 1:1 |
+| POST /api/v1/biometric/fingerprint/identify | ✅ | session | 1:N + finger filter |
+| POST /api/v1/biometric/update-request | ✅ | session | Mirror → 201 Pending (thin proxy of canonical case in configuration) |
+| GET /api/v1/biometric/update-requests/{person_id} | ✅ | session | By person |
+| PATCH /api/v1/biometric/update-request/{request_id}/review | ✅ | session | Review |
+| DELETE /api/v1/biometric/update-request/{request_id} | ✅ | session | Delete → 204 |
 
 ## 7. Configuration 07 (`07-ms-configuration`, TS 8087 → `07-configuration-service.yaml`)
 
 | METHOD path | Kong | Auth | Description |
 |-------------|------|------|-------------|
-| POST/GET /api/v1/configurations/academic (+alias /academic-configurations) | ✅ | gateway only | CRUD + `?name&limit&offset` |
-| GET/PUT/DELETE /api/v1/configurations/academic/{id} (+alias) | ✅ | gateway only | CRUD |
-| POST/GET /api/v1/configurations/security (+alias /security-configurations) | ✅ | gateway only | CRUD (no schoolId) |
-| GET/PUT/DELETE /api/v1/configurations/security/{id} (+alias) | ✅ | gateway only | CRUD |
-| GET /api/v1/schools/{schoolId}/configurations | ✅ nested | gateway only | By school |
-| POST/GET /api/v1/biometric-update-cases?status&limit&offset | ✅ | gateway only | Cases (canonical route; logical owner Biometric) |
-| GET/PUT/DELETE /api/v1/biometric-update-cases/{id} | ✅ | gateway only | CRUD |
-| PATCH /api/v1/biometric-update-cases/{id}/review | ✅ | gateway only | `In_Review\|Approved\|Rejected` + `reviewedAt` (`requestedBy` mandatory) |
-| GET /api/v1/persons/{personId}/biometric-cases | ✅ nested | gateway only | By person |
+| POST/GET /api/v1/configurations/academic (+alias /academic-configurations) | ✅ | session | CRUD + `?name&limit&offset` |
+| GET/PUT/DELETE /api/v1/configurations/academic/{id} (+alias) | ✅ | session | CRUD |
+| POST/GET /api/v1/configurations/security (+alias /security-configurations) | ✅ | session | CRUD (no schoolId) |
+| GET/PUT/DELETE /api/v1/configurations/security/{id} (+alias) | ✅ | session | CRUD |
+| GET /api/v1/schools/{schoolId}/configurations | ✅ nested | session | By school |
+| POST/GET /api/v1/biometric-update-cases?status&limit&offset | ✅ | session | Cases (canonical route; logical owner Biometric) |
+| GET/PUT/DELETE /api/v1/biometric-update-cases/{id} | ✅ | session | CRUD |
+| PATCH /api/v1/biometric-update-cases/{id}/review | ✅ | session | `In_Review\|Approved\|Rejected` + `reviewedAt` (`requestedBy` mandatory) |
+| GET /api/v1/persons/{personId}/biometric-cases | ✅ nested | session | By person |
 
 ## 8. Notification 08 (`08-ms-notification`, Go 8088 → `08-notification-service.yaml`)
 
 | METHOD path | Kong | Auth | Description |
 |-------------|------|------|-------------|
-| POST /api/v1/alerts | ✅ | gateway only | Create → 201 `{alert_id}` |
-| GET /api/v1/alerts?actorId&typeId&resolved\|status&limit&offset | ✅ | gateway only | List `{alerts}` |
-| GET /api/v1/alerts/{id} | ✅ | gateway only | Get |
-| PATCH /api/v1/alerts/{id}/resolve | ✅ | gateway only | Resolve |
-| DELETE /api/v1/alerts/{id} | ✅ | gateway only | Delete → 204 |
-| POST /api/v1/alert-types | ✅ | gateway only | Create → 201 (`severity` INFO/WARNING/CRITICAL, `channel` DASHBOARD/EMAIL/PUSH) |
-| GET /api/v1/alert-types?limit=50&offset=0 | ✅ | gateway only | List `{alert_types}` |
-| GET/PUT/DELETE /api/v1/alert-types/{id} | ✅ | gateway only | CRUD |
+| POST /api/v1/alerts | ✅ | session | Create → 201 `{alert_id}` |
+| GET /api/v1/alerts?actorId&typeId&resolved\|status&limit&offset | ✅ | session | List `{alerts}` |
+| GET /api/v1/alerts/{id} | ✅ | session | Get |
+| PATCH /api/v1/alerts/{id}/resolve | ✅ | session | Resolve |
+| DELETE /api/v1/alerts/{id} | ✅ | session | Delete → 204 |
+| POST /api/v1/alert-types | ✅ | session | Create → 201 (`severity` INFO/WARNING/CRITICAL, `channel` DASHBOARD/EMAIL/PUSH) |
+| GET /api/v1/alert-types?limit=50&offset=0 | ✅ | session | List `{alert_types}` |
+| GET/PUT/DELETE /api/v1/alert-types/{id} | ✅ | session | CRUD |
 | POST /api/v1/emails | ❌ no Kong route | internal only | Send a recovery email (`{to,template,data}`, template-only to avoid an open relay) → 202; optional `X-Internal-Token`; reachable only inside the compose network (called by 01-ms-identity) |
 
 ## 9. Quality 09 (`09-ms-quality`, TS 8089 → `09-quality-service.yaml`)
 
 | METHOD path | Kong | Auth | Description |
 |-------------|------|------|-------------|
-| GET /api/v1/quality/characteristics | ✅ | gateway only | 25010 instrument (24) |
-| POST /api/v1/quality/evaluations | ✅ | gateway only | Create (24 scores) → 201 |
-| GET /api/v1/quality/evaluations?service&status&limit&offset | ✅ | gateway only | List `{data,total,limit,offset}` |
-| GET/PUT/DELETE /api/v1/quality/evaluations/{id} | ✅ | gateway only | CRUD |
-| GET /api/v1/quality/services/{service}/summary | ✅ | gateway only | Aggregate |
-| GET /api/v1/quality/process/profile | ✅ | gateway only | 29110 instrument (20) |
-| POST/GET /api/v1/quality/projects, GET/PUT/DELETE /{id} | ✅ | gateway only | CRUD projects |
-| POST /api/v1/quality/assessments | ✅ | gateway only | Create (project + coverage) → 201 |
-| GET /api/v1/quality/assessments?projectId&processId | ✅ | gateway only | List |
-| GET/PUT/DELETE /api/v1/quality/assessments/{id} | ✅ | gateway only | CRUD |
-| GET /api/v1/quality/projects/{id}/summary | ✅ | gateway only | Summary + readiness |
-| GET /api/v1/quality/istqb/categories (+alias characteristics) | ✅ | gateway only | ISTQB instrument (30) |
-| POST /api/v1/quality/istqb/assessments | ✅ | gateway only | Create → 201 |
-| GET /api/v1/quality/istqb/assessments?service&status&projectId | ✅ | gateway only | List |
-| GET/PUT/DELETE /api/v1/quality/istqb/assessments/{id} | ✅ | gateway only | CRUD |
-| GET /api/v1/quality/istqb/services/{service}/summary | ✅ | gateway only | Aggregate |
+| GET /api/v1/quality/characteristics | ✅ | session | 25010 instrument (24) |
+| POST /api/v1/quality/evaluations | ✅ | session | Create (24 scores) → 201 |
+| GET /api/v1/quality/evaluations?service&status&limit&offset | ✅ | session | List `{data,total,limit,offset}` |
+| GET/PUT/DELETE /api/v1/quality/evaluations/{id} | ✅ | session | CRUD |
+| GET /api/v1/quality/services/{service}/summary | ✅ | session | Aggregate |
+| GET /api/v1/quality/process/profile | ✅ | session | 29110 instrument (20) |
+| POST/GET /api/v1/quality/projects, GET/PUT/DELETE /{id} | ✅ | session | CRUD projects |
+| POST /api/v1/quality/assessments | ✅ | session | Create (project + coverage) → 201 |
+| GET /api/v1/quality/assessments?projectId&processId | ✅ | session | List |
+| GET/PUT/DELETE /api/v1/quality/assessments/{id} | ✅ | session | CRUD |
+| GET /api/v1/quality/projects/{id}/summary | ✅ | session | Summary + readiness |
+| GET /api/v1/quality/istqb/categories (+alias characteristics) | ✅ | session | ISTQB instrument (30) |
+| POST /api/v1/quality/istqb/assessments | ✅ | session | Create → 201 |
+| GET /api/v1/quality/istqb/assessments?service&status&projectId | ✅ | session | List |
+| GET/PUT/DELETE /api/v1/quality/istqb/assessments/{id} | ✅ | session | CRUD |
+| GET /api/v1/quality/istqb/services/{service}/summary | ✅ | session | Aggregate |
 
 ## 10. Gateway 99 (Kong 8080 → `api-gateway.yaml`)
 
@@ -237,8 +237,54 @@ quality 100 per minute). No `jwt` plugin and no consumers.
 | 503 | Identity unreachable/timeout → `{"status":503,"error":"Service Unavailable","message":"Cannot verify session"}` |
 | Cache | **None** — one identity call per authenticated request |
 | Public routes | `OPTIONS` (any path, CORS), `/health*`, `/api/v1/health`, `/api/health`, `POST /api/v1/auth/{login,logout,refresh,forgot-password,verify-code,reset-password}`, `GET /api/v1/auth/me` |
-| Authorization | Not evaluated at the gateway — RBAC stays in the Java services (01/02/04/05) via `AuthTokenFilter` |
+| Authorization | Not evaluated at the gateway — every service evaluates RBAC (§11) |
 | Requirement | `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http` on the gateway container (`back-end/docker-compose.yml`) |
 
 `GET /health/quality` is the only health route at the gateway (proxied to
 `ms-academic:8083`); there is **no** `GET /health` route — probe each service directly on its port.
+
+## 11. Required permission per route (RBAC)
+
+Every service validates the session against identity and evaluates the permission through
+`GET /api/v1/auth/evaluate` (Java `AuthTokenFilter`, TS `authGuard.ts`, Python `security.py`,
+Go `auth_middleware.go`). Seeded grants per role: `database/SEEDS.md` §3.
+
+| Service | Rule | Permission |
+|---------|------|------------|
+| 01 identity | `GET /persons`, `GET /persons/{id}` | `identity.person:read` + scope (below) |
+| 01 identity | `GET /users/{id}` | self, or `identity.person:write` |
+| 01 identity | `GET /users`, `GET /sessions`, `GET /sessions/user/{other}` | `identity.person:write` |
+| 01 identity | `PUT /persons/{ownPersonId}` (status and document are kept) | `identity.person:read` |
+| 01 identity | `POST /auth/change-password` | session only |
+| 01 identity | any other write | `identity.person:write` |
+| 02 authorization | own `/users/{self}/roles`, `/auth/evaluate` | session only |
+| 02 authorization | everything else | `configuration:manage` |
+| 03 academic | `GET` | session only |
+| 03 academic | enrollment writes / other writes | `academic.enrollment:manage` / `academic.school:manage` |
+| 04 scheduling | `GET` | `attendance.record:read` |
+| 04 scheduling | environment and schedule-block writes | `academic.school:manage` |
+| 04 scheduling | class-session writes, `open/close/cancel` | `scheduling.session:manage` |
+| 05 attendance | `GET` | `attendance.record:read` |
+| 05 attendance | `POST /justifications`, `POST /supporting-documents` | `attendance.justification:request` |
+| 05 attendance | `PATCH /justifications/{id}/review` | `attendance.justification:approve` |
+| 05 attendance | justification-type writes | `configuration:manage` |
+| 05 attendance | any other write | `attendance.record:write` |
+| 06 biometric | `liveness-challenge`, `liveness-step`, `enroll-image` | `biometric.case:request` for the caller's own person; replacing a template needs a case `Approved` after it (RN-29). Staff (`attendance.record:write`) enrolls anyone |
+| 06 biometric | other facial and fingerprint routes | `attendance.record:write` |
+| 07 configuration | biometric cases `GET`/`POST` (own cases) · review, `PUT`, `DELETE` | `biometric.case:request` · `biometric.case:review` (never your own request) |
+| 07 configuration | configuration writes | `configuration:manage` |
+| 08 notification | `GET` · `PATCH /alerts/{id}/resolve` · other writes | `notification.alert:read` · `attendance.record:write` · `configuration:manage` |
+| 09 quality | everything | `configuration:manage` |
+
+**Data scope (non-admins).** On top of the permission, reads are narrowed to the caller:
+
+| Role | Persons (01) | Attendance records, summary, report, justifications, documents (05) · alerts (08) |
+|------|--------------|------------------|
+| Administrador / Super Administrador | all | all |
+| Instructor | self + active students of the cohorts they teach | own actors + those students |
+| Aprendiz | self + instructors of their cohorts | own actors only |
+
+Out-of-scope items answer 403; lists simply omit them. Writes are checked too (e.g. a
+justification can only be filed for an attendance record in scope). The scope is resolved with
+the caller's bearer against identity, academic (`academic-actors`, `enrollments`) and scheduling
+(`schedule-blocks`), cached 60 s; if those do not answer the request fails closed with 503.

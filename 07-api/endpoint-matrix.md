@@ -12,9 +12,11 @@
 > `Authorization: Bearer <uuid>` on every non-public route and introspects
 > `GET ms-identity:8081/api/v1/sessions/{id}` accepting only `sessionStatus = "Active"`:
 > **401** when the header is missing, the token is not an 8-4-4-4-12 UUID or the session is
-> invalid/expired, **503** when identity does not answer. There is no cache — every authenticated
-> request costs one call to identity, and the container needs
-> `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`. The bearer is an **opaque session id, not a
+> invalid/expired, **503** when identity does not answer. Positive session checks are cached
+> 10 s at the edge (`kong.cache`) and in every service guard (Java/TS/Python/Go), so a page
+> fan-out costs ~1 introspection per token instead of one per request; failures are never
+> cached (fail-secure) and logout/permission revocation propagate within 10 s. The gateway
+> container still needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`. The bearer is an **opaque session id, not a
 > JWT**; `jwt` RS256 issued by identity stays a future evolution (ADR-007) and Kong carries no
 > `jwt` plugin nor consumers. Every service then re-authenticates and evaluates RBAC again on its
 > own: Java `AuthTokenFilter` (01/02/04/05), TS `registerAuthGuard` (03/07/09), Python

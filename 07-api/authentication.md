@@ -263,9 +263,6 @@ check is the global `pre-function`.
   (ADR-007, `AT-007`) is pending.
 - **Direct ports bypass the edge check, not RBAC:** every service validates the session and the
   permission itself, but internal ports must still stay inside the Docker network (`risks.md` R-003).
-- **Instructor scope is client-side:** attendance, justification and alert lists return the
-  whole institution; the mobile app narrows them to the instructor's cohorts. A server-side
-  scope filter is pending.
 - **Recovery flow is implemented but unverified end to end:** the three routes
   (`auth/forgot-password|verify-code|reset-password`) exist in `01-ms-identity` (2026-10-07);
   delivery goes through `POST ms-notification:8088/api/v1/emails`, which answers

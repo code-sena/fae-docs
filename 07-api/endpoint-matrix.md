@@ -251,7 +251,8 @@ Go `auth_middleware.go`). Seeded grants per role: `database/SEEDS.md` §3.
 
 | Service | Rule | Permission |
 |---------|------|------------|
-| 01 identity | `GET` (item) | `identity.person:read` |
+| 01 identity | `GET /persons`, `GET /persons/{id}` | `identity.person:read` + scope (below) |
+| 01 identity | `GET /users/{id}` | self, or `identity.person:write` |
 | 01 identity | `GET /users`, `GET /sessions`, `GET /sessions/user/{other}` | `identity.person:write` |
 | 01 identity | `PUT /persons/{ownPersonId}` (status and document are kept) | `identity.person:read` |
 | 01 identity | `POST /auth/change-password` | session only |
@@ -274,3 +275,16 @@ Go `auth_middleware.go`). Seeded grants per role: `database/SEEDS.md` §3.
 | 07 configuration | configuration writes | `configuration:manage` |
 | 08 notification | `GET` · `PATCH /alerts/{id}/resolve` · other writes | `notification.alert:read` · `attendance.record:write` · `configuration:manage` |
 | 09 quality | everything | `configuration:manage` |
+
+**Data scope (non-admins).** On top of the permission, reads are narrowed to the caller:
+
+| Role | Persons (01) | Attendance records, summary, report, justifications, documents (05) · alerts (08) |
+|------|--------------|------------------|
+| Administrador / Super Administrador | all | all |
+| Instructor | self + active students of the cohorts they teach | own actors + those students |
+| Aprendiz | self + instructors of their cohorts | own actors only |
+
+Out-of-scope items answer 403; lists simply omit them. Writes are checked too (e.g. a
+justification can only be filed for an attendance record in scope). The scope is resolved with
+the caller's bearer against identity, academic (`academic-actors`, `enrollments`) and scheduling
+(`schedule-blocks`), cached 60 s; if those do not answer the request fails closed with 503.

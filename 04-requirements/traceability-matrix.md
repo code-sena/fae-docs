@@ -211,7 +211,7 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 |----|--------|--------------|
 | HU-IAM-002 | ✅ register/import (students full, staff single) | Users tab (admin) |
 | HU-IAM-003 | ✅ role x permission matrix (assign/remove, create/delete role, Super Admin) | Roles tab (Super Admin) |
-| HU-IAM-004 | ✅ CSV import students (single-student provisioning per row); staff bulk intentionally unsupported (CSV lacks document/password) — guard throws by design | Users > Importar (admin) |
+| HU-IAM-004 | ✅ CSV import students (single-student provisioning per row; rows whose email/document already exists are marked and skipped); staff bulk intentionally unsupported (CSV lacks document/password) — guard throws by design | Users > Importar (admin) |
 | HU-IAM-007 | ✅ activate/deactivate (dedicated button + edit form) | Users > detail (admin) |
 | HU-IAM-008 | ✅ logical delete (deactivate + ConfirmModal, admin within own school scope; super anywhere). Restricted to super proved operationally dead-end (single bootstrap super) | Users > detail (admin) |
 | HU-IAM-010 | ✅ change user role incl. granting Super Administrador (Super Admin only; UI creation can never assign super) | Users > edit (Super Admin) |

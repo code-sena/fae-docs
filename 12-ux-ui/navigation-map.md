@@ -257,7 +257,7 @@ DashboardScreen ................. Panel principal (rol + nombre, acciones rápid
 - **Crear usuario:** formulario → validar → `POST 01` → refrescar.
 - **Editar:** formulario → diálogo de confirmación → `PUT`.
 - **Desactivar/eliminar:** `ConfirmModal` — siempre confirmado.
-- **Importar estudiantes:** modal `ImportStudents` con `FileUpload`/CSV → `POST` masivo.
+- **Importar estudiantes:** modal `ImportStudentsModal` — CSV/Excel (.xlsx), columnas requeridas `name`/`code`(`documentNumber`)/`email`; las filas sin curso se matriculan en el par **Curso destino → Ficha destino**; las filas cuyo correo o documento ya existen en el sistema se marcan "ya existe" y se omiten (re-importar no se ve como fallo); alta real por fila con pausa entre filas contra el rate-limit de Kong.
 - **Registrar rostro:** modal `FaceRegistration` → `06/facial/enroll`.
 
 **HUs:** `HU-IAM-002`, `HU-IAM-007`, `HU-IAM-008`, `HU-IAM-009`.

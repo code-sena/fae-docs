@@ -30,8 +30,8 @@ can work in parallel (frontend, backend, other services) with an agreed contract
 | 09 | Quality | 8089 | TS Fastify | `contracts/openapi/09-quality-service.yaml` | edge session check (rate-limit 100/min) |
 
 > Decisions 2026-10-03: Quality 09 is tooling owned by `11-quality`, not a DDD bounded context (00-06 stay at 8 contexts). Ports frozen from `FULL/back-end/docker-compose.yml` + `99-api-gateway/kong/kong.yml` + `COMPOSE.md`. Kong has **no `jwt` plugin and no consumers** (removed 2026-10-05), but it **does authenticate at the edge**: a global `pre-function` requires `Authorization: Bearer <sessionId>` on every non-public route and introspects identity (`authentication.md` §1, `endpoint-matrix.md` §10.1). Permissions (RBAC) stay per-MS in `AuthTokenFilter` (01/02/04/05); Kong also applies cors + rate-limiting.
-| 99 | Gateway | 8080/8001 | Kong + Redis | `contracts/openapi/api-gateway.yaml` | global `pre-function` session check + cors + rate-limit 300/min |
-| — | frontend-web (SPA) | 8090→80 | Expo + nginx | `docker-compose.yml` (root) | — (consumes Kong :8080) |
+| 99 | Gateway | 8000/8001 | Kong + Redis | `contracts/openapi/api-gateway.yaml` | global `pre-function` session check + cors + rate-limit 300/min |
+| — | frontend-web (SPA) | 8090→80 | Expo + nginx | `docker-compose.yml` (root) | — (consumes Kong :8000) |
 
 Shared: `contracts/openapi/_shared.yaml`. Template: `_template-service.yaml`. Lint: `redocly.yaml`.
 
@@ -66,7 +66,7 @@ Canonical METHOD×path table for all 9 services + gateway (Kong coverage, auth, 
 Web (real API via `api/apiClient.js` + `services/api/*`, mock only as fallback) vs Mobile (real `apiClient`, N+1 viewmodels, face multipart).
 
 ### `examples.md`
-Copy-paste `curl` via `:8080` for login, each domain, health.
+Copy-paste `curl` via `:8000` for login, each domain, health.
 
 ### `contracts/openapi/` ⭐⭐
 One `.yaml` per microservice (OpenAPI 3.0.3), each with `servers` (direct + Kong + dev/prod),

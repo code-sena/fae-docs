@@ -32,7 +32,7 @@
 | Stack | Java 21 + Spring Boot 4.1, Maven |
 | Folder in repo | `FULL/back-end/04-ms-scheduling/` |
 | Communicates with | academic (public IDs), attendance (`class_session_id`) |
-| Consumed by | Web/Mobile through Kong `:8080` (`/api/v1/environments`, `/schedule-blocks`, `/class-sessions`) |
+| Consumed by | Web/Mobile through Kong `:8000` (`/api/v1/environments`, `/schedule-blocks`, `/class-sessions`) |
 
 ---
 

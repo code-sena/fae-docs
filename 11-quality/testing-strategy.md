@@ -203,7 +203,7 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get('http://localhost:8080/[critical-endpoint]', {
+  const res = http.get('http://localhost:8000/[critical-endpoint]', {
     headers: { 'Authorization': `Bearer ${__ENV.TEST_TOKEN}` },
   });
   check(res, { 'status is 200': (r) => r.status === 200 });

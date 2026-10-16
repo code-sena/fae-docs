@@ -112,7 +112,7 @@ DashboardScreen ................. Panel principal (rol + nombre, acciones rápid
 
 ### 3.1 Pantallas Web
 
-| Pantalla | Ruta | Componente | Rol mínimo | Servicio backend vía Kong `:8080` |
+| Pantalla | Ruta | Componente | Rol mínimo | Servicio backend vía Kong `:8000` |
 |----------|------|-----------|------------|----------------------------------|
 | Landing Page | `/` | `LandingScreen` → `LandingView` | Público | — |
 | Login | `/login` | `LoginScreen` → `LoginView` | Público | `01-ms-identity` (`authApi.js`) |
@@ -310,7 +310,7 @@ DashboardScreen ................. Panel principal (rol + nombre, acciones rápid
 | `07-ms-configuration` | `ms-configuration:8087` | Idioma, tema/apariencia, ajustes de alertas y seguridad, umbrales biométricos |
 | `08-ms-notification` | `ms-notification:8088` | Alertas/feed de noticias, notificaciones de resultado de justificaciones, notificar-a-todos (admin) |
 | `09-ms-quality` | `quality-service` | Instrumentos/métricas de calidad consumidos por widgets del dashboard |
-| `99-api-gateway` | Kong OSS `:8080` | Punto de entrada único para ambas apps: `pre-function` de validación de sesión en el edge (sin plugin `jwt`) + rate-limit por ruta; rutas anidadas para sub-recursos |
+| `99-api-gateway` | Kong OSS `:8000` | Punto de entrada único para ambas apps: `pre-function` de validación de sesión en el edge (sin plugin `jwt`) + rate-limit por ruta; rutas anidadas para sub-recursos |
 
 ---
 

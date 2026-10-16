@@ -81,9 +81,9 @@ Infrastructure/host:  BIND_IP, FRONTEND_PORT, EXPO_PUBLIC_API_URL, SEED_*, BOOTS
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` / `SMTP_STARTTLS` | MailHog/Mailpit: `host.docker.internal:1025`, STARTTLS `false`; empty `SMTP_HOST` disables email channel (202 skipped) | Vault | Vault (real account) | Vault (real account) |
 | `FACEATTEND_LIQUIBASE_IMAGE` | `liquibase/liquibase:4.29.0` | pinned tag | pinned tag | pinned tag |
 | `BIND_IP` | `127.0.0.1` (loopback; `0.0.0.0` only to debug from LAN/phone) | n/a (internal) | n/a | n/a |
-| `KONG_PROXY_PORT` / `KONG_ADMIN_PORT` | `8080` / `8001` (admin always loopback-bound) | `80/443` behind TLS | `80/443` behind TLS | `80/443` behind TLS, **admin API never exposed** |
+| `KONG_PROXY_PORT` / `KONG_ADMIN_PORT` | `8000` / `8001` (admin always loopback-bound) | `80/443` behind TLS | `80/443` behind TLS | `80/443` behind TLS, **admin API never exposed** |
 | `FRONTEND_PORT` | `8090` | 80/443 | 80/443 | 80/443 |
-| `EXPO_PUBLIC_API_URL` (baked at frontend build time) | `http://localhost:8080` (physical devices: PC LAN IP, e.g. `http://192.168.1.10:8080`) | `https://dev.[domain]` | `https://staging.[domain]` | `https://[domain]` |
+| `EXPO_PUBLIC_API_URL` (baked at frontend build time) | `http://localhost:8000` (physical devices: PC LAN IP, e.g. `http://192.168.1.10:8000`) | `https://dev.[domain]` | `https://staging.[domain]` | `https://[domain]` |
 | `SEED_USERNAME` / `SEED_PASSWORD`, `BOOTSTRAP_USERNAME` / `BOOTSTRAP_PASSWORD` | dev-only test accounts (`SeedAdmin123!`, `Admin123!ChangeMe`) | synthetic seed | **not present** | **never** |
 | `LOG_LEVEL` | Spring default (`info`; debug per-package when needed) | `info` | `info` | `warn` |
 | `NODE_ENV` | `development` (outside Docker) / `production` (inside containers for ms-academic, ms-configuration, ms-quality) | `production` | `production` | `production` |
@@ -150,7 +150,7 @@ Developer
 │  4. Deploy to dev               (< 5 min)               │
 │     - docker compose up -d (or K8s when available)      │
 │  5. Smoke tests in dev          (< 3 min)               │
-│     - GET :8080/* via Kong; docker compose ps healthy   │
+│     - GET :8000/* via Kong; docker compose ps healthy   │
 └─────────────────────────────────────────────────────────┘
   │
   │ Release: merge develop → main
@@ -241,7 +241,7 @@ docker compose up -d --no-deps ms-attendance
 
 # Verify health after rollback (all services expose health endpoints)
 docker compose ps                    # STATUS must show (healthy)
-curl -s http://localhost:8080/api/v1/auth/... # smoke via Kong gateway
+curl -s http://localhost:8000/api/v1/auth/... # smoke via Kong gateway
 
 # Full stack stop WITHOUT deleting volumes (data preserved)
 docker compose down

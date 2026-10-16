@@ -57,17 +57,17 @@ Reusable in `_shared.yaml`: `LimitParam`, `OffsetParam`, `PageParam`.
 
 ```
 # identity paged (via gateway)
-GET http://localhost:8080/api/v1/persons?page=1&limit=20
+GET http://localhost:8000/api/v1/persons?page=1&limit=20
 # → 200 {"data":[...],"meta":{"page":1,"limit":20,"total":57,"totalPages":3}}
 
 # TS paginated (via gateway)
-GET http://localhost:8080/api/v1/schools?limit=20&offset=40
+GET http://localhost:8000/api/v1/schools?limit=20&offset=40
 # → 200 [...] + x-total-count: 142
 
 # Java filtered
-GET http://localhost:8080/api/v1/attendance-records?classSessionId=12&attendanceStatus=Absent
+GET http://localhost:8000/api/v1/attendance-records?classSessionId=12&attendanceStatus=Absent
 
 # Go filtered + paginated
-GET http://localhost:8080/api/v1/alerts?actorId=77&status=open&limit=20&offset=0
+GET http://localhost:8000/api/v1/alerts?actorId=77&status=open&limit=20&offset=0
 # → 200 {"alerts":[...]}
 ```

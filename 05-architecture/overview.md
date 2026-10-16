@@ -36,7 +36,7 @@ graph TB
   Learner[Student / Learner<br/>Mobile + Web]
   Instructor[Instructor<br/>Web]
   Admin[Administrator<br/>Web]
-  GW[API Gateway<br/>Kong :8080<br/>Edge session auth + CORS + Rate Limit]
+  GW[API Gateway<br/>Kong :8000<br/>Edge session auth + CORS + Rate Limit]
   APP[FaceAttend EDU<br/>9 microservices + frontend<br/>one container each]
   PG[(PostgreSQL 17<br/>faceattend_db 8 schemas)]
   MG[(MongoDB 7<br/>vectors)]
@@ -57,7 +57,7 @@ One container per service, schema-per-context isolation, Kafka events at `:9092`
 ```mermaid
 graph TB
   subgraph Edge
-    GW[Kong API Gateway<br/>:8080 proxy / :8001 admin<br/>pre-function session check + CORS + RateLimit — no jwt]
+    GW[Kong API Gateway<br/>:8000 proxy / :8001 admin<br/>pre-function session check + CORS + RateLimit — no jwt]
     WEB[Web App<br/>Expo Web :8090]
     MOB[Mobile App<br/>Expo / React Native]
   end
@@ -122,7 +122,7 @@ graph TB
 | 07 | ms-configuration | Academic/security config values, biometric update cases | 8087 | PostgreSQL | REST + Kafka events |
 | 08 | ms-notification | Alert types, alerts | 8088 | PostgreSQL | REST |
 | 09 | ms-quality | ISO 25010/29110/ISTQB quality tooling (not a bounded context) | 8089 | PostgreSQL | REST |
-| 99 | api-gateway (Kong OSS 3.6, DB-less) | Edge session authentication (global `pre-function`), routing, CORS, rate limiting (**no `jwt` plugin**) | 8080 / 8001 | Redis (rate-limit store) | HTTP Proxy |
+| 99 | api-gateway (Kong OSS 3.6, DB-less) | Edge session authentication (global `pre-function`), routing, CORS, rate limiting (**no `jwt` plugin**) | 8000 / 8001 | Redis (rate-limit store) | HTTP Proxy |
 
 > Full detail per service in `09-microservices/service-catalog.md`; ports and routes are frozen
 > from `FULL/COMPOSE.md` + `FULL/back-end/99-api-gateway/kong/kong.yml`.

@@ -9,7 +9,7 @@
 ```
                      ┌──────────────────────┐
   External clients    │ API Gateway / Edge   │
-  (Web, Mobile, API) ─▶│ Kong :8080           │
+  (Web, Mobile, API) ─▶│ Kong :8000           │
                      │ Session check + CORS │
                      │ (no jwt plugin)      │
                      └──────────┬───────────┘
@@ -50,7 +50,7 @@
 | 07 | `ms-configuration` | Academic and security configuration values, biometric update cases | 8087 | PostgreSQL | Relational | 🟢 Active |
 | 08 | `ms-notification` | Alert types and alert lifecycle management | 8088 | PostgreSQL | Relational | 🟢 Active |
 | 09 | `ms-quality` (tooling) | ISO 25010/29110/ISTQB quality metrics | 8089 | PostgreSQL (`quality`) | Relational | 🟢 Active |
-| 99 | `kong-gateway` | Edge routing, session check, CORS and rate limiting (**no jwt**) | 8080 / 8001 | Redis | Rate-limit store | 🟢 Active |
+| 99 | `kong-gateway` | Edge routing, session check, CORS and rate limiting (**no jwt**) | 8000 / 8001 | Redis | Rate-limit store | 🟢 Active |
 
 **Status legend:** 🟢 Active | 🟡 In development | 🔴 Planned | ⏸ Deprecated
 
@@ -313,7 +313,7 @@ vector search requirements of biometric embedding data.
 | **Folder (repo)** | `FULL/back-end/99-api-gateway/` (`kong/kong.yml`) |
 | **Responsibility** | Routes requests to the 9 services, applies CORS and rate limits, exposes the platform to clients |
 | **Type** | Infrastructure service |
-| **Port** | 8080 (proxy) / 8001 (admin) |
+| **Port** | 8000 (proxy) / 8001 (admin) |
 | **DB** | Redis (rate-limiting store) |
 | **Bounded context** | None; cross-cutting infrastructure |
 | **Technology** | Kong OSS 3.6, DB-less declarative config |

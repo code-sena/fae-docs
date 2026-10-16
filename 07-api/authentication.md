@@ -191,7 +191,7 @@ check, not a substitute for the service-side one.
 
 ### 5.1 Mobile (`front-end/Mobile`, real backend)
 
-- Base URL: `ENV.API_BASE_URL` = `http://<host>:8080/` (Kong) resolved from
+- Base URL: `ENV.API_BASE_URL` = `http://<host>:8000/` (Kong) resolved from
   `EXPO_PUBLIC_API_URL` → Metro `hostUri` → `10.0.2.2` (Android emulator) → LAN default
   (`config/env.js`). All business traffic goes through the gateway; the direct MS ports **are**
   published on loopback (`127.0.0.1:8081-8089`, `BIND_IP`) for local dev — services 03/06/07/08/09
@@ -218,7 +218,7 @@ check, not a substitute for the service-side one.
 ### 5.2 Web (`front-end/Web`, real backend since `c4fad72`)
 
 - Base URL: `src/config/env.ts getApiBaseUrl()` = `EXPO_PUBLIC_API_URL` (build-time) or
-  `http://localhost:8080`, overridable at runtime with `window.__FACEATTEND_API_URL__`;
+  `http://localhost:8000`, overridable at runtime with `window.__FACEATTEND_API_URL__`;
   `API_MODE` is `live` unless `EXPO_PUBLIC_API_MOCK=1`.
 - Client: `src/api/apiClient.js` — `request(path,{method,body,query})` with automatic
   `Authorization: Bearer <sessionId>`, page-envelope unwrapping, `fetchAllPages`, and

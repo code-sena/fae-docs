@@ -18,7 +18,7 @@ This is how the system actually communicates. Every business operation — reads
 | Aspect | Detail |
 |--------|--------|
 | **Protocol** | HTTP/REST over TLS (TLS terminates at Kong in prod) |
-| **Entry point** | API Gateway — Kong OSS 3.6, port 8080 |
+| **Entry point** | API Gateway — Kong OSS 3.6, port 8000 |
 | **Consumer** | Web, Mobile, and any direct caller of a service's own port |
 | **Pattern** | Request → Response, always synchronous |
 | **Use cases** | Everything: queries, every command, login, every CRUD operation, biometric match, attendance write |
@@ -26,7 +26,7 @@ This is how the system actually communicates. Every business operation — reads
 ### Real request flow (every authenticated call)
 
 ```
-Client ──▶ Kong :8080
+Client ──▶ Kong :8000
              │  edge pre-function: GET ms-identity/api/v1/sessions/{id}
              │  (401/503 here if the session is missing/invalid — the call
              │   never reaches the service)

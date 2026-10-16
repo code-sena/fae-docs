@@ -48,13 +48,13 @@ migration chain, verification via Kong smoke route + login + seed tool, common i
 2. Copy environment variables: `cp .env.example .env`   (optional — defaults are built in)
 3. Start the whole stack: `docker compose up -d --build`   (from repo root)
 4. Wait for readiness: Liquibase chain runs automatically; then `docker compose ps`
-5. Verify: `curl -s http://localhost:8080/health/quality` + login through Kong
+5. Verify: `curl -s http://localhost:8000/health/quality` + login through Kong
 6. Optional E2E seed/smoke: `cd tools/seed-api-test-data && npm run seed`
 
 ## Local ports
 | Service | Port |
 |---------|------|
-| API Gateway (Kong proxy) | 8080 |
+| API Gateway (Kong proxy) | 8000 |
 | Web SPA (nginx) | 8090 |
 | Kong Admin (loopback only) | 8001 |
 | ms-identity / authorization / academic / scheduling / attendance | 8081–8085 |
@@ -66,7 +66,7 @@ migration chain, verification via Kong smoke route + login + seed tool, common i
 | Mailpit UI (optional, not in compose) | 8025 |
 
 ## Common issues
-- **Port in use:** `lsof -i :8080` (frontend must be 8090, NOT 8082 — taken by ms-authorization)
+- **Port in use:** `lsof -i :8000` (frontend must be 8090, NOT 8082 — taken by ms-authorization)
 - **DB not connecting:** verify Docker is running; containers talk via network `faceattend-data` using host `postgres:5432`
 - **Kong stuck `starting`:** it waits for all 8 ms-* healthy — find the failing one with `docker compose logs ms-X`
 ```
@@ -85,7 +85,7 @@ orchestrator exists**), rollback runbook, deploy log.
 ```markdown
 | Environment | URL | Purpose | Access | DB | Deploy |
 |-------------|-----|---------|--------|-----|--------|
-| local | localhost:8080 (Kong) / :8090 (web) | Individual development | All | Postgres+Mongo synthetic seeds | Manual (`docker compose up -d --build`) |
+| local | localhost:8000 (Kong) / :8090 (web) | Individual development | All | Postgres+Mongo synthetic seeds | Manual (`docker compose up -d --build`) |
 | dev | dev.[domain] — planned | Continuous integration | Team | Synthetic | Automatic on merge to `develop` — planned |
 | staging | staging.[domain] — planned | QA / validation / PO demos | Team + PO | Anonymized (later) | Automatic on merge to `main` — planned |
 | prod | api.[domain] — planned | Real users | Tech Lead + DevOps only | Real | Manual approval, Rolling deploy |
@@ -149,7 +149,7 @@ Related files inside this section:
 
 - **How do I start the system locally in 30 minutes?**
   `git clone` → `cp .env.example .env` (optional) → `docker compose up -d --build` →
-  `docker compose ps` all `(healthy)` → `curl http://localhost:8080/health/quality`.
+  `docker compose ps` all `(healthy)` → `curl http://localhost:8000/health/quality`.
   Full walkthrough in [`local-setup.md`](./local-setup.md). First build ~15–30 min
   (image pulls + 4 Maven builds); subsequent starts are minutes.
 

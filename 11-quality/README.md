@@ -46,7 +46,7 @@
 
 ### E2E (End-to-End)
 - **Tool:** API-level E2E with Newman/Postman + curl against the full stack in Docker Compose
-  (Kong gateway :8080 → 8 microservices + PostgreSQL), with a large seed of real data using
+  (Kong gateway :8000 → 8 microservices + PostgreSQL), with a large seed of real data using
   `tools/seed-api-test-data` (2 schools, 1,600 students, 80 teachers, ~1,210 sessions,
   ~81k attendance records) to test front↔back communication at scale from Web and Mobile.
 - **Performance:** k6 / wrk (criteria: P95 ≤ 200 ms, 5xx error rate ≤ 1%).

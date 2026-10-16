@@ -10,7 +10,7 @@
 
 ## Context
 
-The system exposes external clients (web, mobile, API) through a single edge component that handles routing, authentication, rate limiting, and CORS. The architecture overview (`05-architecture/overview.md` §7) and service catalog (`09-microservices/service-catalog.md`) already define the API Gateway as the entry point on port 8080.
+The system exposes external clients (web, mobile, API) through a single edge component that handles routing, authentication, rate limiting, and CORS. The architecture overview (`05-architecture/overview.md` §7) and service catalog (`09-microservices/service-catalog.md`) already define the API Gateway as the entry point on port 8000.
 
 The gateway must:
 1. Route requests to the correct internal module (all 8 bounded contexts share a single deployable per ADR-002).
@@ -46,7 +46,7 @@ The gateway must:
 - Rate Limiting plugin enforces per-IP and per-user limits.
 - CORS plugin handles cross-origin requests for web clients.
 - The gateway authenticates at the edge; RBAC is then evaluated again by every service's own guard (Java `AuthTokenFilter`, TS `registerAuthGuard`, Python `require_permission`, Go `AuthMiddleware`), not just the Java ones.
-- Kong routes to the microservice stack (ports 8081-8089 stay inside the Docker network; Kong listens on 8080).
+- Kong routes to the microservice stack (ports 8081-8089 stay inside the Docker network; Kong listens on 8000).
 
 ---
 
@@ -81,7 +81,7 @@ The gateway must:
 - Affected modules: all (all external traffic passes through Kong).
 - Documents that must be updated:
   - `05-architecture/overview.md` §4 — fill in Kong as the gateway
-  - `09-microservices/service-catalog.md` — confirm Kong on port 8080
+  - `09-microservices/service-catalog.md` — confirm Kong on port 8000
   - `10-devops/local-setup.md` — add Kong container to Docker Compose
   - `00-governance/security-policy.md` — reference Kong's edge session validation (and the JWT target state)
 

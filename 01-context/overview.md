@@ -23,7 +23,7 @@ In many academic processes, attendance depends on a single instructor taking man
 
 - **Backend:** 9 services in 4 runtimes — Java 21 + Spring Boot 4.1 (`ms-identity`, `ms-authorization`, `ms-scheduling`, `ms-attendance`), TypeScript + Fastify + Zod (`ms-academic`, `ms-configuration`, `ms-quality`), Python 3.12 + FastAPI (`ms-biometric`), Go 1.22 + Gin (`ms-notification`)
 - **Databases:** Single logical DB `faceattend_db` on PostgreSQL 17 (**8 schemas**) + MongoDB 7 (facial/fingerprint vectors) + Redis 7 (Kong rate-limiting store)
-- **Edge:** Kong OSS 3.6 :8080 (proxy) / :8001 (admin) — global `pre-function` session check (introspection against identity) + cors + rate-limiting, **no jwt plugin**; RBAC stays in the Java services (`07-api/authentication.md`)
+- **Edge:** Kong OSS 3.6 :8000 (proxy) / :8001 (admin) — global `pre-function` session check (introspection against identity) + cors + rate-limiting, **no jwt plugin**; RBAC stays in the Java services (`07-api/authentication.md`)
 - **Events:** Kafka (KRaft) `:9092` — real broker, producers via `KafkaTemplate` / `kafkajs` (ADR-006)
 - **Infrastructure:** Docker Compose (root `docker-compose.yml` + `COMPOSE.md`), Liquibase migrations (8 jobs, ADR-010), Jenkins CI/CD (ADR-011)
 
@@ -42,7 +42,7 @@ In many academic processes, attendance depends on a single instructor taking man
 | 07 | `ms-configuration` | Configuration | Academic_Configuration, Security_Configuration (+ hosts biometric update cases) | 8087 | PostgreSQL | TypeScript + Fastify |
 | 08 | `ms-notification` | Notification | Alert_Type, Alert | 8088 | PostgreSQL | Go 1.22 + Gin |
 | 09 | `ms-quality` | — (tooling, not a bounded context) | ISO 25010/29110/ISTQB quality metrics | 8089 | PostgreSQL | TypeScript + Fastify |
-| 99 | `kong-gateway` | — (infrastructure) | Routing, edge session check, CORS, rate limiting (no jwt) | 8080 / 8001 | Redis (rate-limit store) | Kong OSS 3.6 |
+| 99 | `kong-gateway` | — (infrastructure) | Routing, edge session check, CORS, rate limiting (no jwt) | 8000 / 8001 | Redis (rate-limit store) | Kong OSS 3.6 |
 | — | `frontend-web` | — | Expo Web SPA served by nginx | 8090 | — | React (Expo) |
 
 - **Communication:** sync via REST through Kong; async via Kafka domain events per `09-microservices/event-catalog.md` and `05-architecture/pattern-guide.md` (Saga + Outbox — partially implemented, see AT-006).

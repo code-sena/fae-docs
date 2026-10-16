@@ -51,7 +51,7 @@ According to SRS + `03-product/vision.md` roadmap (validated in `02-domain` 8 co
 
 - SENA training project: 3 apprentices, no dedicated DevOps, 2-week sprints (`00-governance/agile-conventions.md`).
 - Must align with SRS RF 1-8 + RNF 4 and Law 1581.
-- Security/performance/portability per SRS §2; ports `8081`-`8089` (microservices) + `8080/8001` (Kong) + `8090` (frontend-web).
+- Security/performance/portability per SRS §2; ports `8081`-`8089` (microservices) + `8000/8001` (Kong) + `8090` (frontend-web).
 - Time/resources as academic project — scope frozen to MVP Horizon 1 until pilot validation.
 
 ## Correlations

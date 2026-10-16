@@ -38,7 +38,7 @@
 | `07-ms-configuration` | 8087 | `configuration` | PostgreSQL | Configuration |
 | `08-ms-notification` | 8088 | `notification` | PostgreSQL | Notification |
 | `09-ms-quality` (tooling, not a bounded context) | 8089 | `quality` | PostgreSQL | ISO 25010/29110/ISTQB (`quality_project`, `quality_evaluation`, `process_assessment`, `istqb_assessment`) |
-| `kong-gateway` (99-api-gateway) | 8080 / 8001 | Redis | Rate-limit store | — infrastructure, no domain |
+| `kong-gateway` (99-api-gateway) | 8000 / 8001 | Redis | Rate-limit store | — infrastructure, no domain |
 
 > **Schemas:** 9 in practice — the 8 bounded contexts seeded by `database-init/01-init-schemas.sql` plus `quality`, created by the configuration changelog. Ports from `FULL/COMPOSE.md`.
 

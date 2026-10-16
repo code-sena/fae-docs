@@ -63,7 +63,7 @@ Verified against `docker-compose.yml` (root), `back-end/docker-compose.yml` and
 
 | Port | Service | Description |
 |------|---------|-------------|
-| **8080** | `kong-gateway` (proxy) | Main API entry point — published on `0.0.0.0` (browsers + phones) |
+| **8000** | `kong-gateway` (proxy) | Main API entry point — published on `0.0.0.0` (browsers + phones) |
 | **8090** | `frontend-web` | SPA served by nginx (Expo export); proxies `/api/*` to Kong — published on `0.0.0.0` |
 | 8001 | `kong-gateway` (admin) | DB-less Kong admin API — loopback only (`BIND_IP`) |
 | 8081 | `ms-identity` | Persons, users, auth, sessions (Java) |
@@ -81,17 +81,17 @@ Verified against `docker-compose.yml` (root), `back-end/docker-compose.yml` and
 | 9092 | Kafka 3.8 (KRaft) | Domain events |
 | 1025 / 8025 | Mailpit (**optional**, not in compose) | Dev SMTP catch-all + web UI |
 
-> Everything except 8080 and 8090 is bound to `BIND_IP` (default `127.0.0.1`):
+> Everything except 8000 and 8090 is bound to `BIND_IP` (default `127.0.0.1`):
 > reachable from this machine, invisible to the LAN. Set `BIND_IP=0.0.0.0` in
 > `.env` only to debug from another device/phone, then revert.
 
 **Check free ports:**
 ```bash
 # Windows
-netstat -ano | findstr ":8080"
+netstat -ano | findstr ":8000"
 
 # macOS / Linux
-lsof -i :8080
+lsof -i :8000
 ```
 
 ---
@@ -126,9 +126,9 @@ Key variables (full documentation lives in the comments of `.env.example`):
 |----------|-------------|-----------------|
 | `POSTGRES_USER/PASSWORD/DB` | PostgreSQL credentials | `postgres` / `postgres` / `faceattend_db` |
 | `MONGO_USER/PASSWORD/DB` | MongoDB credentials | `mongoadmin` / `mongopass` / `faceattend_biometric` |
-| `KONG_PROXY_PORT` / `KONG_ADMIN_PORT` | Gateway ports | `8080` / `8001` |
+| `KONG_PROXY_PORT` / `KONG_ADMIN_PORT` | Gateway ports | `8000` / `8001` |
 | `FRONTEND_PORT` | Web SPA port | `8090` (do not use 8082 — belongs to ms-authorization) |
-| `EXPO_PUBLIC_API_URL` | Backend URL baked into the frontend **at build time** | `http://localhost:8080` (PC LAN IP, e.g. `http://192.168.1.10:8080`, to test from a phone) |
+| `EXPO_PUBLIC_API_URL` | Backend URL baked into the frontend **at build time** | `http://localhost:8000` (PC LAN IP, e.g. `http://192.168.1.10:8000`, to test from a phone) |
 | `BIND_IP` | Host binding for all non-edge ports | `127.0.0.1` |
 | `SMTP_HOST/PORT/...` | Email channel (ms-notification only) | empty = disabled (202 skipped); Mailpit: `host.docker.internal:1025`, STARTTLS `false` |
 | `EMAIL_INTERNAL_TOKEN` | Shared secret identity→notification (`X-Internal-Token`) | empty = no check; any GUID locally |
@@ -225,7 +225,7 @@ confusing, prefer Option A.
 **Web frontend dev server (Metro, port 3000):**
 ```bash
 cd front-end/Web
-EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start --web
+EXPO_PUBLIC_API_URL=http://localhost:8000 npx expo start --web
 ```
 
 ### Step 7: Verify it works
@@ -235,14 +235,14 @@ EXPO_PUBLIC_API_URL=http://localhost:8080 npx expo start --web
 docker compose ps
 
 # 2. Gateway routes respond (public smoke route via Kong -> ms-quality)
-curl -s http://localhost:8080/health/quality
+curl -s http://localhost:8000/health/quality
 
 # 3. Direct service health (Java: actuator; TS/Python/Go: /health)
 curl -s http://localhost:8081/actuator/health   # {"status":"UP"}
 curl -s http://localhost:8083/health
 
 # 4. Login through the gateway (real auth check)
-curl -s -X POST http://localhost:8080/api/v1/auth/login \
+curl -s -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"<a seeded user>","password":"<password>"}'
 
@@ -289,8 +289,8 @@ docker compose down               # stops everything, KEEPS data volumes
 ### "Port already in use" / `port is already allocated`
 
 ```bash
-lsof -i :8080                      # macOS/Linux
-netstat -ano | findstr :8080       # Windows
+lsof -i :8000                      # macOS/Linux
+netstat -ano | findstr :8000       # Windows
 kill -9 [PID]                      # macOS/Linux
 taskkill /PID [PID] /F             # Windows
 ```
@@ -336,7 +336,7 @@ Never hand-edit schemas: every DDL change goes through a new Liquibase changeset
 There is **no JWT_SECRET to set**. Sessions are created by `ms-identity` in Redis
 and validated by each service through Kong/authorization. Checklists:
 1. Is `ms-identity` healthy? `curl -s http://localhost:8081/actuator/health`
-2. Did login hit the gateway (`:8080/api/v1/auth/login`) and did you keep the returned session token/cookie?
+2. Did login hit the gateway (`:8000/api/v1/auth/login`) and did you keep the returned session token/cookie?
 3. Redis up? `docker compose ps | grep redis`
 4. Seeded users exist? run `tools/seed-api-test-data` (`SEED_USERNAME`/`SEED_PASSWORD` in `.env`).
 
@@ -347,7 +347,7 @@ The upstream microservice isn't healthy yet: `docker compose ps` + `docker compo
 ### Browser can't reach the API / phone shows nothing
 
 `EXPO_PUBLIC_API_URL` is baked at **build** time. For physical devices use the PC
-LAN IP (`http://192.168.1.10:8080`), then rebuild:
+LAN IP (`http://192.168.1.10:8000`), then rebuild:
 `docker compose up -d --build frontend-web`. Add that origin to Kong CORS in
 `back-end/99-api-gateway/kong/kong.yml` (allows `localhost:3000/5173/8090` by default).
 
@@ -402,7 +402,7 @@ curl -s http://localhost:8001/services | head      # declarative: edit kong.yml,
 
 | Service | URL | Credentials (local only) |
 |---------|-----|--------------------------|
-| API Gateway (Kong proxy) | http://localhost:8080 | session-based login via `/api/v1/auth/login` |
+| API Gateway (Kong proxy) | http://localhost:8000 | session-based login via `/api/v1/auth/login` |
 | Web SPA (nginx in Docker) | http://localhost:8090 | seeded users (`SEED_USERNAME` / `SEED_PASSWORD`) |
 | Web dev server (Expo/Metro) | http://localhost:3000 | — |
 | Kong Admin API | http://localhost:8001 | DB-less; edit `kong.yml`, don't POST config |

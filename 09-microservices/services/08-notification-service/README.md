@@ -31,7 +31,7 @@
 | Stack | Go 1.22 + Gin + pgx + zap |
 | Folder in repo | `FULL/back-end/08-ms-notification/` |
 | Communicates with | attendance, biometric (event-driven via Kafka `:9092`) |
-| Consumed by | Web/Mobile through Kong `:8080` (`/api/v1/alerts`, `/alert-types`) |
+| Consumed by | Web/Mobile through Kong `:8000` (`/api/v1/alerts`, `/alert-types`) |
 
 ---
 

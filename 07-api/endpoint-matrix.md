@@ -1,6 +1,6 @@
 # Endpoint Matrix — FaceAttendEDU
 
-> Cross-service canonical table. `Kong` = path via `:8080`; `Direct` = `http://localhost:<port>`.
+> Cross-service canonical table. `Kong` = path via `:8000`; `Direct` = `http://localhost:<port>`.
 > `Auth`: `public` (no session required) · `session` (Bearer opaque `sessionId`, re-checked by
 > Kong's edge pre-function **and** by the target service's own guard — every service runs one,
 > not just the Java ones) · `—` (route not implemented). The old `gateway only` label (meaning
@@ -227,7 +227,7 @@
 | GET/PUT/DELETE /api/v1/quality/istqb/assessments/{id} | ✅ | session | CRUD |
 | GET /api/v1/quality/istqb/services/{service}/summary | ✅ | session | Aggregate |
 
-## 10. Gateway 99 (Kong 8080 → `api-gateway.yaml`)
+## 10. Gateway 99 (Kong 8000 → `api-gateway.yaml`)
 
 See table in `authentication.md §2` and `kong/kong.yml`. Global plugins: `pre-function` (edge
 authentication), `cors` (origins `localhost:3000`, `5173`, `8090`) and `rate-limiting 300/min`

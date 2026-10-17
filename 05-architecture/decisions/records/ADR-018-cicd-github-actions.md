@@ -66,7 +66,7 @@ ADR-011 chose Jenkins, self-hosted, as the CI/CD platform. That decision was nev
 
 **Impact on the system:**
 - Affected services: all (CI covers every service and both frontends).
-- Documents that must be updated: ADR-011 (marked Superseded), `10-devops/environments.md` and `10-devops/README.md` (they still claim no pipeline files exist), `10-devops/ci-cd.md` target model.
+- Documents updated with this decision: ADR-011 (marked Superseded), `10-devops/environments.md` and `10-devops/README.md` (they now record the GitHub Actions CI and the manual-deploy reality). `10-devops/ci-cd.md` remains the target model for deploy automation.
 
 ---
 

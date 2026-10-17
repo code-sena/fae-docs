@@ -11,15 +11,13 @@
 
 ---
 
-## 1. Table: city — DEPRECATED (legacy, still deployed)
+## 1. Table: city — REMOVED (historical)
 
-> **Deprecated:** `identity.city` was removed from the relational model — cities come from the
-> external API `countriesnow.space` (see `academic.school.city_id`). The table is still created
-> by `01-ms-identity-db/01-ddl/03-tables/001-create-city-table.yaml` and Kong still routes
-> `GET/POST/PUT/DELETE /api/v1/cities` to `ms-identity` (marked `deprecated: true` in
-> `07-api/contracts/openapi/01-identity-service.yaml`). Treat it as read-only legacy pending
-> removal; do not build new features on it. `academic.school.city_id` is `VARCHAR NULL` with no
-> FK (see `03-academic.md`).
+> **Removed:** `identity.city` is no longer part of the model **nor of the deployed database**.
+> `01-ms-identity-db/01-ddl/03-tables/008-drop-city-table.yaml` drops the table (with a rollback
+> that recreates it) and Kong no longer routes `/api/v1/cities`. Cities come from the external
+> API `countriesnow.space` (see `academic.school.city_id`, a `VARCHAR NULL` with no FK, plus the
+> display fields `city_name/district/country` — see `03-academic.md`). Kept here for history only.
 
 ---
 
@@ -290,7 +288,7 @@ erDiagram
     APP_USER ||--o{ USER_SESSION : "generates"
 ```
 
-> `CITY` is legacy in the deployed DB (deprecated in the DBML — cities come from the external `countriesnow.space` API). Uniqueness on person is `uq_person_document (document_type, document_number)` plus the partial unique `uq_person_email (email) WHERE deleted_at IS NULL`.
+> `city` no longer exists (dropped by `008-drop-city-table.yaml`; cities come from the external `countriesnow.space` API). Uniqueness on person is `uq_person_document (document_type, document_number)` plus the partial unique `uq_person_email (email) WHERE deleted_at IS NULL`.
 
 ---
 

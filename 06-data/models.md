@@ -9,7 +9,7 @@
 
 | # | Bounded Context | Source file (full DDL) | DB / Engine | Tables / Collections | Entities (02-domain) |
 |---|---|---|---|---|---|
-| 01 | Identity | `domains/01-identity.md` | PostgreSQL 17, schema `identity` | 4 tables: `person`, `app_user`, `user_session`, `password_policy` (+ legacy `city`, see count note) | Person, App_User |
+| 01 | Identity | `domains/01-identity.md` | PostgreSQL 17, schema `identity` | 4 tables: `person`, `app_user`, `user_session`, `password_policy` | Person, App_User |
 | 02 | Authorization | `domains/02-authorization.md` | PostgreSQL 17, schema `authorization` | 4 tables: `role`, `permission`, `role_permission`, `user_role` | Role, Permission, Role_Permission, User_Role |
 | 03 | Academic | `domains/03-academic.md` | PostgreSQL 17, schema `academic` | 8 tables: `school`, `program`, `academic_period`, `cohort`, `course`, `academic_actor_type`, `academic_actor`, `enrollment` | School, Program, Academic_Period, Cohort, Course, Academic_Actor_Type, Academic_Actor, Enrollment |
 | 04 | Scheduling | `domains/04-scheduling.md` | PostgreSQL 17, schema `scheduling` | 3 tables: `environment`, `schedule_block`, `class_session` | Environment, Schedule_Block, Class_Session |
@@ -19,9 +19,9 @@
 | 08 | Configuration | `domains/08-configuration.md` | PostgreSQL 17, schema `configuration` | 2 tables: `academic_configuration`, `security_configuration` (+ transient host of `biometric_update_case`) | Academic_Configuration, Security_Configuration |
 | | **Total** | | PostgreSQL 17 (`faceattend_db`) + MongoDB | **29 SQL tables (DBML) + 2 Mongo collections** | **28 entities + 4 VOs** |
 
-> **Count note (DBML v7):** 29 SQL tables. `identity.city` is **removed from the DBML** (external API) but the deployed database still has it — `01-ms-identity-db` creates `identity.city` and Kong still routes `/api/v1/cities` (legacy endpoints, marked deprecated in `07-api`). Audit (`audit_log`/`error_log`) was removed from the model (platform observability), and `attendance.attendance_report` is a derived projection outside the 3NF core.
+> **Count note (DBML v7):** 29 SQL tables. `identity.city` is **removed from the DBML and from the deployed database** — `01-ms-identity-db/01-ddl/03-tables/008-drop-city-table.yaml` drops it and Kong no longer routes `/api/v1/cities` (cities come from the external `countriesnow.space` API). Audit (`audit_log`/`error_log`) was removed from the model (platform observability), and `attendance.attendance_report` is a derived projection outside the 3NF core.
 >
-> **Running database vs DBML:** the deployed schema set also includes 7 `quality` tables (`quality_project`, `quality_evaluation`, `quality_evaluation_item`, `process_assessment`, `process_assessment_rating`, `istqb_assessment`, `istqb_assessment_item`) created by `07-ms-configuration-db` — quality tooling, not part of the DBML model. Total: 37 tables (29 model + legacy `city` + 7 `quality`).
+> **Running database vs DBML:** the deployed schema set also includes 7 `quality` tables (`quality_project`, `quality_evaluation`, `quality_evaluation_item`, `process_assessment`, `process_assessment_rating`, `istqb_assessment`, `istqb_assessment_item`) created by `07-ms-configuration-db` — quality tooling, not part of the DBML model. Total: 36 tables (29 model + 7 `quality`).
 
 ---
 
@@ -80,7 +80,7 @@
 | Academic_Configuration | `academic_configuration` | Configuration | Table |
 | Security_Configuration | `security_configuration` | Configuration | Table |
 
-**City/Audit clarification:** `identity.city` is deprecated in the DBML (external `countriesnow.space` API) but the table and its endpoints are still deployed (legacy — see count note above); Audit (`audit_log`/`error_log`) was removed — observability is platform-provided. The automatic detector flag on `Facial_Embedding`/`Fingerprint_Embedding` is correct by design: they persist in MongoDB with `_id: ObjectId`, `person_id: UUID` external, `encoding: [Float]`, indexes `(person_id, is_active)` and `(person_id, finger_number, is_active)`.
+**City/Audit clarification:** `identity.city` was **dropped from the deployed database** by `008-drop-city-table.yaml` (cities come from the external `countriesnow.space` API); Audit (`audit_log`/`error_log`) was removed — observability is platform-provided. The automatic detector flag on `Facial_Embedding`/`Fingerprint_Embedding` is correct by design: they persist in MongoDB with `_id: ObjectId`, `person_id: UUID` external, `encoding: [Float]`, indexes `(person_id, is_active)` and `(person_id, finger_number, is_active)`.
 
 ---
 

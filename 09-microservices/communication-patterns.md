@@ -77,7 +77,7 @@ Six services publish best-effort (failures are only logged, no retry, no outbox,
 
 | Producer | Topics |
 |----------|--------|
-| `01-ms-identity` | `identity-events`, `city-events`, `password-policy-events` |
+| `01-ms-identity` | `identity-events`, `password-policy-events` (**`city-events` no longer published** — the `city` table was dropped) |
 | `02-ms-authorization` | `role-events`, `permission-events` |
 | `03-ms-academic` | `academic-events` |
 | `04-ms-scheduling` | `class-session-events`, `environment-events`, `schedule-block-events` |

@@ -23,10 +23,9 @@ export TOKEN=<sessionId>
 ## 1. Identity
 
 ```bash
-# cities: deprecated in the relational model — prefer the external API
+# cities: no local catalog — the city table was dropped; use the external API
 curl -s 'https://countriesnow.space/api/v0.1/countries/cities' \
   -H 'Content-Type: application/json' -d '{"country":"Colombia"}'
-# the legacy ms-identity /cities CRUD still exists behind Kong (see endpoint-matrix.md §1)
 curl -s 'http://localhost:8000/api/v1/persons?page=1&limit=20' -H "Authorization: Bearer $TOKEN"
 curl -s http://localhost:8000/api/v1/persons/<uuid> -H "Authorization: Bearer $TOKEN"
 ```

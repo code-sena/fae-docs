@@ -55,11 +55,7 @@
 | PUT /api/v1/persons/{id} | ✅ | session | Update → 204 |
 | POST /api/v1/persons/{id}/transfer | ❌ not implemented | — | Person has no `school_id`; use `academic_actor` |
 | PATCH /api/v1/persons/{id}/status | ✅ | session | Status → 204 |
-| POST /api/v1/cities | ✅ | session | Legacy — model deprecated (cities from external `countriesnow.space`); table kept by Liquibase |
-| GET /api/v1/cities?page&limit | ✅ | session | Legacy → `{data,meta}` (see external API) |
-| GET /api/v1/cities/{id} | ✅ | session | Legacy — see external API |
-| PUT /api/v1/cities/{id} | ✅ | session | Legacy — see external API |
-| DELETE /api/v1/cities/{id} | ✅ | session | Legacy — see external API |
+| POST/GET/PUT/DELETE `/api/v1/cities…` | ❌ removed | — | `city` table dropped by Liquibase (`008-drop-city-table.yaml`); no controller, no Kong route — use the external `countriesnow.space` API |
 | POST /api/v1/password-policies | ✅ | session | Create policy → 201 |
 | GET /api/v1/password-policies | ✅ | session | List |
 | GET /api/v1/password-policies/{id} | ✅ | session | Get |
@@ -242,9 +238,9 @@ quality 100 per minute). No `jwt` plugin and no consumers.
 | Check | `GET http://ms-identity:8081/api/v1/sessions/{id}` (connect/send 2 s, read 3 s); accepted only on HTTP 200 with `"sessionStatus":"Active"` |
 | 401 | No `Authorization` header, not `Bearer`, token not an 8-4-4-4-12 UUID, or session invalid/expired/closed → `{"status":401,"error":"Unauthorized","message":"Missing or invalid bearer token" \| "Invalid or expired session"}` |
 | 503 | Identity unreachable/timeout → `{"status":503,"error":"Service Unavailable","message":"Cannot verify session"}` |
-| Cache | **None** — one identity call per authenticated request |
+| Cache | Positive checks cached **10 s** (`kong.cache`, key `faceattend:session:<id>`); logout invalidates at the edge, each service guard keeps its own 10 s window |
 | Public routes | `OPTIONS` (any path, CORS), `/health*`, `/api/v1/health`, `/api/health`, `POST /api/v1/auth/{login,logout,refresh,forgot-password,verify-code,reset-password}`, `GET /api/v1/auth/me` |
-| Authorization | Not evaluated at the gateway — RBAC stays in the Java services (01/02/04/05) via `AuthTokenFilter` |
+| Authorization | Not evaluated at the gateway — RBAC is re-evaluated inside each of the 9 services (Java `AuthTokenFilter` 01/02/04/05, TS `registerAuthGuard` 03/07/09, Python `require_permission` 06, Go `AuthMiddleware` 08) |
 | Requirement | `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http` on the gateway container (`back-end/docker-compose.yml`) |
 
 `GET /health/quality` is the only health route at the gateway (proxied to

@@ -1,11 +1,12 @@
-# Authentication & Authorization — FaceAttendEDU
+﻿# Authentication & Authorization — FaceAttendEDU
 
 > Decisions 2026-10-03 (updated 2026-10-07, verified against `FULL/`): **Kong authenticates at the
 > edge.** A global `pre-function` (Lua) runs before routing on every non-public route: it requires
 > `Authorization: Bearer <uuid>` and calls `GET ms-identity:8081/api/v1/sessions/{id}`, accepting
 > only `sessionStatus = "Active"` (401 for a missing header, a non-UUID token or an
-> invalid/expired/closed session; 503 when identity does not answer; no cache — one identity call
-> per request; needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`). Kong still declares **no
+> invalid/expired/closed session; 503 when identity does not answer; **positive session checks are
+> cached 10 s** at the edge via `kong.cache` — logout invalidates the entry, so the revocation
+> window is 10 s; needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`). Kong still declares **no
 > `jwt` plugin and no consumers**: the bearer is an **opaque session id, not a JWT**, and `jwt`
 > RS256 issued by identity remains ADR-007's future evolution. The gateway authenticates at the
 > edge, and **every one of the 9 services re-authenticates and evaluates RBAC again on its own**
@@ -35,8 +36,10 @@
   and calls `GET ms-identity:8081/api/v1/sessions/{id}`; it accepts only HTTP 200 with
   `sessionStatus = "Active"`. **401** = missing header, not `Bearer`, token that is not an
   8-4-4-4-12 UUID, or invalid/expired/closed session; **503** = identity does not answer
-  (2 s/2 s/3 s timeouts). **No cache**: every authenticated request costs one call to identity.
-  Needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http` on the gateway container.
+  (2 s/2 s/3 s timeouts). **Cache:** positive checks are cached **10 s** (`kong.cache`, keyed
+  `faceattend:session:<id>`) and `/api/v1/auth/logout` invalidates the entry; every service guard
+  keeps its own 10 s window, so revocation propagates within 10 s. Needs
+  `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http` on the gateway container.
 - **Service enforcement (real), all 9 services:** `AuthTokenFilter` (Java 01/02/04/05, copy per
   MS) and its three equivalents — `registerAuthGuard` (TS 03/07/09, a Fastify `onRequest` hook),
   `require_permission` (Python 06, a FastAPI dependency), `AuthMiddleware` (Go 08, a Gin
@@ -81,7 +84,7 @@
 
 | Upstream | Paths | Gateway plugins (per-upstream) |
 |----------|-------|-----------------|
-| identity `ms-identity:8081` | `/api/v1/persons,/users,/auth,/sessions,/cities,/password-policies` + nested `~/users/.+/activate` | `cors(*)` + `rate-limiting 60/min redis` — no `jwt` plugin |
+| identity `ms-identity:8081` | `/api/v1/persons,/users,/auth,/sessions,/password-policies` + nested `~/users/.+/activate` | `cors(*)` + `rate-limiting 60/min redis` — no `jwt` plugin |
 | authorization `ms-authorization:8082` | `/api/v1/roles,/permissions` + `~/users/.+/roles`, `/api/v1/auth/evaluate` | `rate-limiting 100/min redis` — no `jwt` plugin |
 | academic `ms-academic:8083` | `/api/v1/schools,/programs,/academic-periods,/periods,/cohorts,/courses,/actor-types,/academic-actors,/enrollments` | none at Kong — MS-side `registerAuthGuard` (TS) |
 | scheduling `ms-scheduling:8084` | `/api/v1/environments,/schedule-blocks,/class-sessions` + nested `~/cohorts/.+/blocks` etc. | none at Kong — MS-side `AuthTokenFilter` (Java) |
@@ -139,9 +142,7 @@ POST /api/v1/users · GET /api/v1/users?page&limit · GET/PUT /{id} (204) ·
 POST /api/v1/persons · GET /api/v1/persons?page&limit · GET/PUT /{id} (204) ·
      PATCH /{id}/status (204)
 POST /api/v1/persons/{id}/transfer — NOT IMPLEMENTED (person has no school_id; use academic_actor)
-POST/GET/PUT/DELETE /api/v1/cities… — legacy: `identity.city` is deprecated in the model
-     (cities come from the external `countriesnow.space` catalog) but the endpoints and the
-     Liquibase table are still served.
+POST/GET/PUT/DELETE /api/v1/cities... — REMOVED (table dropped by Liquibase, no controller, no Kong route)
 ```
 
 Lists are paged with **`?page&limit` (1-based page)** and return the `PageResponse`
@@ -284,8 +285,9 @@ check is the global `pre-function`.
 ## 10. Gaps and TODOs (honest)
 
 - **Opaque session at the edge, not a signed token:** Kong authenticates by introspecting
-  identity on every authenticated request (no cache → +1 internal hop per call), so a stolen
-  session id is valid until logout/expiry and there is no revocation list besides the
+  identity (cached 10 s per session, logout invalidates → +1 internal hop at most once per 10 s
+  per session), so a stolen
+  session id is valid until logout/expiry (revocation window = 10 s) and there is no revocation list besides the
   `user_session` row. Replacing the introspection with `jwt` RS256 + JWKS from identity
   (ADR-007, `AT-007`) is pending.
 - **Duplicated auth code, not a missing check:** all 9 services independently re-implement the

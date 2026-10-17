@@ -8,7 +8,7 @@
 |-------|------|---------|-----|---------|
 | `limit` | int 1..100 | 20 | 100 | TS `03/07/09`, Go `08`, new Java lists |
 | `offset` | int ≥0 | 0 | — | same as above |
-| `page` | int ≥1 | 1 | — | **canonical for identity `01`** (`GET /users|/persons|/sessions|/cities?page&limit` → `meta{page,limit,total,totalPages}`); not understood by the other services |
+| `page` | int ≥1 | 1 | — | **canonical for identity `01`** (`GET /users|/persons|/sessions?page&limit` → `meta{page,limit,total,totalPages}`); not understood by the other services |
 
 Reusable in `_shared.yaml`: `LimitParam`, `OffsetParam`, `PageParam`.
 
@@ -16,7 +16,7 @@ Reusable in `_shared.yaml`: `LimitParam`, `OffsetParam`, `PageParam`.
 
 ### Java (`01,02,04,05`)
 - `01` identity: `?page=1&limit=20` → `PageResponse {data,meta{page,limit,total,totalPages}}` on
-  `/users`, `/persons`, `/sessions`, `/cities`.
+  `/users`, `/persons`, `/sessions`.
 - `02/04/05`: lists filter in memory, no envelope and no pagination yet:
   - `GET /api/v1/environments?schoolId=`
   - `GET /api/v1/schedule-blocks?cohortId&environmentId&instructorActorId&courseId`
@@ -24,8 +24,8 @@ Reusable in `_shared.yaml`: `LimitParam`, `OffsetParam`, `PageParam`.
   - `GET /api/v1/attendance-records?classSessionId&academicActorId&attendanceStatus`
   - `GET /api/v1/justifications?status&attendanceRecordId`
   - `GET /api/v1/supporting-documents?justificationId`
-- `GET /api/v1/cities` still exists (legacy table kept by Liquibase) but the `city` entity is
-  deprecated in the model — new code must use the external `countriesnow.space` API.
+- There is **no** `/api/v1/cities` endpoint: the `city` table was dropped by Liquibase
+  (`008-drop-city-table.yaml`) and no controller remains; use the external `countriesnow.space` API.
 
 ### TypeScript (`03-academic`, `07-configuration`, `09-quality`)
 - `?limit=20&offset=0`, cap 100 (`routes.ts`), response header `x-total-count: <total>`.

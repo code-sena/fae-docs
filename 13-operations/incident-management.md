@@ -1,5 +1,11 @@
 # Incident Management — FaceAttend-Edu
 
+> **Current state (verified 2026-10-17):** detection today is **manual + healthchecks** —
+> `docker compose ps` / Portainer on the EC2 host, `docker compose logs -f [service]`, Kong
+> access logs, and user reports. **Prometheus alerting and PagerDuty are NOT deployed**
+> (see `observability.md` and ADR-012), so the automated-detection path below is the target.
+> The playbook itself (severity, roles, diagnose/mitigate steps) applies as written.
+
 > An incident is any unplanned event that interrupts or degrades service. In a biometric system like FaceAttend-Edu, incidents can range from API timeouts to hardware failures (biometric readers) or database inconsistencies.
 > Effective incident response is trained before incidents occur, not during. Follow this playbook in order — in an incident, stress blocks free thinking.
 

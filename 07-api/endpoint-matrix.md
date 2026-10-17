@@ -21,8 +21,8 @@
 > `jwt` plugin nor consumers. Every service then re-authenticates and evaluates RBAC again on its
 > own: Java `AuthTokenFilter` (01/02/04/05), TS `registerAuthGuard` (03/07/09), Python
 > `require_permission` (06), Go `AuthMiddleware` (08) — same contract, duplicated per service, no
-> shared module. Full rules and public-route list in `authentication.md`; details per contract in
-> `contracts/openapi/`.
+> shared module (the full per-route permission map is in §11). Full rules and public-route list in
+> `authentication.md`; details per contract in `contracts/openapi/`.
 
 > **Legacy alias (not a contract):** the Java services also answer paths **without** the
 > `/api/v1` prefix — `/roles`, `/permissions`, `/user-roles`, `/class-sessions`,
@@ -42,6 +42,7 @@
 | GET /api/v1/auth/me?username\|email | ✅ | public | Current user → `UserDto` (params optional) |
 | POST /api/v1/auth/forgot-password | ✅ | public | Issue + email a 6-digit code → 202 `{status:"accepted"}` (anti-enumeration) |
 | POST /api/v1/auth/verify-code | ✅ | public | Validate `{email,code}` (6 digits, 10 min, 5 attempts, 60 s resend cooldown) → 200 `{status:"verified"}` |
+| POST /api/v1/auth/change-password | ✅ | session | `{currentPassword,newPassword}` → 200 `{status:"updated"}`; closes the other sessions |
 | POST /api/v1/auth/reset-password | ✅ | public | `{email,password}` after a verified challenge → 200 `{status:"updated"}` |
 | POST /api/v1/users | ✅ | session | Create user → 201 |
 | GET /api/v1/users?page&limit | ✅ | session | List → `{data,meta{page,limit,total,totalPages}}` |
@@ -240,8 +241,54 @@ quality 100 per minute). No `jwt` plugin and no consumers.
 | 503 | Identity unreachable/timeout → `{"status":503,"error":"Service Unavailable","message":"Cannot verify session"}` |
 | Cache | Positive checks cached **10 s** (`kong.cache`, key `faceattend:session:<id>`); logout invalidates at the edge, each service guard keeps its own 10 s window |
 | Public routes | `OPTIONS` (any path, CORS), `/health*`, `/api/v1/health`, `/api/health`, `POST /api/v1/auth/{login,logout,refresh,forgot-password,verify-code,reset-password}`, `GET /api/v1/auth/me` |
-| Authorization | Not evaluated at the gateway — RBAC is re-evaluated inside each of the 9 services (Java `AuthTokenFilter` 01/02/04/05, TS `registerAuthGuard` 03/07/09, Python `require_permission` 06, Go `AuthMiddleware` 08) |
+| Authorization | Not evaluated at the gateway — RBAC is re-evaluated inside each of the 9 services (Java `AuthTokenFilter` 01/02/04/05, TS `registerAuthGuard` 03/07/09, Python `require_permission` 06, Go `AuthMiddleware` 08) — per-route map in §11 |
 | Requirement | `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http` on the gateway container (`back-end/docker-compose.yml`) |
 
 `GET /health/quality` is the only health route at the gateway (proxied to
 `ms-academic:8083`); there is **no** `GET /health` route — probe each service directly on its port.
+
+## 11. Required permission per route (RBAC)
+
+Every service validates the session against identity and evaluates the permission through
+`GET /api/v1/auth/evaluate` (Java `AuthTokenFilter`, TS `authGuard.ts`, Python `security.py`,
+Go `auth_middleware.go`). Seeded grants per role: `database/SEEDS.md` §3.
+
+| Service | Rule | Permission |
+|---------|------|------------|
+| 01 identity | `GET /persons`, `GET /persons/{id}` | `identity.person:read` + scope (below) |
+| 01 identity | `GET /users/{id}` | self, or `identity.person:write` |
+| 01 identity | `GET /users`, `GET /sessions`, `GET /sessions/user/{other}` | `identity.person:write` |
+| 01 identity | `PUT /persons/{ownPersonId}` (status and document are kept) | `identity.person:read` |
+| 01 identity | `POST /auth/change-password` | session only |
+| 01 identity | any other write | `identity.person:write` |
+| 02 authorization | own `/users/{self}/roles`, `/auth/evaluate` | session only |
+| 02 authorization | everything else | `configuration:manage` |
+| 03 academic | `GET` | session only |
+| 03 academic | enrollment writes / other writes | `academic.enrollment:manage` / `academic.school:manage` |
+| 04 scheduling | `GET` | `attendance.record:read` |
+| 04 scheduling | environment and schedule-block writes | `academic.school:manage` |
+| 04 scheduling | class-session writes, `open/close/cancel` | `scheduling.session:manage` |
+| 05 attendance | `GET` | `attendance.record:read` |
+| 05 attendance | `POST /justifications`, `POST /supporting-documents` | `attendance.justification:request` |
+| 05 attendance | `PATCH /justifications/{id}/review` | `attendance.justification:approve` |
+| 05 attendance | justification-type writes | `configuration:manage` |
+| 05 attendance | any other write | `attendance.record:write` |
+| 06 biometric | `liveness-challenge`, `liveness-step`, `enroll-image` | `biometric.case:request` for the caller's own person; replacing a template needs a case `Approved` after it (RN-29). Staff (`attendance.record:write`) enrolls anyone |
+| 06 biometric | other facial and fingerprint routes | `attendance.record:write` |
+| 07 configuration | biometric cases `GET`/`POST` (own cases) · review, `PUT`, `DELETE` | `biometric.case:request` · `biometric.case:review` (never your own request) |
+| 07 configuration | configuration writes | `configuration:manage` |
+| 08 notification | `GET` · `PATCH /alerts/{id}/resolve` · other writes | `notification.alert:read` · `attendance.record:write` · `configuration:manage` |
+| 09 quality | everything | `configuration:manage` |
+
+**Data scope (non-admins).** On top of the permission, reads are narrowed to the caller:
+
+| Role | Persons (01) | Attendance records, summary, report, justifications, documents (05) · alerts (08) |
+|------|--------------|------------------|
+| Administrador / Super Administrador | all | all |
+| Instructor | self + active students of the cohorts they teach | own actors + those students |
+| Aprendiz | self + instructors of their cohorts | own actors only |
+
+Out-of-scope items answer 403; lists simply omit them. Writes are checked too (e.g. a
+justification can only be filed for an attendance record in scope). The scope is resolved with
+the caller's bearer against identity, academic (`academic-actors`, `enrollments`) and scheduling
+(`schedule-blocks`), cached 60 s; if those do not answer the request fails closed with 503.

@@ -164,18 +164,17 @@ GET /api/v1/auth/evaluate?userId&permission → {userId,permission,allowed}
 
 Seed roles (changeset `02-ms-authorization-db/02-dml/004-unify-mobile-roles`):
 **`Administrador | Instructor | Aprendiz`** (the older `SUPER_ADMIN/SCHOOL_ADMIN/INSTRUCTOR/STUDENT`
-names are migrated away; clients still accept them as legacy aliases). 12 permissions
+names are migrated away; clients still accept them as legacy aliases). 13 permissions
 (`contexto.recurso:acción`, e.g. `attendance.record:read`) with per-role grants — see
 `database/SEEDS.md`.
 
 Kong itself does **not** call `/auth/evaluate` — the edge pre-function only checks that the
-session is `Active`, never a permission. Every service's own guard does call it: Java
-`AuthTokenFilter` evaluates the coarse `identity.person:read|write`; the TS/Python/Go guards
-evaluate a route-derived permission of their own (e.g. `academic.school:manage`,
-`attendance.record:write`, `biometric.case:request|review`, `configuration:manage`) — see
-`03-ms-academic/src/infrastructure/http/permissions.ts`,
-`07-ms-configuration/src/infrastructure/http/permissions.ts` and the equivalent files per
-service. Clients also call `evaluate` directly for their own UI gating (Mobile calls
+session is `Active`, never a permission. Every service's own guard does call it with a
+**route-derived** permission in all four stacks: Java `AuthTokenFilter.requiredPermission(method, path)`
+(e.g. `attendance.record:read` for GET in 04/05, `scheduling.session:manage` for class-session
+ops — see the tests in `05-ms-attendance`), TS `registerAuthGuard`, Python `require_permission`,
+Go `AuthMiddleware`; the canonical per-route map lives in `endpoint-matrix.md` §11. Clients also
+call `evaluate` directly for their own UI gating (Mobile calls
 `evaluate(userId, 'attendance.record:read')` right after login) — that is a third, independent
 check, not a substitute for the service-side one.
 
@@ -295,13 +294,14 @@ check is the global `pre-function`.
   `08` Go `AuthMiddleware`, `01/02/04/05` Java `AuthTokenFilter`) because there is no shared
   module across stacks. This used to be a real gap (see git history) but is not one today —
   direct access to a service's published port still has to pass that service's own check.
-  Internal ports should still stay inside the Docker network as defense in depth, but the risk is
-  "one more layer to maintain, by hand, four times," not "no layer at all."
-- **Coarse permission only (Java):** `AuthTokenFilter` checks `identity.person:read|write` only;
-  the TS/Python/Go guards already do route-derived, finer-grained permissions
-  (`academic.school:manage`, `attendance.record:write`, `biometric.case:request|review`, …) —
-  bringing Java up to the same granularity, or wiring a shared Kong/OPA authorizer, is the
-  remaining work.
+  Internal ports should still stay inside the Docker network as defense in depth (`risks.md`
+  R-003), but the risk is "one more layer to maintain, by hand, four times," not "no layer at
+  all."
+- **Permission map duplicated per service:** the route→permission mapping is re-implemented per
+  stack (Java `requiredPermission` in each `AuthTokenFilter`, TS `permissions.ts`, and the
+  Python/Go equivalents) instead of living in one shared module. It is real RBAC today — the
+  canonical map is `endpoint-matrix.md` §11 — but keeping it in sync across nine services by hand
+  is the remaining work; a shared Kong/OPA authorizer is the long-term option.
 - **Biometric update case has two unsynced implementations:** `ms-configuration`
   (`/api/v1/biometric-update-cases`, Postgres, canonical per the data model) and `ms-biometric`
   (`/api/v1/biometric/update-request*`, MongoDB) both implement "request + review a biometric

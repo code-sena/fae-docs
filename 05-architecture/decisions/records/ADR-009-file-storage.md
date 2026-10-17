@@ -2,7 +2,7 @@
 
 - **ID:** ADR-009
 - **Date:** 2026-09-12
-- **Status:** Proposed
+- **Status:** Accepted
 - **Authors:** FaceAttend EDU Team
 
 > **Implementation note (2026-10-12, verified against `FULL/`): MinIO is not deployed anywhere —

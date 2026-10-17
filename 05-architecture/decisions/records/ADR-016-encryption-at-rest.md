@@ -2,7 +2,7 @@
 
 - **ID:** ADR-016
 - **Date:** 2026-09-12
-- **Status:** Proposed
+- **Status:** Accepted
 - **Authors:** FaceAttend EDU Team
 
 ---

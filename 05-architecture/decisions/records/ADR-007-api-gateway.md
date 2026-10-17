@@ -2,7 +2,7 @@
 
 - **ID:** ADR-007
 - **Date:** 2026-09-12
-- **Status:** Proposed
+- **Status:** Accepted
 - **Implementation note (2026-10-07, verified against `FULL/`):** Kong OSS 3.6 runs **DB-less** with declarative `kong.yml`, routing by path to all 9 services, and **authenticates at the edge**: a global `pre-function` (Lua) requires `Authorization: Bearer <uuid>` on every non-public route and introspects `GET ms-identity:8081/api/v1/sessions/{id}`, accepting only `sessionStatus = "Active"` (401 for a missing/non-UUID/expired session, 503 when identity does not answer; no cache — one identity call per authenticated request; needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`). **The `jwt` plugin and its consumers are still not configured** — the other plugins are `cors` (origins `localhost:3000, 5173, 8090`) and `rate-limiting` (redis policy: global 300/min; identity 60, authorization 100, attendance 200, quality 100). The bearer is an **opaque session id, not a JWT**: `jwt` RS256 issued by identity remains the target state (`AT-007`). The gateway authenticates at the edge; permissions (RBAC) are then evaluated again by every service's own guard, not just Java — `AuthTokenFilter` (`01/02/04/05`), `registerAuthGuard` (`03/07/09`), `require_permission` (`06`), `AuthMiddleware` (`08`), re-verified 2026-10-11 against `FULL/`; details in `07-api/authentication.md`.
 - **Authors:** FaceAttend EDU Team
 

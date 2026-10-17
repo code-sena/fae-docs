@@ -16,7 +16,9 @@
 |--------|-------------|
 | Academic_Configuration | Configurable academic parameter by school. |
 | Security_Configuration | Global security configuration values. |
-| Password_Policy | Password complexity and expiration rules. |
+| Biometric_Update_Case | **Physically hosted** here for Biometric (logical owner = Biometric). |
+
+> **Note:** `Password_Policy` is **owned by Identity** (`01-ms-identity`), not by Configuration.
 
 ---
 
@@ -24,11 +26,11 @@
 
 | Field | Value |
 |-------|-------|
-| Number in catalog | 08 |
+| Number in catalog | 07 |
 | Local port | 8087 |
-| Repository | [Service repo URL] |
-| DB engine | PostgreSQL |
-| Communicates with | academic-service, attendance-service, identity-service |
+| Repository | `back-end/07-ms-configuration` |
+| DB engine | PostgreSQL (schema `configuration`) |
+| Communicates with | academic-service, identity-service |
 | Consumed by | Operations, administrators, platform services |
 
 ---
@@ -37,7 +39,7 @@
 
 - `Academic_Configuration` is school-scoped and key/value-based.
 - `Security_Configuration` is a shared policy layer not tied to a specific user.
-- `Password_Policy` is a system-wide default for credentials and lifecycle enforcement.
+- `Biometric_Update_Case` lives in this schema as documented physical-hosting debt.
 - Configuration values must be treated as operational metadata, not as source-of-truth business records.
 
 ---

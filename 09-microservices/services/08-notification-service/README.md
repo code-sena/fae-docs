@@ -30,7 +30,7 @@
 | Schema | `notification` (PostgreSQL 17) |
 | Stack | Go 1.22 + Gin + pgx + zap |
 | Folder in repo | `FULL/back-end/08-ms-notification/` |
-| Communicates with | attendance, biometric (event-driven via Kafka `:9092`) |
+| Communicates with | **none of the other 8 services** — it exposes an internal `POST /api/v1/emails` (consumed by Identity for password-reset mails) and calls an optional external SMTP/push/SMS webhook; **it does not consume Kafka** (no Kafka client exists in the Go code) |
 | Consumed by | Web/Mobile through Kong `:8000` (`/api/v1/alerts`, `/alert-types`) |
 
 ---

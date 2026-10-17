@@ -349,7 +349,7 @@ The upstream microservice isn't healthy yet: `docker compose ps` + `docker compo
 `EXPO_PUBLIC_API_URL` is baked at **build** time. For physical devices use the PC
 LAN IP (`http://192.168.1.10:8000`), then rebuild:
 `docker compose up -d --build frontend-web`. Add that origin to Kong CORS in
-`back-end/99-api-gateway/kong/kong.yml` (allows `localhost:3000/5173/8090` by default).
+`back-end/99-api-gateway/kong/kong.yml` (CORS origins are `["*"]` — any origin is accepted).
 
 ### Duplicate/stale networks (`back-end_*`, `full_*`)
 

@@ -130,7 +130,7 @@ All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_b
   too. Four separate implementations of the same contract, not a gap (`risks.md` R-003,
   corrected 2026-10-11).
 - Local service-to-service calls use UUID cross-references, never cross-schema FKs.
-- CORS: global Kong plugin `http://localhost:3000,http://localhost:5173,http://localhost:8090`;
+- CORS: global Kong plugin `origins ["*"]` (wildcard — any origin accepted, credentials allowed);
   the identity service also declares `*` on its own plugin for local dev. TLS terminates at Kong in prod.
 
 ## 10. Health and quality probes

@@ -90,7 +90,7 @@ Infrastructure/host:  BIND_IP, FRONTEND_PORT, EXPO_PUBLIC_API_URL, SEED_*, BOOTS
 | `SEED_USERNAME` / `SEED_PASSWORD`, `BOOTSTRAP_USERNAME` / `BOOTSTRAP_PASSWORD` | dev-only test accounts (`SeedAdmin123!`, `Admin123!ChangeMe`) | synthetic seed | **not present** | **never** |
 | `LOG_LEVEL` | Spring default (`info`; debug per-package when needed) | `info` | `info` | `warn` |
 | `NODE_ENV` | `development` (outside Docker) / `production` (inside containers for ms-academic, ms-configuration, ms-quality) | `production` | `production` | `production` |
-| `CORS_ORIGIN` (Kong global plugin, `kong.yml`) | `http://localhost:3000`, `http://localhost:5173` (Expo dev), `http://localhost:8090` (SPA) | `https://dev.[domain]` | `https://staging.[domain]` | `https://[domain]` |
+| `CORS_ORIGIN` (Kong global plugin, `kong.yml`) | `["*"]` — wildcard, any origin accepted (was `localhost:3000/5173/8090` before; widened so LAN/phone clients work) | `["*"]` | `["*"]` | lock down to `https://[domain]` |
 
 > **Auth note:** the platform uses **opaque server-side sessions** — a row in
 > `identity.user_session` (PostgreSQL) validated by Kong's `pre-function` and a

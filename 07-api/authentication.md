@@ -76,7 +76,7 @@
 ## 2. Gateway enforcement matrix (real `kong.yml`)
 
 > The **global** plugins apply to every row below and run in this order: `pre-function` (edge
-> session check, see §1) → `cors` (origins `localhost:3000, 5173, 8090`) → `rate-limiting
+> session check, see §1) → `cors` (origins `["*"]`) → `rate-limiting
 > 300/min` (redis). The third column lists the **per-upstream** plugins only — i.e. what Kong
 > itself adds beyond the global pre-function. "None at Kong" never means unauthenticated: every
 > upstream also runs its own session+RBAC guard (see §1), Kong is just not layering an extra
@@ -94,7 +94,7 @@
 | notification `ms-notification:8088` | `/api/v1/alert-types,/alerts` | none at Kong — MS-side `AuthMiddleware` (Go) |
 | quality-health | `/health/quality` → `ms-academic:8083` | `cors(*)` (only health route at the gateway; **no `GET /health`**) |
 | quality `ms-quality:8089` | `/api/v1/quality` | `rate-limiting 100/min redis`, MS-side `registerAuthGuard` (TS) |
-| global | all | `cors(origins localhost:3000, 5173, 8090)`, `rate-limiting 300/min redis` |
+| global | all | `cors(origins ["*"])`, `rate-limiting 300/min redis` |
 
 ## 3. Identity flows (real)
 
@@ -245,8 +245,8 @@ check, not a substitute for the service-side one.
   (or multipart for face).
 - Java MS `AuthTokenFilter` → handler: sets request attributes `X-User-Id`, `X-User-Roles` and a
   response header `X-User-Roles` (comma-separated). TS/Go/Python services do not read them.
-- CORS (global Kong plugin): origins `http://localhost:3000`, `http://localhost:5173`,
-  `http://localhost:8090`; methods GET/POST/PUT/PATCH/DELETE/OPTIONS; headers
+- CORS (global Kong plugin): origins `["*"]` (wildcard; was `localhost:3000/5173/8090` before —
+  widened so LAN/phone clients work); methods GET/POST/PUT/PATCH/DELETE/OPTIONS; headers
   `Authorization,Content-Type,X-Requested-With`; `credentials:true`; `max_age:3600`.
 
 ## 8. Expiration, refresh, logout (normative)

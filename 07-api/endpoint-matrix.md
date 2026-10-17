@@ -226,7 +226,7 @@
 ## 10. Gateway 99 (Kong 8000 → `api-gateway.yaml`)
 
 See table in `authentication.md §2` and `kong/kong.yml`. Global plugins: `pre-function` (edge
-authentication), `cors` (origins `localhost:3000`, `5173`, `8090`) and `rate-limiting 300/min`
+authentication), `cors` (origins `["*"]`) and `rate-limiting 300/min`
 (redis policy), plus per-service redis limits (identity 60, authorization 100, attendance 200,
 quality 100 per minute). No `jwt` plugin and no consumers.
 

@@ -77,7 +77,7 @@
 **Owned entities:**
 - `Person`
 - `App_User`
-- `City` (legacy — deprecated in the model, endpoints still served)
+- `City` (**removed** — dropped by Liquibase; cities come from the external `countriesnow.space` API)
 - `User_Session`
 - `Password_Policy` (singleton global)
 
@@ -148,7 +148,7 @@
 
 **Cross-context rule:**
 - `Academic_Actor.person_id` is a public ID (→ Identity.person), not a local FK.
-- `School.city_id` is a public ID (→ external `countriesnow.space` catalog; the local `identity.city` table is legacy).
+- `School.city_id` is a public ID (→ external `countriesnow.space` catalog; the local `identity.city` table was dropped).
 - `Academic_Actor` unifies Student/Instructor via `actor_type_id` — no separate tables.
 
 ---
@@ -363,7 +363,7 @@ vector search requirements of biometric embedding data.
 
 | Domain entity | Source of truth | Access pattern |
 |---------------|-----------------|----------------|
-| Person, App_User, User_Session, Password_Policy, City (legacy) | Identity Service | API + events |
+| Person, App_User, User_Session, Password_Policy | Identity Service | API + events |
 | Role, Permission, User_Role | Authorization Service | API + events |
 | School, Program, Academic_Period, Cohort, Course, Academic_Actor, Enrollment | Academic Service | API + events |
 | Environment, Schedule_Block, Class_Session | Scheduling Service | API + events |

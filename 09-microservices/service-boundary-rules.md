@@ -107,7 +107,7 @@ A new bounded context (and therefore a new service) should be created when:
 
 | Service | Owns | Does NOT own |
 |---------|------|--------------|
-| Identity (auth merged in) | Person, App_User, User_Session, Password_Policy, City (legacy), opaque session ids | Roles, enrollments, devices |
+| Identity (auth merged in) | Person, App_User, User_Session, Password_Policy, opaque session ids | Roles, enrollments, devices |
 | Authorization | Role, Permission, Role_Permission, User_Role | User accounts, academic data |
 | Academic | School, Program, Academic_Period, Cohort, Course, Academic_Actor_Type, Academic_Actor, Enrollment | Person profiles, attendance |
 | Scheduling | Environment, Schedule_Block, Class_Session | Enrollment, attendance records |

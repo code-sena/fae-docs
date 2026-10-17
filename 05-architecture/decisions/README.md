@@ -30,13 +30,16 @@ ADRs document important architectural decisions. Each file = one decision.
 | ADR-008 | Password hashing (bcrypt cost 12) | Accepted | 2026-09-12 | Security |
 | ADR-009 | File storage | Accepted | 2026-09-13 | Infra |
 | ADR-010 | Database migrations (Liquibase) | Accepted | 2026-09-13 | Data |
-| ADR-011 | CI/CD platform (Jenkins) | Accepted | 2026-09-13 | DevOps |
+| ADR-011 | CI/CD platform (Jenkins) | Superseded by ADR-018 | 2026-09-13 | DevOps |
 | ADR-012 | Observability stack | Proposed | 2026-09-14 | Ops |
-| ADR-013 | Frontend technology | Proposed | 2026-09-14 | UX |
+| ADR-013 | Frontend technology | Superseded by ADR-019 | 2026-09-14 | UX |
 | ADR-014 | Biometric SDK | Proposed | 2026-09-14 | Biometric |
 | ADR-015 | Caching strategy | Proposed | 2026-09-14 | Perf |
 | ADR-016 | Encryption at rest | Accepted | 2026-09-15 | Security |
 | ADR-017 | Localization | Proposed | 2026-09-15 | UX |
+| ADR-018 | CI on GitHub Actions | Accepted | 2026-10-17 | DevOps |
+| ADR-019 | Frontend on Expo (Web + Mobile) | Accepted | 2026-10-17 | UX |
+| ADR-020 | Deployment: AWS EC2 + Vercel | Accepted | 2026-10-17 | DevOps |
 
 > Update status to `Superseded by ADR-NNN` when replaced. Audit retirement (2026-09) is tracked in ADR-002/005/006 via `refactor/remove-audit-domain`.
 

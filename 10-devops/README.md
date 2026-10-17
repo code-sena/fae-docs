@@ -91,14 +91,15 @@ orchestrator exists**), rollback runbook, deploy log.
 | prod | api.[domain] — planned | Real users | Tech Lead + DevOps only | Real | Manual approval, Rolling deploy |
 ```
 
-### `ci-cd.md` ⭐ — ⚠️ target state (no pipeline files exist yet in the repo)
+### `ci-cd.md` ⭐ — ⚠️ target state for **deploy**; **CI already exists**
 
 Description of the continuous integration and deployment pipeline.
-**Current truth:** there are **no GitHub Actions / GitLab CI / Jenkins files** in
-the repository. Until they exist, "deploy to dev" = manual
-`git pull && docker compose up -d --build` on the dev host. The target below is
-aligned with the test strategy in `back-end/IEEE829_TEST_PLAN.md` and the per-stack
-test commands in `LOCAL_SETUP.md`.
+**Current truth:** **CI runs on GitHub Actions** — `.github/workflows/ci.yml` (171 lines) tests
+every push/PR to `main` with per-stack matrices (Java `mvn test`, Node `npm test` + build,
+Python `pytest`, Go `go test`, both frontends incl. `expo export`), and `.github/dependabot.yml`
+gives weekly update PRs for all eight ecosystems. **CD (deploy) is still manual**: production is
+deployed over SSH with `docker compose up -d --build` on the AWS EC2 host (see ADR-018/ADR-020
+and `environments.md`). The pipeline below remains the target for deploy automation.
 
 **Target format:**
 ```markdown
@@ -154,9 +155,9 @@ Related files inside this section:
   (image pulls + 4 Maven builds); subsequent starts are minutes.
 
 - **What happens automatically when I push?**
-  Today: nothing (no CI configured). Target: PR pipeline (lint + unit/integration
-  tests + build) blocks merges on failure; merge to `develop` auto-deploys to dev
-  with smoke tests. See `ci-cd.md` section above.
+  **CI on GitHub Actions**: every push/PR to `main` runs the per-stack test matrices
+  (Java/Node/Python/Go + both frontends) and blocks merges on failure; Dependabot
+  opens weekly update PRs. **Deploy is still manual** (no CD yet) — see `ci-cd.md`.
 
 - **How does code get to production?**
   `feature/HU-XXX` → PR → `develop` → release PR `develop → main` (staging + full
@@ -167,6 +168,7 @@ Related files inside this section:
 
 - **How many environments are there and what is each one for?**
   Four defined: **local** (dev machine, Docker Compose, synthetic/seed data),
-  **dev** (CI target, every merge to `develop`), **staging** (QA/demos, every
-  merge to `main`), **production** (real users, manual approval only). Only local
-  exists operationally today; the rest are specified and planned.
+  **dev** (CI target), **staging** (QA/demos), **production** (real users, manual
+  approval only). **Local and production exist operationally** — production runs on
+  AWS EC2 with Neon PostgreSQL, and the web SPA publishes on Vercel (see
+  `environments.md` and ADR-020). dev/staging are still specified and planned.

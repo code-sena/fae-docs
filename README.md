@@ -1,12 +1,17 @@
-# Microservices Governance Framework
+# FaceAttend EDU — Documentation
 
-> Generic documentation template · v1.0 · MIT License
-> Authored by Jesus Ariel Gonzalez Bonilla - freely licensed (MIT) for anyone.
+> Project documentation for **FaceAttend EDU**, a facial/fingerprint attendance platform for
+> technical training institutions (9 microservices, Kong gateway, PostgreSQL + MongoDB + Kafka,
+> Expo Web/Mobile frontends).
+>
+> Originally based on the **Microservices Governance Framework** documentation template
+> (v1.0, MIT License, authored by Jesus Ariel Gonzalez Bonilla — freely licensed for anyone).
+> The template's structure and fill-in guidance are kept; the content is now FaceAttend-specific.
 
-This repository is a **documentation scaffold** for any microservices project.
-It contains no project-specific information. Its purpose is to teach how to document
-a software system professionally — showing what goes in each section, why it matters,
-and how every document relates to the others.
+This repository documents the FaceAttend EDU system end to end: context and domain, architecture
+decisions (ADRs), data models, API contracts, per-service details, DevOps, quality and operations.
+Every section explains what it covers, why it matters, and how it relates to the others. Where a
+document describes a **target** state rather than the current code, it says so explicitly.
 
 ---
 

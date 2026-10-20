@@ -25,7 +25,7 @@ route and component listed here exists in a file you can open.
 | File | Content | Source of truth in code |
 |------|---------|-------------------------|
 | [`navigation-map.md`](./navigation-map.md) ⭐ | All screens, how they connect, role access matrix | `Web/src/navegation/appNavigator.js`, `AuthenticatedNavigator.js`, `linking.ts`, `Mobile/src/navigations/AppNavigator.js`, `Web/src/viewmodels/useRolePermissions.js` |
-| [`wireframes.md`](./wireframes.md) | Low-fidelity ASCII structure of the main screens | `Web/src/view/...`, `Mobile/src/view/screens/...` |
+| `wireframes.md` — **not written yet** (referenced below but absent; the screen inventory already lives in this README's "Summary: wireframes" section) | Low-fidelity ASCII structure of the main screens | `Web/src/view/...`, `Mobile/src/view/screens/...` |
 | [`design-system.md`](./design-system.md) | Tokens (colors, spacing, radius, typography), component library, interaction patterns | `Web/src/core/config/theme.config.js`, `core/theme/presets.js`, `core/theme/generateTheme.js`, `context/ThemeContext.js`, `view/components/common/` |
 
 ---
@@ -197,7 +197,7 @@ System font stack (no custom webfont loaded); weights normal 400 → extrabold 8
 |---------------------------|-------------------|
 | `04-requirements/user-stories.md` → what flows exist | Screens implementing each HU (Dashboard, Users, Courses, Environments, Reports, Settings) |
 | `02-domain/entities-and-rules.md` → what data to display | Fields in wireframes (School, Course, Session, AttendanceRecord, BiometricTemplate) |
-| `09-microservices/` → what APIs the frontend consumes | Data arriving at each screen via Kong gateway (:8000, JWT + rate-limit 100/min): 01-identity (auth), 03-academic (schools/courses), 04-scheduling (sessions), 05-attendance (records/reports), 06-biometric (enrollment/capture), 07-configuration (settings/appearance) |
+| `09-microservices/` → what APIs the frontend consumes | Data arriving at each screen via Kong gateway (:8000, opaque session bearer + rate-limit 6000/min): 01-identity (auth), 03-academic (schools/courses), 04-scheduling (sessions), 05-attendance (records/reports), 06-biometric (enrollment/capture, incl. the kiosk WebSocket), 07-configuration (settings/appearance), 08-notification (alerts) |
 | `11-quality/` (ISO 25010 usability report) | Accessibility-first design decisions (vision-mode palettes, contrast adaptation) |
 
 ---

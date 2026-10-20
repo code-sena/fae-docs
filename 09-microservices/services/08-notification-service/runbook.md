@@ -3,9 +3,9 @@
 > A runbook is for someone on-call at 3am. Each section must be executable without needing additional context.
 
 **Service:** 08-notification-service (`FULL/back-end/08-ms-notification`)
-**Stack:** Go 1.22 + Gin + pgx + zap
+**Stack:** TypeScript + Fastify + Zod + Drizzle + pino (rewritten from Go/Gin 2026-10-18 — ADR-021)
 **Version:** 1.0
-**Last updated:** 2026-10-17
+**Last updated:** 2026-10-20
 
 ---
 
@@ -19,7 +19,7 @@
 | Health endpoints | `GET /health`, `GET /api/v1/health`, `GET /health/quality` |
 | Internal endpoint | `POST /api/v1/emails` (not routed publicly; called by Identity) |
 | DB | PostgreSQL schema `notification` (container `faceattend-postgres`, db `faceattend_db`) |
-| Key env vars | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`/`SMTP_PASS`, `EMAIL_INTERNAL_TOKEN` |
+| Key env vars | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`/`SMTP_PASS`, `EMAIL_INTERNAL_TOKEN`, `KAFKA_BROKERS` (enables the Kafka consumer — without it the service starts with no consumer) |
 | Dashboard / alert channel | Not deployed — see `13-operations/observability.md` |
 | Target RTO / RPO | Not defined (`NFR-010` pending) |
 

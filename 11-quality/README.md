@@ -10,8 +10,8 @@
 
 ### Unit
 - **Tool:** JUnit 5 + AssertJ (Java: 01-identity, 02-authorization, 04-scheduling, 05-attendance),
-  Jest + ts-jest (TypeScript/Fastify: 03-academic, 07-configuration, 09-quality),
-  pytest + pytest-asyncio (Python/FastAPI: 06-biometric), Go testing (Go/Gin: 08-notification).
+  Jest + ts-jest (TypeScript/Fastify: 03-academic, 07-configuration, 08-notification, 09-quality),
+  pytest + pytest-asyncio (Python/FastAPI: 06-biometric).
 - **Minimum coverage:** ≥ 70% globally (IEEE 829 Test Plan acceptance criterion);
   **> 80% on critical paths** as an ISTQB exit criterion (threshold set after the maturity assessment).
 - **What they test:** use cases and domain logic isolated through ports (hexagonal architecture).
@@ -53,7 +53,7 @@
 - **Security:** OWASP ZAP (basic security tests) + authentication bypass verification
   (reported in `IEEE829_TEST_SUMMARY_REPORT.md`: "Authentication bypass: Not possible ✅").
 - **What they test:** complete user flows with the entire system running (CRUD per service,
-  authentication through Kong with opaque-session auth + rate limit of 300/min global, attendance reports).
+  authentication through Kong with opaque-session auth + the global rate limit of 6000/min, attendance reports).
 - **When they run:** before each deploy to staging. The seed is idempotent, and its exit code serves
   as a gate: `0` if everything passes (or only documented known bugs marked WARN), `1` for any other failure.
 
@@ -73,7 +73,7 @@
 | 05-ms-attendance | Java Spring Boot | 85% (critical) | Required | Required | 15 test files (incl. `AttendanceRecordControllerTest`) |
 | 06-ms-biometric | Python FastAPI | 80% | Required (pytest+httpx) | **Required** (router contract tests) | 7 test files (`tests/unit/web` + `tests/`) |
 | 07-ms-configuration | TS Fastify | 70% | Required | Recommended | 3 test files (incl. `crud.repository.test.ts`) |
-| 08-ms-notification | Go Gin | 80% | Required (go test) | Recommended | 6 test files (handler/render packages) |
+| 08-ms-notification | TS Fastify | 80% | Required (jest) | Recommended | 16 test files (routes, authGuard, actorScope, permissions, kafka consumer, postgres repos, email/webhook, entities) |
 | 09-ms-quality | TS Fastify | 80% | Required | Recommended | 8 test files (ISO 25010/ISTQB/29110 instruments) |
 | 99-api-gateway (Kong) | Kong OSS | — | Required (smoke: routes + session auth + rate limit) | — | kong/kong.yml verified in E2E |
 

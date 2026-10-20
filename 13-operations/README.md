@@ -42,10 +42,9 @@ The system is divided into three isolated network tiers to ensure that the data 
 |-------|------------|---------|
 | **Edge/Gateway** | Kong OSS + Redis | Routing, JWT RS256, Rate-limiting, CORS |
 | **Backend (Java)** | Spring Boot 4.1.1 | Identity, Authorization, Scheduling, Attendance |
-| **Backend (TS)** | Fastify + Drizzle | Academic, Configuration, Quality |
+| **Backend (TS)** | Fastify + Drizzle | Academic, Configuration, Notification, Quality |
 | **Backend (Python)**| FastAPI | Biometric (Face/Fingerprint embeddings) |
-| **Backend (Go)** | Gin | Notifications/Alerts |
-| **Persistence** | PostgreSQL 17, MongoDB 7 | Relational data (8 schemas) and Vector data |
+| **Persistence** | PostgreSQL 17, MongoDB 7 | Relational data (9 schemas: 8 bounded contexts + `quality`) and Vector data |
 | **Migrations** | Liquibase | Sequential DB schema evolution |
 
 ---
@@ -61,7 +60,7 @@ How the system makes its internal state visible.
 
 **Fill in based on current stack:**
 - **Gateway Logs:** Kong `kong.yml` declarative config provides the routing logic; logs should be captured from the Kong container.
-- **Service Logs:** Standard output from Spring Boot, Fastify, FastAPI, and Gin containers.
+- **Service Logs:** Standard output from Spring Boot, Fastify and FastAPI containers.
 - **Health Checks:** Use the `/health` endpoints (as seen in the `frontend-web` healthcheck) to monitor service availability.
 
 ### `incident-management.md` ⭐

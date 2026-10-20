@@ -26,8 +26,8 @@
 > the edge**: a global `pre-function` validates the session id by introspecting identity on every
 > non-public route. There is no refresh token — `POST /api/v1/auth/refresh` only rotates the
 > session id. Every service validates the bearer again on its own and adds RBAC — Java
-> `AuthTokenFilter` (01/02/04/05), TS `registerAuthGuard` (03/07/09), Python `require_permission`
-> (06), Go `AuthMiddleware` (08) — four duplicated implementations of the same contract, not a
+> `AuthTokenFilter` (01/02/04/05), TS `registerAuthGuard` (03/07/08/09), Python `require_permission`
+> (06) — three duplicated implementations of the same contract, not a
 > gap (`AT-004`, corrected 2026-10-11). Edge JWT with RS256 is the ADR-007 goal (`AT-007`).
 > Current behavior: `07-api/authentication.md`.
 

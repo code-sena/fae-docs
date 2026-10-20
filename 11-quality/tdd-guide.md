@@ -6,10 +6,9 @@
 
 > **Stack note:** The TDD principles and cycles described here apply to any language.
 > FaceAttend EDU is polyglot; concrete examples below are annotated per stack.
-> - Node.js + TypeScript → [`_stacks/node-typescript.md`](../_stacks/node-typescript.md) (03-academic, 07-configuration, 09-quality — Fastify)
+> - Node.js + TypeScript → [`_stacks/node-typescript.md`](../_stacks/node-typescript.md) (03-academic, 07-configuration, 08-notification, 09-quality — Fastify)
 > - Java + Spring Boot → [`_stacks/java-spring.md`](../_stacks/java-spring.md) (01-identity, 02-authorization, 04-scheduling, 05-attendance)
 > - Python + FastAPI → [`_stacks/python-fastapi.md`](../_stacks/python-fastapi.md) (06-biometric)
-> - Go → [`_stacks/go.md`](../_stacks/go.md) (08-notification — Gin)
 
 **Repo evidence:** every existing test in this project follows the cycle documented here —
 `UserActivationServiceTest` (domain), `ResetPasswordUseCaseImplTest` (application, pure Fakes),
@@ -56,7 +55,6 @@ test IDs (`TC-xx-xxx`) appear in test names so each test traces back to a requir
 | Java (Maven) | `mvn test -Dtest=UserActivationServiceTest#shouldThrowExceptionWhenPersonIsInactive` | `mvn test` after each edit (IDE) |
 | TS/Fastify | `npm run test -- academic.test.ts` (vitest/jest) | `npm run test:watch` |
 | Python/FastAPI | `poetry run pytest tests/unit/web/test_router_contract.py -k enroll` | `pytest-watch` |
-| Go/Gin | `go test ./internal/infrastructure/http/handler/ -run TestEmail` | `go test -count=1 ./...` |
 
 ---
 

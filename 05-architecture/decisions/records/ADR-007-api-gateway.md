@@ -74,7 +74,7 @@ The gateway must:
 - Kong is a separate technology stack (Lua/NGINX-based) from the Node.js/Python services.
 - Team must learn Kong's configuration syntax and plugin model.
 - Kong adds a container to the Docker Compose stack.
-- Session introspection on every request costs one internal HTTP call to identity (no cache) and adds latency; a signed `jwt` (RS256) would remove that hop.
+- Session introspection on every request costs one internal HTTP call to identity — positive checks are **cached 10 s** at the gateway and in every service guard, so the hop repeats at most once per 10 s per session; a signed `jwt` (RS256) would remove it entirely.
 - The gateway authenticates only: services without their own filter (03/06/07/08/09) are fully exposed if a request bypasses Kong (direct port access) — see `15-project-control/risks.md` R-003.
 
 **Impact on the system:**

@@ -10,7 +10,7 @@ C4Container
         Container(web, "Web App", "Expo Web export served by nginx :8090", "Browser client for administrators and instructors")
         Container(mobile, "Mobile App", "Expo / React Native (Android)", "Client used by students for facial-scan attendance")
 
-        Container(gateway, "API Gateway", "Kong OSS 3.6 (DB-less) :8080 / :8001", "Single entry point: routing, CORS and rate limiting (redis policy). Plugins are only cors + rate-limiting — no jwt, the opaque sessionId is validated per service")
+        Container(gateway, "API Gateway", "Kong OSS 3.6 (DB-less) :8080 / :8001", "Single entry point: routing, CORS, rate limiting (redis policy) and a global pre-function that validates the opaque sessionId against identity before routing (401/503 at the edge). No jwt plugin, no consumers — every service behind it (all 9, not just Java) re-validates the session and evaluates RBAC again on its own onRequest/filter hook. The only container on both the faceattend-edge and faceattend-app Docker networks — the bridge between the client-facing and service tiers")
 
         Container(identity, "ms-identity", "Java 21 + Spring Boot", "Persons, users, sessions, authentication (opaque sessionId), password policy. Port 8081")
         Container(authorization, "ms-authorization", "Java 21 + Spring Boot", "Roles, permissions and role assignments (RBAC). Port 8082")
@@ -22,10 +22,10 @@ C4Container
         Container(notification, "ms-notification", "Go 1.22 + Gin", "Alert types, alert lifecycle and the internal e-mail channel. Port 8088")
         Container(quality, "ms-quality", "TypeScript + Fastify", "ISO 25010 / 29110 / ISTQB quality tooling (not a bounded context). Port 8089")
 
-        ContainerDb(postgres, "PostgreSQL 17", "faceattend_db", "One schema per bounded context: identity, authorization, academic, scheduling, attendance, biometric, configuration, notification (+ quality). No cross-schema FK")
-        ContainerDb(mongodb, "MongoDB 7", "Document store with vector search", "Facial and fingerprint embeddings and match logs (ADR-003 — only polyglot exception)")
-        ContainerDb(redis, "Redis 7", "Rate-limit store", "Kong rate-limiting counters")
-        ContainerDb(kafka, "Kafka 3.x (KRaft) :9092", "Message broker", "Domain events between services (ADR-006). Producers only — no consumer exists yet (AT-006)")
+        ContainerDb(postgres, "PostgreSQL 17", "faceattend_db", "One schema per bounded context: identity, authorization, academic, scheduling, attendance, biometric, configuration, notification (+ quality). No cross-schema FK. On the faceattend-data network via database/docker-compose.yml, merged into the root compose with Docker Compose's include: — also published on 127.0.0.1:5432 for local dev")
+        ContainerDb(mongodb, "MongoDB 7", "Document store with vector search", "Facial and fingerprint embeddings and match logs (ADR-003 — only polyglot exception). On the faceattend-data network")
+        ContainerDb(redis, "Redis 7", "Rate-limit store", "Kong rate-limiting counters. On the faceattend-app network")
+        ContainerDb(kafka, "Kafka 3.x (KRaft) :9092", "Message broker", "Domain events between services (ADR-006). Producers only — no consumer exists yet (AT-006). On the faceattend-data network")
     }
 
     System_Ext(countriesnow, "countriesnow.space", "External city and country catalog, called straight from the mobile client")
@@ -39,9 +39,10 @@ C4Container
     Rel(web, gateway, "API calls", "HTTPS / REST")
     Rel(mobile, gateway, "API calls", "HTTPS / REST")
 
+    Rel(gateway, identity, "Edge pre-function: GET /api/v1/sessions/{id} on every non-public route (401/503 before routing)", "HTTP / REST")
     Rel(gateway, identity, "Routes /api/v1/persons, /users, /auth, /sessions, /cities, /password-policies", "HTTP / REST")
     Rel(gateway, authorization, "Routes /api/v1/roles, /permissions, /user-roles, /auth/evaluate, /users/{id}/roles", "HTTP / REST")
-    Rel(gateway, academic, "Routes /api/v1/schools, /programs, /academic-periods, /cohorts, /courses, /academic-actors, /enrollments, plus /health/quality (Kong service quality-health points here)", "HTTP / REST")
+    Rel(gateway, academic, "Routes /api/v1/schools, /programs, /academic-periods, /cohorts, /courses, /actor-types, /academic-actors, /enrollments, plus /health/quality (Kong service quality-health points here)", "HTTP / REST")
     Rel(gateway, scheduling, "Routes /api/v1/environments, /schedule-blocks, /class-sessions (+ nested /blocks, /sessions)", "HTTP / REST")
     Rel(gateway, attendance, "Routes /api/v1/attendance-records, /justifications, /justification-types, /supporting-documents (+ nested)", "HTTP / REST")
     Rel(gateway, biometric, "Routes /api/v1/biometric", "HTTP / REST")
@@ -57,9 +58,9 @@ C4Container
     Rel(attendance, postgres, "Reads / writes schema attendance", "JDBC / SQL")
     Rel(notification, postgres, "Reads / writes schema notification", "SQL (pgx)")
     Rel(quality, postgres, "Reads / writes schema quality", "SQL (pg)")
-    Rel(configuration, postgres, "Startup probe only (CREATE SCHEMA + SELECT 1, then pool.end()) — runtime data lives in MemoryStore, no schema is written", "SQL (pg, best effort)")
+    Rel(configuration, postgres, "Reads / writes schema configuration — academic_configuration, security_configuration, biometric_update_case. Postgres is the only store; boot fails fatally if it cannot connect, there is no in-memory fallback", "SQL (pg)")
 
-    Rel(biometric, mongodb, "Stores and searches embeddings, appends match logs", "Motor / MongoDB")
+    Rel(biometric, mongodb, "Stores and searches embeddings, appends match logs, and keeps its own biometric_update_cases collection — a second, independent biometric-update-case workflow with no sync to the configuration one (see SEQ-04)", "Motor / MongoDB")
 
     Rel(identity, kafka, "Publishes identity-events, city-events, password-policy-events", "Async producer")
     Rel(authorization, kafka, "Publishes role-events, permission-events", "Async producer")

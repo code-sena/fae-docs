@@ -1,5 +1,31 @@
 # Event Catalog
 
+> **Current state (verified 2026-10-17) — read this first.** The tables below are the **target
+> design**; they were never built as written. What actually runs today:
+>
+> - **Flat topic names** `{service}-events` (e.g. `identity-events`, `attendance-events`), not the
+>   `{context}.{entity}.events` pattern in §"Event naming convention".
+> - **Payloads are minimal JSON** (ids + status), not the rich payloads shown below.
+> - **There are no consumers.** Every service publishes best-effort
+>   (`KafkaTemplate`/`kafkajs` with failures swallowed by `.catch(() => undefined)`); **no service
+>   subscribes to any topic**. There is **no transactional outbox, no DLQ and no compensation**
+>   (ADR-004 is only partially implemented — recorded as tech debt `AT-006`).
+>
+> | Service | Topic actually published | Published on |
+> |---|---|---|
+> | 01 identity | `identity-events` | user locked, password changed/reset |
+> | 01 identity | `password-policy-events` | password policy created |
+> | 02 authorization | `role-events`, `permission-events` | role/permission created |
+> | 03 academic | `academic-events` | request-level (method/url/status) hook |
+> | 04 scheduling | `environment-events`, `schedule-block-events`, `class-session-events` | entity created |
+> | 05 attendance | `attendance-events`, `justification-events`, `justification-type-events`, `document-events` | record created |
+> | 07 configuration | `configuration-events` | request-level (method/url/status) hook |
+> | 06 biometric · 08 notification · 09 quality | — | **publish nothing** |
+>
+> See `09-microservices/communication-patterns.md` §2 for the corrected inventory.
+
+---
+
 > Canonical list of business and operational events published across all services. Each event is the contract for asynchronous integration between bounded contexts.
 
 ---

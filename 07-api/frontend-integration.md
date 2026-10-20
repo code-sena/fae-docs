@@ -1,7 +1,7 @@
 # Frontend Integration — FaceAttendEDU APIs
 
 > Decisions 2026-10-03 (updated 2026-10-05, commits `c4fad72`/`e1f6d71`): canonical base is
-> `http://localhost:8080/api/v1` via Kong for Web **and** Mobile; both apps call the real backend
+> `http://localhost:8000/api/v1` via Kong for Web **and** Mobile; both apps call the real backend
 > and send `Authorization: Bearer <sessionId>`. Mocks survive only as fallback data
 > (`EXPO_PUBLIC_API_MOCK=1` / API failure).
 
@@ -28,18 +28,18 @@
 
 | App | Config | Real value |
 |-----|--------|------------|
-| Web | `config/env.ts getApiBaseUrl()` | `EXPO_PUBLIC_API_URL` (build time) → `http://localhost:8080`; runtime override `window.__FACEATTEND_API_URL__` |
+| Web | `config/env.ts getApiBaseUrl()` | `EXPO_PUBLIC_API_URL` (build time) → `http://localhost:8000`; runtime override `window.__FACEATTEND_API_URL__` |
 | Web | `config/env.ts API_MODE` | `live` unless `EXPO_PUBLIC_API_MOCK=1` |
 | Web i18n | `LibreTranslateProvider.ts:37` | `https://translate.argosopentech.com` (external, non-business) |
 | Web i18n | `RestTranslationProvider.ts:34` | `http://localhost:5000` (external) |
-| Mobile | `config/env.js resolveBaseUrl()` | `EXPO_PUBLIC_API_URL` → Metro `hostUri` host → `10.0.2.2` (Android emulator) → `10.3.233.33` LAN default, all on **`:8080` (Kong)**; `AUTHZ/ACADEMIC/ATTENDANCE/SCHEDULING/NOTIFY_BASE_URL` are aliases of the same gateway |
+| Mobile | `config/env.js resolveBaseUrl()` | `EXPO_PUBLIC_API_URL` → Metro `hostUri` host → `10.0.2.2` (Android emulator) → `10.3.233.33` LAN default, all on **`:8000` (Kong)**; `AUTHZ/ACADEMIC/ATTENDANCE/SCHEDULING/NOTIFY_BASE_URL` are aliases of the same gateway |
 | Mobile | `.env` | `EXPO_PUBLIC_API_URL` / `EXPO_PUBLIC_AUTH_MODE` (only vars consumed) |
 | Mobile face | `UpdatePhotoScreen.js` | `EXPO_PUBLIC_FACE_URL \|\| ${API_BASE_URL}face/register` (multipart, no auth header) |
 | Mobile countries | `api/apiCountry.js:1` | `https://countriesnow.space/api/v0.1` (external) |
 | Prod target | — | gateway behind TLS, `https://<host>/api/v1/...` for both apps |
 
-Docker: the compose stack publishes the gateway on `KONG_PROXY_PORT` (8080) and the Web app on
-**8090** (`FRONTEND_PORT`), so browser CORS origins are `localhost:3000,5173,8090`.
+Docker: the compose stack publishes the gateway on `KONG_PROXY_PORT` (8000) and the Web app on
+**8090** (`FRONTEND_PORT`), so browser CORS is permissive (Kong `cors` origins are `["*"]`).
 
 ## 3. Auth flows (both real)
 
@@ -75,7 +75,7 @@ Docker: the compose stack publishes the gateway on `KONG_PROXY_PORT` (8080) and 
 - `logout()` clears token + session key. `register()` still validates locally and (until the
   backend exposes a register route) creates the account through the API when available.
 - Errors surface through `loginErrorMessage(err)` (401 → invalid credentials, network → gateway
-  `:8080` down message).
+  `:8000` down message).
 
 ## 4. Endpoint usage
 

@@ -1,12 +1,12 @@
 ﻿# Identity Service
 
-> Owns school master data, person profiles, credentials, and login sessions for the platform.
+> Owns person profiles, user credentials, login sessions, and the password policy for the platform.
 
 ---
 
 ## Responsibility
 
-> This bounded context is responsible for identity records, authentication metadata, and session lifecycle across the institution.
+> This bounded context is responsible for identity records, authentication metadata, and session lifecycle across the institution. **It does not own `School`** — schools live in the Academic context (`03-ms-academic`).
 
 ---
 
@@ -14,10 +14,12 @@
 
 | Entity | Description |
 |--------|-------------|
-| School | Defines the educational institution and its master profile. |
-| Person | Represents the natural person associated with the school. |
-| User | Stores credential and authentication metadata for an individual. |
+| Person | Represents the natural person; school-agnostic (no `school_id`). |
+| App_User | Stores credential and authentication metadata for a individual. |
 | User_Session | Tracks active and closed authentication sessions. |
+| Password_Policy | Password rules (length, complexity, expiration). |
+
+> **Removed:** `City` — dropped by Liquibase (`008-drop-city-table.yaml`); cities come from the external `countriesnow.space` API.
 
 ---
 
@@ -27,19 +29,18 @@
 |-------|-------|
 | Number in catalog | 01 |
 | Local port | 8081 |
-| Repository | [Service repo URL] |
-| DB engine | PostgreSQL |
-| Communicates with | authorization-service |
+| Repository | `back-end/01-ms-identity` |
+| DB engine | PostgreSQL (schema `identity`) |
+| Communicates with | authorization-service (RBAC check) |
 | Consumed by | API Gateway, authentication flows |
 
 ---
 
 ## Local rules
 
-- `School` is the root aggregate for institutional identity.
-- `Person` is unique per school and keeps profile and contact details.
-- `User` belongs to a single `Person` and owns the login credential set.
-- `User_Session` is a child of `User` and records device and session lifecycle.
+- `Person` is **not** scoped by school; uniqueness is the pair `(document_type, document_number)` plus a partial unique on `email`.
+- `App_User` belongs to a single `Person` (1:1, `person_id` UNIQUE) and owns the login credential set.
+- `User_Session` is a child of `App_User` and records device and session lifecycle; sessions are opaque UUIDs (no JWT, no Redis session store).
 - Cross-context references are handled through public IDs rather than direct FKs.
 
 ---

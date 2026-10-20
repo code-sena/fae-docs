@@ -8,7 +8,6 @@
 
 | Domain entity | Source of truth | Bounded context | Access pattern | DB |
 |---------------|-----------------|-----------------|----------------|-----|
-| City | Identity Service | Identity | API + events | PostgreSQL |
 | Person | Identity Service | Identity | API + events | PostgreSQL |
 | App_User | Identity Service | Identity | API + events | PostgreSQL |
 | User_Session | Identity Service | Identity | API + events | PostgreSQL |
@@ -32,15 +31,21 @@
 | Justification_Type | Attendance Service | Attendance | API + events | PostgreSQL |
 | Justification | Attendance Service | Attendance | API + events | PostgreSQL |
 | Supporting_Document | Attendance Service | Attendance | API + events | PostgreSQL |
+| Attendance_Report | Attendance Service | Attendance (derived projection, no FKs) | API | PostgreSQL |
 | Facial_Embedding | Biometric Service | Biometric | API + events | MongoDB |
 | Fingerprint_Embedding | Biometric Service | Biometric | API + events | MongoDB |
 | Alert_Type | Notification Service | Notification | API + events | PostgreSQL |
 | Alert | Notification Service | Notification | API + events | PostgreSQL |
-| Audit_Log | Audit Service | Audit | API + events | PostgreSQL |
-| Error_Log | Audit Service | Audit | API + events | PostgreSQL |
 | Academic_Configuration | Configuration Service | Configuration | API + events | PostgreSQL |
 | Security_Configuration | Configuration Service | Configuration | API + events | PostgreSQL |
-| Biometric_Update_Case | Configuration Service | Configuration | API + events | PostgreSQL |
+| Biometric_Update_Case | Configuration Service (physical host; **logical owner = Biometric**) | Configuration | API + events | PostgreSQL |
+
+> **Removed contexts/entities:** `City` (dropped by Liquibase; cities come from the external
+> `countriesnow.space` API) and the **Audit Service** (`audit_log`/`error_log`) — the Audit bounded
+> context was eliminated from the model; observability is platform-provided. The 7 `quality` tables
+> (`quality_project`, `quality_evaluation`, `quality_evaluation_item`, `process_assessment`,
+> `process_assessment_rating`, `istqb_assessment`, `istqb_assessment_item`) are quality tooling
+> owned by `09-ms-quality`, not a bounded context.
 
 ---
 
@@ -60,14 +65,13 @@
 |------------------|-------------------------------|-------------------|
 | API Gateway | All services | Routes requests to owning services |
 | Authorization Service | Identity Service | App_User and Person data for role assignment |
-| Academic Service | Identity Service | Person/City data for Academic_Actor/School |
+| Academic Service | Identity Service | Person data for Academic_Actor |
 | Scheduling Service | Academic Service | Cohort, Course, Academic_Actor, School data for Schedule_Block/Environment |
 | Attendance Service | Scheduling Service | Class_Session context for Attendance_Record |
 | Attendance Service | Academic Service | Academic_Actor data for attendance validation |
 | Attendance Service | Biometric Service | Embedding verification status (events) |
 | Biometric Service | Identity Service | Person metadata for correlation |
 | Notification Service | Academic Service | Academic_Actor data for alert generation |
-| Audit Service | All domain services | Domain events for traceability (append-only) |
 | Configuration Service | Identity Service | Person/App_User for Biometric_Update_Case workflow |
 | Configuration Service | Academic Service | School data for Academic_Configuration |
 

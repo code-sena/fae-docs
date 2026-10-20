@@ -2,8 +2,26 @@
 
 - **ID:** ADR-009
 - **Date:** 2026-09-12
-- **Status:** Proposed
+- **Status:** Accepted
 - **Authors:** FaceAttend EDU Team
+
+> **Implementation note (2026-10-12, verified against `FULL/`): MinIO is not deployed anywhere —
+> no `minio` service exists in any `docker-compose*.yml`, no service imports a MinIO/S3 SDK, and
+> `ms-attendance`'s `CreateSupportingDocumentUseCaseImpl` only persists whatever `storageUri`
+> string it is given, with no byte upload of any kind.** This decision stayed on paper. What the
+> clients actually do: both `front-end/Web` (`useJustificationsViewModel.js`) and
+> `front-end/Mobile` (`useAddJustifyViewModel.js`) **do** call
+> `POST /api/v1/supporting-documents` with real `fileName`/`mimeType`/`sizeBytes` right after a
+> successful justification create — the old claim that no client ever calls this endpoint is
+> outdated. But `storageUri` is a client-fabricated path
+> (`justification-documents/{year}/{month}/{uuid}.{ext}`, built locally, never an upload
+> response) — Web's own code comment says it plainly: *"ADR-009 (MinIO): el backend solo guarda
+> la referencia del archivo; aún no existe endpoint de subida de bytes."* So a `supporting_document`
+> row is real, but the file it claims to point at was never transmitted anywhere. The two clients
+> also diverge on when a file is required: Web gates it on the justification type's
+> `requires_attachment` flag (`SubmitJustificationModal.js`); Mobile demands a file for every
+> submission regardless of that flag. See `08-uml/diagrams/source/seq-justification-approval.mmd`
+> (SEQ-03) and `act-justification-process.mmd` (ACT-01) for the corrected flow.
 
 ---
 
@@ -39,7 +57,7 @@ The system must store:
 
 **Implementation:**
 - MinIO runs as a Docker container with a persistent volume mount.
-- The `attendance-service` module uploads files via the MinIO SDK (`minio` npm package for TypeScript, `minio` pip package for Python).
+- The `attendance-service` module (Java/Spring Boot) would upload files via a MinIO Java SDK — not built; see the implementation note above.
 - Files are organized by bucket: `justification-documents/`, `biometric-enrollment/`.
 - Each file is named with a UUID to avoid collisions: `{bucket}/{year}/{month}/{uuid}.{ext}`.
 - Metadata (uploading user, justification ID, timestamp) is stored in PostgreSQL alongside the justification record.

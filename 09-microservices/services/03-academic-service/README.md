@@ -1,6 +1,6 @@
 # Academic Service
 
-> Owns the academic structure of the school: students, teachers, courses, periods, classrooms, enrollments, and schedules.
+> Owns the academic structure of the school: schools, programs, periods, cohorts, courses, academic actors, and enrollments.
 
 ---
 
@@ -14,13 +14,16 @@
 
 | Entity | Description |
 |--------|-------------|
-| Student | Academic profile linked to a person and a school. |
-| Teacher | Academic profile linked to a person and a school. |
-| Course | Academic subject or curricular offering. |
-| Classroom | Physical learning space for a school. |
-| Period | Academic cycle or term. |
-| Enrollment | Student course registration per period. |
-| Schedule | Timetable with teacher, course, classroom, and day/time. |
+| School | The educational institution and its master profile. |
+| Program | Curricular container ("Tecnología en Análisis de Datos"). |
+| Academic_Period | Academic cycle or term (`starts_on` < `ends_on`). |
+| Cohort | Group advancing together ("Ficha 2691234 — ADSI — T1 2026"). |
+| Course | Subject within a program ("Bases de Datos I"). |
+| Academic_Actor_Type | Catalog: STUDENT / INSTRUCTOR. |
+| Academic_Actor | A person acting as student or instructor in a school. |
+| Enrollment | Binds an academic actor to a cohort. |
+
+> **Note:** rooms and weekly timetables (`Environment`, `Schedule_Block`, `Class_Session`) belong to the **Scheduling** context (`04-ms-scheduling`), not here.
 
 ---
 
@@ -30,20 +33,20 @@
 |-------|-------|
 | Number in catalog | 03 |
 | Local port | 8083 |
-| Repository | [Service repo URL] |
-| DB engine | PostgreSQL |
-| Communicates with | attendance-service, configuration-service |
-| Consumed by | API Gateway, admin and teacher clients |
+| Repository | `back-end/03-ms-academic` |
+| DB engine | PostgreSQL (schema `academic`) |
+| Communicates with | none synchronously (Kong + identity→notification email are the only sync paths) |
+| Consumed by | API Gateway, Scheduling, Attendance, Configuration, admin and teacher clients |
 
 ---
 
 ## Local rules
 
-- `Student` and `Teacher` are separate academic profiles, not direct ownership of `Person`.
-- `person_id` is stored as a public ID and is not a cross-context FK.
-- `Enrollment` uniquely binds a student to a course and period.
-- `Schedule` enforces classroom and teacher time-slot uniqueness within a period.
-- `Course`, `Classroom`, and `Period` are local school-scoped catalogs.
+- `School` is the root aggregate for the academic context; `Program`, `Academic_Period`, and `Course` are school-scoped catalogs.
+- `Academic_Actor` links a `Person` (public UUID, no cross-context FK) to a school with a type (STUDENT/INSTRUCTOR).
+- `Enrollment` uniquely binds an academic actor to a cohort.
+- `Schedule_Block` uniqueness (room and instructor time slots) is enforced in the Scheduling context.
+- `Cohort`, `Program`, and `Course` are local school-scoped catalogs.
 
 ---
 

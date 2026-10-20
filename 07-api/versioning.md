@@ -4,11 +4,11 @@
 
 ## 1. Rule
 
-- Canonical: `/api/v1/<resource>` via Kong `:8080`.
+- Canonical: `/api/v1/<resource>` via Kong `:8000`.
 - Direct aliases without prefix (`/roles`, `/alerts`, …) exist for local dev only. Never use in staging/prod, never add new ones.
 - Servers in every OpenAPI contract:
   - `http://localhost:<port>` (direct, dev)
-  - `http://localhost:8080` (via Kong, dev — preferred for frontends)
+  - `http://localhost:8000` (via Kong, dev — preferred for frontends)
   - `https://api.dev.{domain}` / `https://api.{domain}` (staging/prod via Kong)
 
 ## 2. What is breaking vs non-breaking
@@ -36,11 +36,11 @@ All 9 services + gateway are `1.0.0` (`info.version` in every `contracts/openapi
 
 ```
 # v1 canonical (via gateway)
-GET http://localhost:8080/api/v1/attendance-records?classSessionId=12
+GET http://localhost:8000/api/v1/attendance-records?classSessionId=12
 
 # direct (dev only)
 GET http://localhost:8085/api/v1/attendance-records?classSessionId=12
 
 # future v2 (additive major)
-GET http://localhost:8080/api/v2/attendance-records?classSessionId=12
+GET http://localhost:8000/api/v2/attendance-records?classSessionId=12
 ```

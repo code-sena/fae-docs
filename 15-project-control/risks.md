@@ -75,20 +75,40 @@ IMPACT
 
 ---
 
-### R-003 — Services without their own authentication (03, 06, 07, 08, 09)
+### R-003 — Services without their own authentication (03, 06, 07, 08, 09) — CLOSED, see lesson below
 
 | Field | Value |
 |-------|-------|
 | **ID** | R-003 |
 | **Category** | Technical |
-| **Description** | Only the Java services (01, 02, 04, 05) run an `AuthTokenFilter`. `03-ms-academic`, `06-ms-biometric`, `07-ms-configuration`, `08-ms-notification` and `09-ms-quality` perform **no authentication and no authorization of their own**: behind Kong their session is checked at the edge, but any direct call to their container ports (compose publishes all of them on `127.0.0.1:8083-8089`) or from any other container on the compose network bypasses the gateway entirely and validates nothing. `ms-biometric` (8086) makes this concrete: its `GET` endpoints return the raw facial/fingerprint embeddings. |
+| **Description** | **Corrected 2026-10-11, re-verified against `FULL/`:** this risk described services with no auth check of their own; that is no longer true. `03-ms-academic`, `06-ms-biometric`, `07-ms-configuration`, `08-ms-notification` and `09-ms-quality` each run their own session+RBAC guard (`registerAuthGuard` TS, `require_permission` Python, `AuthMiddleware` Go — same contract as the Java `AuthTokenFilter`), applied to every `/api/**` route except `/health`. A direct call to a service's port (compose publishes them on `127.0.0.1:8083-8089`) still has to pass that service's own check; it is not an open bypass. See `07-api/authentication.md` §1. |
+| **Probability** | Low |
+| **Impact** | Medium |
+| **Risk level** | Low |
+| **Strategy** | Accept (residual risk only: 4 duplicated implementations can drift — tracked as `AT-004`, not as an open-auth risk) |
+| **Mitigation plan** | Keep every internal port inside the Docker network as defense in depth regardless (compose already binds them to `BIND_IP=127.0.0.1`); extract a shared validation module per stack to remove the duplication (`AT-004`). |
+| **Contingency plan** | If a change to one guard is not mirrored in the other three, a route could end up under- or over-protected — catch this with a contract test per service asserting every `/api/**` route 401s without a bearer. |
+| **Trigger** | A new route shipped in one service's guard logic without the equivalent permission rule in the other three. |
+| **Owner** | Tech Lead |
+| **Review date** | 2026-10-14 |
+| **Status** | Closed |
+
+---
+
+### R-004 — Biometric update case has two unsynced implementations
+
+| Field | Value |
+|-------|-------|
+| **ID** | R-004 |
+| **Category** | Technical |
+| **Description** | `ms-configuration` (`/api/v1/biometric-update-cases`, Postgres, the data model's canonical store) and `ms-biometric` (`/api/v1/biometric/update-request*`, MongoDB) both implement "request + review a biometric update" as fully independent features — no HTTP call or event links them. A case filed through one is invisible through the other, so a reviewer working from only one endpoint sees an incomplete queue, and the Mongo side accepts a `FINGERPRINT` case with no `fingerNumber` at all (the Postgres side rejects that with 400). See `08-uml/diagrams/source/seq-biometric-update-duplication.mmd`. |
 | **Probability** | Medium |
-| **Impact** | High |
-| **Risk level** | High |
+| **Impact** | Medium |
+| **Risk level** | Medium |
 | **Strategy** | Mitigate |
-| **Mitigation plan** | Keep every internal port inside the Docker network: never publish 8083/8086/8087/8088/8089 outside it (compose already binds them to `BIND_IP=127.0.0.1`), route all external traffic through Kong `:8080`, and add a shared validation middleware to the TS/Python/Go services (tech debt `AT-004`). |
-| **Contingency plan** | If a port is found exposed, or a request reaches a service without passing Kong, take the stack down, close all sessions (`DELETE /api/v1/sessions/{id}`), review logs and patch the service before restarting. |
-| **Trigger** | A request log on 8083/8086/8087/8088/8089 without a Kong correlation id; `BIND_IP` changed to `0.0.0.0`; `GET /api/v1/biometric/facial/{personId}` succeeding without a bearer. |
+| **Mitigation plan** | Pick one canonical implementation (the data model already names `ms-configuration`/Postgres as canonical) and make the other either call it (thin proxy, as `endpoint-matrix.md` already — incorrectly — claims it does today) or be removed; in the meantime, document both endpoints as separate queues for any reviewer-facing UI. |
+| **Contingency plan** | If a biometric update is approved on one side only, re-run the request manually on the other side once the canonical store is decided. |
+| **Trigger** | A support ticket where a submitted update request "disappeared" — check which of the two endpoints the client actually called. |
 | **Owner** | Tech Lead |
 | **Review date** | 2026-10-14 |
 | **Status** | Active |
@@ -117,6 +137,7 @@ These risks apply to almost all microservices projects. Evaluate which ones appl
 
 | ID | Risk | Outcome | Lesson |
 |----|------|---------|--------|
+| R-003 | Services without their own authentication | Did not occur — risk description was stale | Several docs (`authentication.md`, `overview.md` AT-004, this file) kept describing a gap that was already closed in `FULL/` by the time they were last read. When a risk cites specific source files as evidence, re-check those files against the current code before trusting an old "verified" date — docs drift even after being marked verified. |
 | R-00X | [name] | [Occurred / Did not occur] | [What we learned] |
 
 ---

@@ -2,7 +2,7 @@
 
 - **ID:** ADR-011
 - **Date:** 2026-09-12
-- **Status:** Accepted
+- **Status:** Superseded by ADR-018 (GitHub Actions — Jenkins was never provisioned; CI runs on `.github/workflows/ci.yml`)
 - **Authors:** FaceAttend EDU Team
 - **Implementation note (2026-10-20, verified against `ProyectoFaceAttendEDU/.github/`):** **not implemented as written.** There is no Jenkins and no Jenkinsfile. CI and deployment run on GitHub Actions (`ci.yml`, `deploy-production.yml`, `deploy-backend.yml`, `deploy-database.yml`, `deploy-frontend.yml`), with EC2, Neon and Vercel as targets. The decision must be superseded or amended; see `15-project-control/open-questions.md` Q-012.
 

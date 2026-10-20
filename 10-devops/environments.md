@@ -4,14 +4,14 @@
 > **Rule:** If you need to access production directly, something is wrong in the process.
 > Most problems should be detected in staging.
 >
-> **Status note (2026-10-20, checked against `ProyectoFaceAttendEDU/.github/workflows/`):** the project
-> runs a fully containerized local stack via Docker Compose (`docker compose up -d --build`
-> from the repo root). CI exists: `ci.yml` runs the Java, Node, Python, mobile and web tests on
-> pushes and pull requests to `main`. Production has workflows, not a deployed environment yet:
-> `deploy-production.yml` runs CI, then Neon migrations, then the EC2 backend, then the Vercel frontend,
-> and each job waits for manual approval in the GitHub environment `production`. There is **no staging
-> environment** ("for cost", `DESPLIEGUE.md`) and no automatic dev environment. `DESPLIEGUE.md` is still a
-> template with placeholders, so whether production is live is not recorded (see `15-project-control/open-questions.md` Q-005).
+> **Status note (updated 2026-10-17):** the project runs a fully containerized
+> local stack via Docker Compose and a **production deployment on AWS EC2**
+> (t3.xlarge, us-east-1, 13 containers, Neon PostgreSQL — deployed 2026-10-16,
+> see `FULL/DESPLIEGUE.md` and ADR-020). The **web SPA publishes on Vercel**.
+> **CI runs on GitHub Actions** (`.github/workflows/ci.yml` — tests only, no CD);
+> deploy to production is still **manual over SSH**. dev/staging environments are
+> planned but not operational. This document describes what exists today and the
+> target model for the remaining environments.
 
 ---
 
@@ -20,18 +20,18 @@
 | Environment | Purpose | Update | Access | Data |
 |-------------|---------|--------|--------|------|
 | **local** | Development on the dev's machine (full Docker Compose stack: Postgres 17 + 8 Liquibase migrations, MongoDB 7, Redis 7, Kafka 3.8 KRaft, 9 microservices, Kong gateway, web frontend) | Manual (`docker compose up -d --build`) | Individual dev | Synthetic / seed (`tools/seed-api-test-data`, `database/database-init`) |
-| **dev** | Continuous integration, shared team validation of `develop` | Automatic (each PR merge to `develop`) — **planned**, not configured yet | Entire team | Synthetic |
+| **dev** | Continuous integration, shared team validation | Automatic (each PR merge) — **CI only, deploy planned** | Entire team | Synthetic |
 | **staging** | Pre-production, QA, demos (IEEE 829 regression runs, PO demos) | Automatic (each merge to `main`) — **planned** | Team + PO | Anonymized from prod (once prod exists); for now synthetic |
-| **production** | Real users (institutions: attendance via biometric recognition) | Manual approval through the GitHub environment `production` (`deploy-production.yml`); target host AWS EC2 `us-east-1` — **not confirmed as live** | Tech Lead + DevOps only | Real |
+| **production** | Real users (institutions: attendance via biometric recognition) | **Manual over SSH** (`docker compose up -d --build` on the EC2 host) | Tech Lead + DevOps only | Real (Neon PostgreSQL) |
 
 ### What exists today vs. what is planned
 
 | Item | Local | Dev | Staging | Production |
 |---|---|---|---|---|
-| Docker Compose stack (root `docker-compose.yml` incl. `database/` + `back-end/`) | ✅ running | ⚠️ same compose, hosted runner — planned | ❌ planned | ❌ planned |
-| Secrets | `.env` from `.env.example` (dev values only, gitignored) | env injection (Vault/K8s Secrets) — planned | planned | planned |
-| DB migrations | ✅ Liquibase chain runs automatically on `up` (identity → authorization → academic → scheduling → attendance → biometric → configuration → notification) | same chain | same chain | manual gate (see checklist) |
-| Health verification | ✅ `healthcheck` per service + `docker compose ps` | smoke tests — planned | smoke + k6 perf — planned | canary monitoring — planned |
+| Docker Compose stack (root `docker-compose.yml` incl. `database/` + `back-end/`) | ✅ running | ⚠️ same compose, hosted runner — planned | ❌ planned | ✅ running on AWS EC2 (ADR-020) |
+| Secrets | `.env` from `.env.example` (dev values only, gitignored) | env injection (Vault/K8s Secrets) — planned | planned | `~/.env.prod` on the EC2 host (secrets manager pending) |
+| DB migrations | ✅ Liquibase chain runs automatically on `up` (identity → authorization → academic → scheduling → attendance → biometric → configuration → notification) | same chain | same chain | same chain against Neon |
+| Health verification | ✅ `healthcheck` per service + `docker compose ps` | smoke tests — planned | smoke + k6 perf — planned | healthchecks + Portainer; canary monitoring planned |
 
 ---
 
@@ -84,18 +84,18 @@ Infrastructure/host:  BIND_IP, FRONTEND_PORT, EXPO_PUBLIC_API_URL, SEED_*, BOOTS
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` / `SMTP_STARTTLS` | MailHog/Mailpit: `host.docker.internal:1025`, STARTTLS `false`; empty `SMTP_HOST` disables email channel (202 skipped) | Vault | Vault (real account) | Vault (real account) |
 | `FACEATTEND_LIQUIBASE_IMAGE` | `liquibase/liquibase:4.29.0` | pinned tag | pinned tag | pinned tag |
 | `BIND_IP` | `127.0.0.1` (loopback; `0.0.0.0` only to debug from LAN/phone) | n/a (internal) | n/a | n/a |
-| `KONG_PROXY_PORT` / `KONG_ADMIN_PORT` | `8080` / `8001` (admin always loopback-bound) | `80/443` behind TLS | `80/443` behind TLS | `80/443` behind TLS, **admin API never exposed** |
+| `KONG_PROXY_PORT` / `KONG_ADMIN_PORT` | `8000` / `8001` (admin always loopback-bound) | `80/443` behind TLS | `80/443` behind TLS | `80/443` behind TLS, **admin API never exposed** |
 | `FRONTEND_PORT` | `8090` | 80/443 | 80/443 | 80/443 |
-| `EXPO_PUBLIC_API_URL` (baked at frontend build time) | `http://localhost:8080` (physical devices: PC LAN IP, e.g. `http://192.168.1.10:8080`) | `https://dev.[domain]` | `https://staging.[domain]` | `https://[domain]` |
+| `EXPO_PUBLIC_API_URL` (baked at frontend build time) | `http://localhost:8000` (physical devices: PC LAN IP, e.g. `http://192.168.1.10:8000`) | `https://dev.[domain]` | `https://staging.[domain]` | `https://[domain]` |
 | `SEED_USERNAME` / `SEED_PASSWORD`, `BOOTSTRAP_USERNAME` / `BOOTSTRAP_PASSWORD` | dev-only test accounts (`SeedAdmin123!`, `Admin123!ChangeMe`) | synthetic seed | **not present** | **never** |
 | `LOG_LEVEL` | Spring default (`info`; debug per-package when needed) | `info` | `info` | `warn` |
 | `NODE_ENV` | `development` (outside Docker) / `production` (inside containers for ms-academic, ms-configuration, ms-quality) | `production` | `production` | `production` |
-| `CORS_ORIGIN` (Kong global plugin, `kong.yml`) | `http://localhost:3000`, `http://localhost:5173` (Expo dev), `http://localhost:8090` (SPA) | `https://dev.[domain]` | `https://staging.[domain]` | `https://[domain]` |
+| `CORS_ORIGIN` (Kong global plugin, `kong.yml`) | `["*"]` — wildcard, any origin accepted (was `localhost:3000/5173/8090` before; widened so LAN/phone clients work) | `["*"]` | `["*"]` | lock down to `https://[domain]` |
 
-> **Auth note:** the platform uses **opaque server-side sessions** (ms-identity +
-> Redis), not JWT — the Kong `jwt` plugin was removed intentionally
-> (`AuthTokenFilter` validates the session and calls authorization's
-> `/api/v1/auth/evaluate`). There is **no `JWT_SECRET` variable**. When RS256
+> **Auth note:** the platform uses **opaque server-side sessions** — a row in
+> `identity.user_session` (PostgreSQL) validated by Kong's `pre-function` and a
+> 10 s positive cache — **not JWT, and not Redis** (Redis is used only for Kong
+> rate-limiting). There is **no `JWT_SECRET` variable**. When RS256
 > JWT is reintroduced (ADR-007), provision keys through the Kong Admin API —
 > Kong cannot interpolate env vars in declarative config, so never commit them
 > in `kong.yml`.
@@ -109,10 +109,13 @@ Infrastructure/host:  BIND_IP, FRONTEND_PORT, EXPO_PUBLIC_API_URL, SEED_*, BOOTS
 
 ## CI/CD Pipeline
 
-> **Current state:** no pipeline files exist in the repository (no GitHub
-> Actions/GitLab CI). Everything below is the **target** model agreed with the
-> branching strategy; until it exists, "deploy to dev" is a manual
-> `git pull && docker compose up -d --build` on the dev host.
+> **Current state:** **CI runs on GitHub Actions** (`.github/workflows/ci.yml`,
+> 171 lines, plus `.github/dependabot.yml` for eight ecosystems). It tests every
+> push/PR to `main` with per-stack matrices (Java `mvn test`, Node `npm test` +
+> build, Python `pytest`, Go `go test`, both frontends incl. `expo export`).
+> **Deploy is still manual** — production is deployed over SSH with
+> `docker compose up -d --build` on the AWS EC2 host. The pipelines below are the
+> **target** model for deploy automation (ADR-018/ADR-020).
 
 ```
 Developer
@@ -153,7 +156,7 @@ Developer
 │  4. Deploy to dev               (< 5 min)               │
 │     - docker compose up -d (or K8s when available)      │
 │  5. Smoke tests in dev          (< 3 min)               │
-│     - GET :8080/* via Kong; docker compose ps healthy   │
+│     - GET :8000/* via Kong; docker compose ps healthy   │
 └─────────────────────────────────────────────────────────┘
   │
   │ Release: merge develop → main
@@ -244,7 +247,7 @@ docker compose up -d --no-deps ms-attendance
 
 # Verify health after rollback (all services expose health endpoints)
 docker compose ps                    # STATUS must show (healthy)
-curl -s http://localhost:8080/api/v1/auth/... # smoke via Kong gateway
+curl -s http://localhost:8000/api/v1/auth/... # smoke via Kong gateway
 
 # Full stack stop WITHOUT deleting volumes (data preserved)
 docker compose down
@@ -267,9 +270,9 @@ docker compose run --rm liquibase rollback-count 1
 
 | Date | Service | Version | Environment | Deployed by | Issues |
 |------|---------|---------|-------------|-------------|--------|
-| [date] | [service] | v[X.Y.Z] | production | [name] | None |
+| 2026-10-16 | Full backend (9 ms + Kong + web) | compose `latest` | production (AWS EC2 t3.xlarge, Neon PostgreSQL) | Team | None documented — see `FULL/DESPLIEGUE.md` |
 
-*(No production deploys yet — first entry will be recorded here.)*
+*(Deploy record started 2026-10-16; the first production deployment is documented in `FULL/DESPLIEGUE.md`.)*
 
 ---
 

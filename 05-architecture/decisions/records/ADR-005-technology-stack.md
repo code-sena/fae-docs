@@ -207,7 +207,7 @@ Workload: 2 tables (Academic_Configuration, Security_Configuration). Basic CRUD.
 
 ## 10. `api-gateway` — Routing, Rate Limiting, Auth Enforcement
 
-**Port 8080 | Redis (cache) | Infrastructure**
+**Port 8000 | Redis (cache) | Infrastructure**
 
 Workload: Routes external requests to the single monolith application. JWT validation, rate limiting, CORS. Must be fast and reliable.
 
@@ -228,7 +228,7 @@ Workload: Routes external requests to the single monolith application. JWT valid
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     API Gateway (Kong OSS)                      │
-│                     Port 8080 | Redis                           │
+│                     Port 8000 | Redis                           │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────────┐

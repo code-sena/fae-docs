@@ -24,9 +24,9 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 > **Status verified against the implemented back end (`../FULL`, services 01–09 + Kong gateway)
 > on 2026-10-07.** ✅ means the flow exists in code and is reachable through Kong with an
 > authenticated session; it does **not** mean automated tests exist — the test specs below are
-> still *(proposed)* (the only implemented test file in the back end is
-> `03-ms-academic/src/__tests__/academic.test.ts`, not mapped to an HU). NFR validation has not
-> been executed.
+> still *(proposed)* (the back end now has ~92 unit/integration test files across all 9 services,
+> run by `.github/workflows/ci.yml`, but **none is mapped to an HU** in this matrix). NFR
+> validation has not been executed.
 
 ### FR 1 — User Management
 
@@ -195,10 +195,53 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 | SRS Inconsistency | FR 4.6 is named 'Role Change' but the description talks about limiting access. | Correct description in SRS. | Team / Instructor | 2026-06-16 |
 | SRS Inconsistency | NFR 2 is named 'Availability' but the criteria are about usability. | Recategorize or rename NFR. | Team / Instructor | 2026-06-16 |
 | FR without dedicated HU | Use Cases 1-5 from the SRS have no independent HU (they are covered within existing HUs). | Verify coverage with the team. | Product Owner | 2026-06-16 |
-| HU without test | No HU-level test spec is implemented; all specs in the matrix are *(proposed)*. The back end only contains `03-ms-academic/src/__tests__/academic.test.ts` (not mapped to an HU). | Execute the proposed specs. | QA / Dev | 2026-10-07 |
+| HU without test | No HU-level test spec is implemented; all specs in the matrix are *(proposed)*. The back end has ~92 unit/integration test files across the 9 services (Java JUnit, TS Jest, Python pytest, Go testing) but none is mapped to an HU. | Map existing tests to HUs and execute the proposed specs. | QA / Dev | 2026-10-17 |
 | NFR without validation tool | No NFR has a defined validation tool. | Define the testing and monitoring stack. | DevOps / Team | 2026-06-16 |
 
 ---
+
+## Web UI coverage (front-end Web, verified 2026-10-15)
+
+> The Status column above tracks back-end reachability through Kong. This section
+> tracks the **web client** (`FULL/front-end/Web/src`) for the same HUs.
+> UI "Done" means: visible entry point filtered by `useRolePermissions`,
+> action gated by ConfirmModal, real API call (no mock), and error feedback.
+
+| HU | Web UI | Entry (role) |
+|----|--------|--------------|
+| HU-IAM-002 | ✅ register/import (students full, staff single) | Users tab (admin) |
+| HU-IAM-003 | ✅ role x permission matrix (assign/remove, create/delete role, Super Admin) | Roles tab (Super Admin) |
+| HU-IAM-004 | ✅ CSV import students (single-student provisioning per row; rows whose email/document already exists are marked and skipped); staff bulk intentionally unsupported (CSV lacks document/password) — guard throws by design | Users > Importar (admin) |
+| HU-IAM-007 | ✅ activate/deactivate (dedicated button + edit form) | Users > detail (admin) |
+| HU-IAM-008 | ✅ logical delete (deactivate + ConfirmModal, admin within own school scope; super anywhere). Restricted to super proved operationally dead-end (single bootstrap super) | Users > detail (admin) |
+| HU-IAM-010 | ✅ change user role incl. granting Super Administrador (Super Admin only; UI creation can never assign super) | Users > edit (Super Admin) |
+| HU-ACAD-001 | ✅ full environment + schedule-block CRUD | Environments tab (admin; teacher read-only) |
+| HU-ACAD-002 | ✅ program read + activate/delete; cohort create/read/toggle/delete; course full CRUD; student sees only own cohort | Academic tab + Courses tab (admin) |
+| HU-ACAD-004 | ✅ enrollment status (Active/Withdrawn/Completed) + unenroll | Academic > Ficha > Matrículas (admin) |
+| HU-ACAD-005 | ✅ schedule-block CRUD with overlap validation | Environments > ScheduleModal (admin) |
+| HU-ATT-001 | ✅ open/close session + facial/fingerprint identify kiosk | Tomar asistencia (admin/teacher) |
+| HU-ATT-002 | ✅ enroll others (web) + revoke face/all (admin) | Biometrics (admin/teacher) |
+| HU-ATT-003 | ✅ manual correction (Late) + record removal in open session | Kiosk roster (admin/teacher) |
+| HU-JUS-001 | ✅ submit + withdraw pending | Justifications (student) |
+| HU-JUS-002 | ✅ review approve/reject + scope (own cohorts / school / global). Contract note: implemented as `PATCH /justifications/{id}/review`; the `POST .../approve \| .../reject` endpoints proposed in the HU text do not exist and the HU was never corrected | Justifications (teacher/admin) |
+| HU-JUS-003 | ✅ auto-alert on review (JUSTIFICATION_RESULT) + web inbox (human description + contextual Ver + resolve/delete, own scope) | Alerts tab (all, own scope) |
+| HU-HIST-001 | ✅ parametric query + role scope AC10/AC11/AC12 + justify shortcut on Absent/Late (student) | History tab (all + both admins) |
+| HU-HIST-001 | ✅ parametric query, role scope AC10/AC11/AC12 | History tab (all + both admins) |
+| HU-REP-001/003/004 | ✅ client-side export (Excel/PDF) over filtered data; weekly/daily series computed from real class sessions + records in scope (no mock; empty when no data) | Reports tab (admin/teacher) |
+| HU-REP-002 | ✅ role dashboards (series derived from real sessions + records, verified in `dashboardSeries.js` + Reports series); Reports rows navigate (student detail → Users, full history → History) | Dashboard tab (all) |
+| HU-SCH-001 | ✅ add/remove courses (delete: Super Admin) + activate/deactivate | Courses tab (admin) |
+| HU-CONF-001/002 | ✅ alert toggles persisted (admin: backend push; others: local) | Settings (all) |
+| HU-CONF-004/005 | 🟡 language/appearance local-only (no per-user backend endpoint) | Settings (all) |
+| HU-CONF-006 | ✅ facial parameter update flow | Biometrics (admin/teacher) |
+| HU-CONF-008 | ✅ justification-type CRUD (global vs school, requires_attachment) | Justifications > Tipos (admin) |
+
+---
+
+> Note 2026-10-15: HU-IAM-006 (authenticated password change) has no back-end
+> endpoint (no change-password use case in `01-ms-identity`; only recovery
+> via code). No web UI is faked for it — stays 🔴 blocked on back end.
+> HU-IAM-009 / HU-HIST-002 (user change history) likewise need a back-end
+> audit query that does not exist yet.
 
 ## How to maintain this matrix
 

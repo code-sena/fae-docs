@@ -16,8 +16,8 @@
 | 06 | Biometric | `06-ms-biometric` | 8086 | Python 3.12 + FastAPI + Motor | MongoDB `facial_embedding`, `fingerprint_embedding` |
 | 07 | Configuration | `07-ms-configuration` | 8087 | TS Fastify + Zod | `configuration` (Postgres) |
 | 08 | Notification | `08-ms-notification` | 8088 | Go 1.22 + Gin + pgx | `notification` (Postgres) |
-| 09 | Quality | `09-ms-quality` | 8089 | TS Fastify + Zod | in-memory + best-effort Postgres |
-| 99 | Gateway | `99-api-gateway` | 8080 (proxy) / 8001 (admin) | Kong OSS 3.6 DB-less + Redis 7 | — |
+| 09 | Quality | `09-ms-quality` | 8089 | TS Fastify + Zod | `quality` (Postgres, `Pool`; no in-memory fallback — a DB outage is a fatal boot error) |
+| 99 | Gateway | `99-api-gateway` | 8000 (proxy) / 8001 (admin) | Kong OSS 3.6 DB-less + Redis 7 | — |
 
 Source of truth: `COMPOSE.md`, `back-end/SERVICES.md`, `back-end/docker-compose.yml`,
 `99-api-gateway/kong/kong.yml`, root `.env.example`.
@@ -27,7 +27,7 @@ Source of truth: `COMPOSE.md`, `back-end/SERVICES.md`, `back-end/docker-compose.
 ## 2. Versioning
 
 - **URL versioning only:** all canonical paths start with `/api/v1/`.
-  Example: `GET http://localhost:8080/api/v1/persons` (via Kong) → `http://ms-identity:8081/api/v1/persons`.
+  Example: `GET http://localhost:8000/api/v1/persons` (via Kong) → `http://ms-identity:8081/api/v1/persons`.
 - Direct (no-gateway) aliases without prefix exist for local dev (`/roles`, `/permissions`, `/users`, `/auth`, `/alerts`, …) but MUST NOT be documented as canonical and MUST NOT be used by frontends in staging/prod.
 - Breaking change → new major `/api/v2/` alongside `/api/v1/` for ≥1 release. Never rename/remove a v1 field without deprecation header + `endpoint-matrix.md` update.
 - Non-breaking (additive optional field, new filter, new nested read) → minor, same version.
@@ -114,22 +114,23 @@ Always include `traceId`/`correlationId`/`x-request-id` when available; never le
 
 ## 8. Audit and soft-delete
 
-All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,row_version`. Exposed in contracts as `createdAt,updatedAt,rowVersion` (and `deletedAt` where relevant). Deletes are soft except biometric template deactivation (`is_active=false`) and in-memory quality stores.
+All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,row_version`. Exposed in contracts as `createdAt,updatedAt,rowVersion` (and `deletedAt` where relevant). Deletes are soft except biometric template deactivation (`is_active=false`).
 
 ## 9. Security
 
-- All inter-service and frontend traffic goes through Kong `:8080`. See `authentication.md`.
+- All inter-service and frontend traffic goes through Kong `:8000`. See `authentication.md`.
 - Auth has **two layers**: the edge and the MS. Kong has no `jwt` plugin and no consumers, but a
   global `pre-function` rejects every non-public route without `Authorization: Bearer <sessionId>`
   (opaque UUID from `POST /api/v1/auth/login`) by introspecting identity — public at the edge are
   health probes, `OPTIONS`, `login`, `logout`, `refresh`, `forgot-password`, `verify-code`,
-  `reset-password` and `GET /api/v1/auth/me`. Behind that, Java services (`01,02,04,05`) repeat the
-  check in `AuthTokenFilter` on every `/api/**` route and add RBAC (`GET /api/v1/auth/evaluate`);
-  bootstrap routes (`me`, `GET /sessions/*`) and health/docs are public there. TS/Python/Go
-  services (`03,06,07,08,09`) do **not** validate the bearer on their own — they rely on the edge
-  (and stay reachable on their published direct ports: `risks.md` R-003).
+  `reset-password` and `GET /api/v1/auth/me`. Behind that, every service repeats the check on its
+  own and adds RBAC (`GET /api/v1/auth/evaluate`) — Java (`01,02,04,05`) in `AuthTokenFilter`, TS
+  (`03,07,09`) in `registerAuthGuard`, Python (`06`) in `require_permission`, Go (`08`) in
+  `AuthMiddleware`; bootstrap routes (`me`, `GET /sessions/*`) and health/docs are public there
+  too. Four separate implementations of the same contract, not a gap (`risks.md` R-003,
+  corrected 2026-10-11).
 - Local service-to-service calls use UUID cross-references, never cross-schema FKs.
-- CORS: global Kong plugin `http://localhost:3000,http://localhost:5173,http://localhost:8090`;
+- CORS: global Kong plugin `origins ["*"]` (wildcard — any origin accepted, credentials allowed);
   the identity service also declares `*` on its own plugin for local dev. TLS terminates at Kong in prod.
 
 ## 10. Health and quality probes

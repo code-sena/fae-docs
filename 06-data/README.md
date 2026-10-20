@@ -46,10 +46,11 @@ Exact meaning of each important field in the system.
 | status | scheduling | schedule | ENUM | Current status of the schedule | ACTIVE, CANCELLED, PENDING |
 ```
 
-### `modeling-conventions.md`
-Naming and style conventions for the project's databases.
-**Fill in:** naming (snake_case or camelCase), use of UUIDs vs sequential, standard timestamps,
-soft delete vs hard delete, auditing (created_at, updated_at, created_by).
+### `modeling-conventions.md` — ✅ written → [`modeling-conventions.md`](./modeling-conventions.md)
+
+Naming and style conventions for the project's databases (table/column/constraint/schema
+naming, audit block, FK strategy, UUID vs sequential, ENUMs, Liquibase layout).
+Filled from `database/CONVENCIONES.md` + the DBML (DBML wins on contradictions).
 
 ### `normalization-assessment.md`
 Analysis of the normalization level and justification for denormalizations.

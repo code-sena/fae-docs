@@ -2,7 +2,7 @@
 
 - **ID:** ADR-011
 - **Date:** 2026-09-12
-- **Status:** Proposed
+- **Status:** Superseded by ADR-018 (GitHub Actions — Jenkins was never provisioned; CI runs on `.github/workflows/ci.yml`)
 - **Authors:** FaceAttend EDU Team
 
 ---

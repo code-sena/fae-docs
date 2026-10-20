@@ -1,5 +1,12 @@
 # System Observability — FaceAttend-Edu
 
+> **Current state (verified 2026-10-17):** observability today is **structured JSON logs +
+> per-service healthchecks** (`docker compose logs -f [service]`, Kong access log on stdout,
+> `/health` + `/health/ready` + `/health/quality` per service, Portainer on the EC2 host).
+> **Prometheus, Grafana, Jaeger, Alertmanager and the OpenTelemetry collector are NOT deployed**
+> — the metrics/tracing/alerting described below is the **target** model (ADR-012, still
+> Proposed). Do not assume `/metrics` endpoints or PagerDuty routing exist.
+
 > An unobservable system cannot be operated. Observability in FaceAttend-Edu is designed to support a polyglot architecture (Java, TS, Python, Go) ensuring that regardless of the runtime, the operational visibility remains consistent.
 
 ---

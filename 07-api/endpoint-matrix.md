@@ -1,20 +1,28 @@
 # Endpoint Matrix — FaceAttendEDU
 
-> Cross-service canonical table. `Kong` = path via `:8080`; `Direct` = `http://localhost:<port>`.
-> `Auth`: `public` (no session required) · `session` (Bearer opaque `sessionId`) ·
-> `—` (route not implemented).
+> Cross-service canonical table. `Kong` = path via `:8000`; `Direct` = `http://localhost:<port>`.
+> `Auth`: `public` (no session required) · `session` (Bearer opaque `sessionId`, re-checked by
+> Kong's edge pre-function **and** by the target service's own guard — every service runs one,
+> not just the Java ones) · `—` (route not implemented). The old `gateway only` label (meaning
+> "only Kong checks it") is retired as of 2026-10-11: re-verified against `FULL/`, every service
+> runs its own session+RBAC guard, so this table no longer distinguishes Java from TS/Python/Go
+> rows — both get `session`.
 >
 > **Kong authenticates at the edge.** A global `pre-function` (Lua) requires
 > `Authorization: Bearer <uuid>` on every non-public route and introspects
 > `GET ms-identity:8081/api/v1/sessions/{id}` accepting only `sessionStatus = "Active"`:
 > **401** when the header is missing, the token is not an 8-4-4-4-12 UUID or the session is
-> invalid/expired, **503** when identity does not answer. There is no cache — every authenticated
-> request costs one call to identity, and the container needs
-> `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`. The bearer is an **opaque session id, not a
+> invalid/expired, **503** when identity does not answer. Positive session checks are cached
+> 10 s at the edge (`kong.cache`) and in every service guard (Java/TS/Python/Go), so a page
+> fan-out costs ~1 introspection per token instead of one per request; failures are never
+> cached (fail-secure) and logout/permission revocation propagate within 10 s. The gateway
+> container still needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`. The bearer is an **opaque session id, not a
 > JWT**; `jwt` RS256 issued by identity stays a future evolution (ADR-007) and Kong carries no
-> `jwt` plugin nor consumers. The gateway **only authenticates**: permissions (RBAC) are
-> evaluated by every service (see §11). Full rules and public-route
-> list in `authentication.md`; details per contract in `contracts/openapi/`.
+> `jwt` plugin nor consumers. Every service then re-authenticates and evaluates RBAC again on its
+> own: Java `AuthTokenFilter` (01/02/04/05), TS `registerAuthGuard` (03/07/09), Python
+> `require_permission` (06), Go `AuthMiddleware` (08) — same contract, duplicated per service, no
+> shared module (the full per-route permission map is in §11). Full rules and public-route list in
+> `authentication.md`; details per contract in `contracts/openapi/`.
 
 > **Legacy alias (not a contract):** the Java services also answer paths **without** the
 > `/api/v1` prefix — `/roles`, `/permissions`, `/user-roles`, `/class-sessions`,
@@ -48,11 +56,7 @@
 | PUT /api/v1/persons/{id} | ✅ | session | Update → 204 |
 | POST /api/v1/persons/{id}/transfer | ❌ not implemented | — | Person has no `school_id`; use `academic_actor` |
 | PATCH /api/v1/persons/{id}/status | ✅ | session | Status → 204 |
-| POST /api/v1/cities | ✅ | session | Legacy — model deprecated (cities from external `countriesnow.space`); table kept by Liquibase |
-| GET /api/v1/cities?page&limit | ✅ | session | Legacy → `{data,meta}` (see external API) |
-| GET /api/v1/cities/{id} | ✅ | session | Legacy — see external API |
-| PUT /api/v1/cities/{id} | ✅ | session | Legacy — see external API |
-| DELETE /api/v1/cities/{id} | ✅ | session | Legacy — see external API |
+| POST/GET/PUT/DELETE `/api/v1/cities…` | ❌ removed | — | `city` table dropped by Liquibase (`008-drop-city-table.yaml`); no controller, no Kong route — use the external `countriesnow.space` API |
 | POST /api/v1/password-policies | ✅ | session | Create policy → 201 |
 | GET /api/v1/password-policies | ✅ | session | List |
 | GET /api/v1/password-policies/{id} | ✅ | session | Get |
@@ -166,10 +170,10 @@
 | DELETE /api/v1/biometric/fingerprint/{person_id}/{finger} | ✅ | session | Deactivate → 204 |
 | POST /api/v1/biometric/fingerprint/verify | ✅ | session | 1:1 |
 | POST /api/v1/biometric/fingerprint/identify | ✅ | session | 1:N + finger filter |
-| POST /api/v1/biometric/update-request | ✅ | session | Mirror → 201 Pending (thin proxy of canonical case in configuration) |
-| GET /api/v1/biometric/update-requests/{person_id} | ✅ | session | By person |
-| PATCH /api/v1/biometric/update-request/{request_id}/review | ✅ | session | Review |
-| DELETE /api/v1/biometric/update-request/{request_id} | ✅ | session | Delete → 204 |
+| POST /api/v1/biometric/update-request | ✅ | session | → 201 Pending. **Not** a proxy of the configuration case — an independent MongoDB document, no fingerNumber field, no requestedBy. See `08-uml/diagrams/source/seq-biometric-update-duplication.mmd` |
+| GET /api/v1/biometric/update-requests/{person_id} | ✅ | session | By person — only sees this collection, never the configuration-side cases |
+| PATCH /api/v1/biometric/update-request/{request_id}/review | ✅ | session | Review — no ordering guard, same as the configuration side |
+| DELETE /api/v1/biometric/update-request/{request_id} | ✅ | session | Delete → 204 (soft delete: is_active=false) |
 
 ## 7. Configuration 07 (`07-ms-configuration`, TS 8087 → `07-configuration-service.yaml`)
 
@@ -220,10 +224,10 @@
 | GET/PUT/DELETE /api/v1/quality/istqb/assessments/{id} | ✅ | session | CRUD |
 | GET /api/v1/quality/istqb/services/{service}/summary | ✅ | session | Aggregate |
 
-## 10. Gateway 99 (Kong 8080 → `api-gateway.yaml`)
+## 10. Gateway 99 (Kong 8000 → `api-gateway.yaml`)
 
 See table in `authentication.md §2` and `kong/kong.yml`. Global plugins: `pre-function` (edge
-authentication), `cors` (origins `localhost:3000`, `5173`, `8090`) and `rate-limiting 300/min`
+authentication), `cors` (origins `["*"]`) and `rate-limiting 300/min`
 (redis policy), plus per-service redis limits (identity 60, authorization 100, attendance 200,
 quality 100 per minute). No `jwt` plugin and no consumers.
 
@@ -235,9 +239,9 @@ quality 100 per minute). No `jwt` plugin and no consumers.
 | Check | `GET http://ms-identity:8081/api/v1/sessions/{id}` (connect/send 2 s, read 3 s); accepted only on HTTP 200 with `"sessionStatus":"Active"` |
 | 401 | No `Authorization` header, not `Bearer`, token not an 8-4-4-4-12 UUID, or session invalid/expired/closed → `{"status":401,"error":"Unauthorized","message":"Missing or invalid bearer token" \| "Invalid or expired session"}` |
 | 503 | Identity unreachable/timeout → `{"status":503,"error":"Service Unavailable","message":"Cannot verify session"}` |
-| Cache | **None** — one identity call per authenticated request |
+| Cache | Positive checks cached **10 s** (`kong.cache`, key `faceattend:session:<id>`); logout invalidates at the edge, each service guard keeps its own 10 s window |
 | Public routes | `OPTIONS` (any path, CORS), `/health*`, `/api/v1/health`, `/api/health`, `POST /api/v1/auth/{login,logout,refresh,forgot-password,verify-code,reset-password}`, `GET /api/v1/auth/me` |
-| Authorization | Not evaluated at the gateway — every service evaluates RBAC (§11) |
+| Authorization | Not evaluated at the gateway — RBAC is re-evaluated inside each of the 9 services (Java `AuthTokenFilter` 01/02/04/05, TS `registerAuthGuard` 03/07/09, Python `require_permission` 06, Go `AuthMiddleware` 08) — per-route map in §11 |
 | Requirement | `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http` on the gateway container (`back-end/docker-compose.yml`) |
 
 `GET /health/quality` is the only health route at the gateway (proxied to

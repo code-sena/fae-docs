@@ -2,7 +2,7 @@
 
 - **ID:** ADR-013
 - **Date:** 2026-09-12
-- **Status:** Proposed
+- **Status:** Superseded by ADR-019 (Expo SDK 57 + EAS — both frontends are Expo apps; "not Expo" was reversed during implementation)
 - **Authors:** FaceAttend EDU Team
 
 ---

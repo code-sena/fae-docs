@@ -3,6 +3,7 @@
 - **ID:** ADR-017
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-17, verified against `FULL/`):** partially implemented and **split per frontend**: `front-end/Mobile` uses `i18next` + `react-i18next` with static `es/en/fr/pt` JSON (source = Spanish, as this ADR defines); `front-end/Web` uses a **custom i18n system** (`src/core/utils/i18n/`: `useTranslation`, `TranslationStorage`, `RestTranslationProvider`) with 5 languages — `es` (source) plus `en/fr/de/pt` fetched dynamically from the `fae-translation-service` microservice. There is no shared i18n library across the two frontends.
 - **Authors:** FaceAttend EDU Team
 
 ---

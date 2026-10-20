@@ -48,13 +48,13 @@ migration chain, verification via Kong smoke route + login + seed tool, common i
 2. Copy environment variables: `cp .env.example .env`   (optional — defaults are built in)
 3. Start the whole stack: `docker compose up -d --build`   (from repo root)
 4. Wait for readiness: Liquibase chain runs automatically; then `docker compose ps`
-5. Verify: `curl -s http://localhost:8080/health/quality` + login through Kong
+5. Verify: `curl -s http://localhost:8000/health/quality` + login through Kong
 6. Optional E2E seed/smoke: `cd tools/seed-api-test-data && npm run seed`
 
 ## Local ports
 | Service | Port |
 |---------|------|
-| API Gateway (Kong proxy) | 8080 |
+| API Gateway (Kong proxy) | 8000 |
 | Web SPA (nginx) | 8090 |
 | Kong Admin (loopback only) | 8001 |
 | ms-identity / authorization / academic / scheduling / attendance | 8081–8085 |
@@ -66,7 +66,7 @@ migration chain, verification via Kong smoke route + login + seed tool, common i
 | Mailpit UI (optional, not in compose) | 8025 |
 
 ## Common issues
-- **Port in use:** `lsof -i :8080` (frontend must be 8090, NOT 8082 — taken by ms-authorization)
+- **Port in use:** `lsof -i :8000` (frontend must be 8090, NOT 8082 — taken by ms-authorization)
 - **DB not connecting:** verify Docker is running; containers talk via network `faceattend-data` using host `postgres:5432`
 - **Kong stuck `starting`:** it waits for all 8 ms-* healthy — find the failing one with `docker compose logs ms-X`
 ```
@@ -85,20 +85,21 @@ orchestrator exists**), rollback runbook, deploy log.
 ```markdown
 | Environment | URL | Purpose | Access | DB | Deploy |
 |-------------|-----|---------|--------|-----|--------|
-| local | localhost:8080 (Kong) / :8090 (web) | Individual development | All | Postgres+Mongo synthetic seeds | Manual (`docker compose up -d --build`) |
+| local | localhost:8000 (Kong) / :8090 (web) | Individual development | All | Postgres+Mongo synthetic seeds | Manual (`docker compose up -d --build`) |
 | dev | dev.[domain] — planned | Continuous integration | Team | Synthetic | Automatic on merge to `develop` — planned |
 | staging | staging.[domain] — planned | QA / validation / PO demos | Team + PO | Anonymized (later) | Automatic on merge to `main` — planned |
 | prod | api.[domain] — planned | Real users | Tech Lead + DevOps only | Real | Manual approval, Rolling deploy |
 ```
 
-### `ci-cd.md` ⭐ — ⚠️ target state (no pipeline files exist yet in the repo)
+### `ci-cd.md` ⭐ — ⚠️ target state for **deploy**; **CI already exists**
 
 Description of the continuous integration and deployment pipeline.
-**Current truth:** there are **no GitHub Actions / GitLab CI / Jenkins files** in
-the repository. Until they exist, "deploy to dev" = manual
-`git pull && docker compose up -d --build` on the dev host. The target below is
-aligned with the test strategy in `back-end/IEEE829_TEST_PLAN.md` and the per-stack
-test commands in `LOCAL_SETUP.md`.
+**Current truth:** **CI runs on GitHub Actions** — `.github/workflows/ci.yml` (171 lines) tests
+every push/PR to `main` with per-stack matrices (Java `mvn test`, Node `npm test` + build,
+Python `pytest`, Go `go test`, both frontends incl. `expo export`), and `.github/dependabot.yml`
+gives weekly update PRs for all eight ecosystems. **CD (deploy) is still manual**: production is
+deployed over SSH with `docker compose up -d --build` on the AWS EC2 host (see ADR-018/ADR-020
+and `environments.md`). The pipeline below remains the target for deploy automation.
 
 **Target format:**
 ```markdown
@@ -149,14 +150,14 @@ Related files inside this section:
 
 - **How do I start the system locally in 30 minutes?**
   `git clone` → `cp .env.example .env` (optional) → `docker compose up -d --build` →
-  `docker compose ps` all `(healthy)` → `curl http://localhost:8080/health/quality`.
+  `docker compose ps` all `(healthy)` → `curl http://localhost:8000/health/quality`.
   Full walkthrough in [`local-setup.md`](./local-setup.md). First build ~15–30 min
   (image pulls + 4 Maven builds); subsequent starts are minutes.
 
 - **What happens automatically when I push?**
-  Today: nothing (no CI configured). Target: PR pipeline (lint + unit/integration
-  tests + build) blocks merges on failure; merge to `develop` auto-deploys to dev
-  with smoke tests. See `ci-cd.md` section above.
+  **CI on GitHub Actions**: every push/PR to `main` runs the per-stack test matrices
+  (Java/Node/Python/Go + both frontends) and blocks merges on failure; Dependabot
+  opens weekly update PRs. **Deploy is still manual** (no CD yet) — see `ci-cd.md`.
 
 - **How does code get to production?**
   `feature/HU-XXX` → PR → `develop` → release PR `develop → main` (staging + full
@@ -167,6 +168,7 @@ Related files inside this section:
 
 - **How many environments are there and what is each one for?**
   Four defined: **local** (dev machine, Docker Compose, synthetic/seed data),
-  **dev** (CI target, every merge to `develop`), **staging** (QA/demos, every
-  merge to `main`), **production** (real users, manual approval only). Only local
-  exists operationally today; the rest are specified and planned.
+  **dev** (CI target), **staging** (QA/demos), **production** (real users, manual
+  approval only). **Local and production exist operationally** — production runs on
+  AWS EC2 with Neon PostgreSQL, and the web SPA publishes on Vercel (see
+  `environments.md` and ADR-020). dev/staging are still specified and planned.

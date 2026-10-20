@@ -3,6 +3,7 @@
 - **ID:** ADR-014
 - **Date:** 2026-09-12
 - **Status:** Proposed
+- **Implementation note (2026-10-17, verified against `FULL/`):** the decision is implemented (OpenCV + `face_recognition`/dlib, 128-D embeddings, MongoDB vector search), **but thresholds do not come from `configuration-service`**: they are environment variables — `similarity_threshold` (default 0.85 cosine, `06-ms-biometric/infrastructure/config/settings.py`) and `BIOMETRIC_FINGERPRINT_MATCH_THRESHOLD=8` (keypoint **count**, not cosine distance). The ADR's Euclidean < 0.6 table was replaced by a single cosine threshold in code.
 - **Authors:** FaceAttend EDU Team
 
 ---

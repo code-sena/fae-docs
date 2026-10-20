@@ -10,8 +10,8 @@
 |-------------|----------|------------|
 | Relational DB | Structured business data | PostgreSQL |
 | Document DB | Semi-structured data with flexible schema | MongoDB |
-| Cache | Session data, temporary tokens | Redis |
-| Object storage | Files, documents, images, biometric templates | S3-compatible (MinIO / AWS S3) |
+| Cache | **Kong rate-limiting counters only** — sessions are NOT in Redis (they are rows in `identity.user_session`) | Redis |
+| Object storage | Files, documents, images, biometric templates | S3-compatible (**target — MinIO is not deployed**, per ADR-009; clients send `storageUri` only) |
 | Local filesystem | Temporary processing artifacts | Ephemeral container volume |
 
 ---
@@ -22,9 +22,8 @@
 
 | Asset type | Storage | Retention | Max size |
 |-----------|---------|-----------|----------|
-| School records | PostgreSQL | Indefinite | N/A |
 | Person profiles | PostgreSQL | Indefinite | N/A |
-| User credentials | PostgreSQL | Indefinite | N/A |
+| User credentials | PostgreSQL (`password_hash`, bcrypt) | Indefinite | N/A |
 | User sessions | PostgreSQL | 90 days (configurable) | N/A |
 | Profile images | S3 (object storage) | Duration of user account | 5 MB per image |
 | Opaque session ids | PostgreSQL — row in `identity.user_session` (no JWT, no Redis session store) | Session TTL (configurable) | ~100 B per row |
@@ -79,13 +78,9 @@
 | Alert type catalog | PostgreSQL | Indefinite | N/A |
 | Alert records | PostgreSQL | 2 years | N/A |
 
-### Audit Service
-
-| Asset type | Storage | Retention | Max size |
-|-----------|---------|-----------|----------|
-| Audit events | PostgreSQL | 7 years (compliance) | N/A |
-| Error logs | PostgreSQL | 2 years | N/A |
-| Audit event payloads (raw JSON) | S3 (object storage) | 3 years | 1 MB per record |
+> **Audit Service removed:** the Audit bounded context (`audit_log`, `error_log`) was eliminated
+> from the model — observability is platform-provided. There is no audit bucket or audit payload
+> retention; the rows that described them are gone.
 
 ### Configuration Service
 
@@ -105,7 +100,6 @@
 | Academic | PDFs, certificates, transcripts, syllabi | S3 |
 | Attendance | Justification documents (PDF, JPEG, PNG) | S3 |
 | Biometric | Facial images for review (JPEG, PNG) | S3 |
-| Audit | Raw JSON payloads | S3 |
 
 ---
 
@@ -123,12 +117,9 @@ s3://
     ├── attendance/         ← justification documents
     │   └── {schoolId}/
     │       └── {periodId}/
-    ├── biometric/          ← facial update case images
-    │   └── {schoolId}/
-    │       └── {caseId}/
-    └── audit/              ← raw event payloads
-        └── {year}/
-            └── {month}/
+    └── biometric/          ← facial update case images
+        └── {schoolId}/
+            └── {caseId}/
 ```
 
 ---
@@ -139,10 +130,8 @@ s3://
 |-----------------|------------|
 | Indefinite | Core business records (all relational data) |
 | 10 years | Academic documents (certificates, transcripts) |
-| 7 years | Audit events (compliance) |
 | 5 years | Attendance justification documents |
-| 3 years | Audit raw payloads |
-| 2 years | Error logs, Notification alerts |
+| 2 years | Notification alerts |
 | 90 days | User sessions |
 | 30 days | Biometric review images after decision |
 | Token TTL | Opaque session ids and auth sessions (minutes to days) |
@@ -157,7 +146,6 @@ s3://
 | Max file size (academic document) | 20 MB | Academic |
 | Max file size (justification) | 10 MB | Attendance |
 | Max file size (biometric image) | 15 MB | Biometric |
-| Max file size (audit payload) | 1 MB | Audit |
 
 ---
 

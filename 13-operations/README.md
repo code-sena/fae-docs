@@ -76,13 +76,13 @@ Incident response process.
 | P2 | Non-critical service degraded (e.g., Notification/Quality) | 1 hour | 24 hours |
 | P3 | Minor UI bug or documentation error | 4 hours | 1 week |
 
-### `backup-and-recovery.md`
+### `backup-and-recovery.md` ✅ written → [`backup-and-recovery.md`](./backup-and-recovery.md)
 Data backup and recovery strategy.
-**Fill in:** backup frequency, where they are stored, how they are tested, target recovery time (RTO/RPO).
-- **PostgreSQL:** Backup of the `faceattend_db` (8 schemas) and the separate `face_auth` database.
-- **MongoDB:** Backup of the `biometric` collections and the `faceattend_face_auth` database.
+- **PostgreSQL:** manual `pg_dump` of the single `faceattend_db` (8 schemas) — there is **no** separate `face_auth` database.
+- **MongoDB:** `mongodump` of the biometric embedding collections.
 - **Liquibase:** All schema changes are versioned in the `database/` directory, allowing for deterministic recovery of the DB state.
-- **Existing Tools:** The project includes `database/scripts/backup.sh` and `database/scripts/restore.sh` for manual dumps and restoration of all three databases.
+- **Existing Tools:** `database/scripts/backup.sh` and `database/scripts/restore.sh` (manual, no automated retention/rotation).
+- **Production:** `faceattend_db` runs on Neon (managed backups + PITR, ADR-020); MongoDB on the EC2 host is manual.
 
 ---
 

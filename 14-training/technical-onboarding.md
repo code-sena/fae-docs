@@ -10,7 +10,7 @@ Welcome to the technical team. This document is your operational guide for your 
 - [ ] **Repository Access:** Confirm your access to the GitHub organization and clones the main repositories.
 - [ ] **Communication:** Join the project Slack/Teams channels.
 - [ ] **Tooling:** Configure your local environment following `10-devops/local-setup.md`.
-- [ ] **Verification:** Run the system and verify that `curl http://localhost:8080/health` responds with `{"status": "ok"}`.
+- [ ] **Verification:** Run the system and verify that `curl http://localhost:8000/health` responds with `{"status": "ok"}`.
 
 ### Afternoon: Core Documentation
 Read these documents in the following order:

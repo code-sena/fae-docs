@@ -2,7 +2,8 @@
 
 - **ID:** ADR-016
 - **Date:** 2026-09-12
-- **Status:** Proposed
+- **Status:** Accepted
+- **Implementation note (2026-10-17, verified against `FULL/`):** **not implemented.** No `pgp_sym_encrypt`/column-level encryption exists in any changeset; `pgcrypto` appears only in `01-ms-identity-db/02-dml/001-bootstrap-admin-user.yaml` to hash the bootstrap admin password, not to encrypt data at rest. PostgreSQL/MongoDB encryption at rest is delegated to the managed providers (Neon AWS, per ADR-020). Remains the target state.
 - **Authors:** FaceAttend EDU Team
 
 ---

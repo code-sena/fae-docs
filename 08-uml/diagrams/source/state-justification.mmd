@@ -6,19 +6,24 @@ stateDiagram-v2
     Pending --> Approved : PATCH /justifications/{id}/review (reviewedBy, reviewedAt, resolutionNotes)
     Pending --> Rejected : PATCH /justifications/{id}/review (reviewedBy, reviewedAt, resolutionNotes)
 
-    Approved --> Rejected : review() again — allowed, there is no ordering guard
-    Rejected --> Approved : review() again — allowed, there is no ordering guard
-
     note right of Pending
-        The only guarded transition is the target: reviewStatus=Pending is
-        rejected with "Cannot review to Pending". The current state is never
-        checked, so a resolved justification can be flipped either way.
+        Verified 2026-10-12 against FULL/ — corrected: Approved and Rejected
+        are terminal. ReviewJustificationUseCaseImpl rejects review() whenever
+        the current reviewStatus is not Pending ("a resolved justification
+        cannot be reviewed again"), so Approved --> Rejected and
+        Rejected --> Approved do NOT exist. reviewStatus=Pending as a target
+        is also rejected ("Cannot review to Pending").
     end note
 
     note right of Approved
         Publishing an event and flipping attendance_record.attendance_status
         to "Justified" are NOT part of review() — approval does not cascade.
-        requires_attachment is not enforced server-side before approval.
+        requires_attachment IS enforced before Approved: the use case 404s
+        with "requires at least one supporting document" when the type
+        requires one and no SupportingDocument row exists for this
+        justification. It only checks row existence, not that the row's
+        storageUri points at a real uploaded file (see cls-attendance.puml —
+        no byte upload exists anywhere, ADR-009).
     end note
 
     Pending --> [*] : DELETE (physical delete)

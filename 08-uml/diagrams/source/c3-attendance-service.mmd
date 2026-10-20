@@ -10,7 +10,7 @@ C4Component
         Component(docCtrl, "SupportingDocumentController", "Spring MVC", "GET /{id}, DELETE /{id} for justification attachments")
         Component(relationsCtrl, "AttendanceRelationsController", "Spring MVC", "4 read-only joins — class-sessions/{id}/attendance, academic-actors/{id}/attendance, attendance/{id}/justification, justifications/{id}/documents")
         Component(healthCtrl, "HealthController + QualityHealthController", "Spring MVC", "/health and /health/quality (ISO 9001 metrics snapshot)")
-        Component(filter, "AuthTokenFilter", "Jakarta filter", "Resolves the bearer sessionId against identity, loads roles and evaluates the permission from authorization, then sets X-User-Id / X-User-Roles. The required permission is derived from method + path, not from annotations")
+        Component(filter, "AuthTokenFilter", "Jakarta filter", "Re-validates the bearer sessionId against identity (defense in depth — Kong already checked it at the edge), loads roles and evaluates the permission from authorization, then sets X-User-Id / X-User-Roles. The required permission is derived from method + path, not from annotations")
         Component(advice, "GlobalExceptionHandler", "@RestControllerAdvice", "Maps domain exceptions to 400 / 404 / 409")
         Component(webMap, "DTOs and web mappers", "records + mappers", "Request and response translation at the edge, 11 DTOs / 4 mappers")
     }
@@ -36,7 +36,7 @@ C4Component
     ContainerDb(postgres, "PostgreSQL 17", "schema attendance", "attendance_record, justification, justification_type, supporting_document plus the audit block. Liquibase disabled inside the service — migrations live in database/05-ms-attendance-db")
     ContainerDb(kafka, "Kafka 3.x (KRaft)", "topics", "attendance-events, justification-events, justification-type-events, document-events — produced only, no consumer exists")
 
-    Container_Ext(kong, "Kong :8080", "Gateway", "Routes /api/v1/attendance-records, /justifications, /justification-types, /supporting-documents plus the 4 nested read paths")
+    Container_Ext(kong, "Kong :8080", "Gateway", "Routes /api/v1/attendance-records, /justifications, /justification-types, /supporting-documents plus the 4 nested read paths. Its edge pre-function already validated the bearer sessionId before forwarding")
     Container_Ext(identity, "ms-identity :8081", "Session store", "GET /api/v1/sessions/{id} — every authenticated call")
     Container_Ext(authorization, "ms-authorization :8082", "RBAC", "GET /users/{id}/roles and GET /auth/evaluate with attendance.record:read | write and attendance.justification:approve")
 

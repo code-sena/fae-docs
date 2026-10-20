@@ -11,9 +11,9 @@ info:
 
     ## Fuente real
     - Routers: `facial_router.py`, `fingerprint_router.py`, `update_router.py`, `main.py:82-84,106-110`
-    - Umbral `SIMILARITY_THRESHOLD=0.85` (cosine). Store `EmbeddingStore{_id,is_active,enrolled_at,…}`
+    - Umbral `SIMILARITY_THRESHOLD=0.85` (cosine). Store real: `MongoEmbeddingRepository{_id,is_active,enrolled_at,…}` — `infrastructure/persistence/memory_store.py` (`EmbeddingStore`) existe en el repo pero no se importa en ningún sitio, es código muerto.
     - Sin paginación. Errores `{error:NotFound|BadRequest|InternalError,message,path,timestamp}` + `422 Invalid biometric payload` + headers `x-request-id,x-process-time-ms`.
-    - Gateway sin plugins propios para `/api/v1/biometric` (`kong.yml:87-93`); el MS no valida el bearer hoy (tech-debt).
+    - Gateway sin plugins propios para `/api/v1/biometric` (`kong.yml:87-93`) además del `pre-function` global de sesión; el propio MS también revalida la sesión y evalúa permisos en `infrastructure/web/security.py` (`require_permission`, corregido 2026-10-11).
 
 servers:
   - url: http://localhost:8086

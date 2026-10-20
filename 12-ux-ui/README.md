@@ -197,7 +197,7 @@ System font stack (no custom webfont loaded); weights normal 400 → extrabold 8
 |---------------------------|-------------------|
 | `04-requirements/user-stories.md` → what flows exist | Screens implementing each HU (Dashboard, Users, Courses, Environments, Reports, Settings) |
 | `02-domain/entities-and-rules.md` → what data to display | Fields in wireframes (School, Course, Session, AttendanceRecord, BiometricTemplate) |
-| `09-microservices/` → what APIs the frontend consumes | Data arriving at each screen via Kong gateway (:8080, JWT + rate-limit 100/min): 01-identity (auth), 03-academic (schools/courses), 04-scheduling (sessions), 05-attendance (records/reports), 06-biometric (enrollment/capture), 07-configuration (settings/appearance) |
+| `09-microservices/` → what APIs the frontend consumes | Data arriving at each screen via Kong gateway (:8000, JWT + rate-limit 100/min): 01-identity (auth), 03-academic (schools/courses), 04-scheduling (sessions), 05-attendance (records/reports), 06-biometric (enrollment/capture), 07-configuration (settings/appearance) |
 | `11-quality/` (ISO 25010 usability report) | Accessibility-first design decisions (vision-mode palettes, contrast adaptation) |
 
 ---

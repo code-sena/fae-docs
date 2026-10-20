@@ -13,7 +13,7 @@ info:
     - Doble base: `/configurations/academic|security` + alias `/academic-configurations|/security-configurations`
     - Filtros `?name=` y `?status=` exactos; paginación `?limit&offset` + `x-total-count`
     - Caso: `personId*,biometricType FACIAL|FINGERPRINT,fingerNumber 1-10 (requerido si FINGERPRINT, NULL si FACIAL),currentEmbeddingRef?,reason*,requestedBy*,requestedAt*` → `{updateStatus:Pending}`; review `{updateStatus:In_Review|Approved|Rejected,reviewedBy?,resolutionNotes?}` + `reviewedAt`
-    - Gateway sin plugins propios (`kong.yml:94-103`); el MS no valida el bearer hoy (tech-debt).
+    - Gateway sin plugins propios (`kong.yml:94-103`) además del `pre-function` global de sesión; el propio MS también revalida la sesión y evalúa permisos en `src/infrastructure/http/authGuard.ts` (`registerAuthGuard`, corregido 2026-10-11) — persistencia 100% Postgres, sin fallback en memoria.
 
 servers:
   - url: http://localhost:8087

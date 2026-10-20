@@ -174,7 +174,7 @@ Proposed strategy:
 
 - All private endpoints must require an authenticated user.
 - Authentication must be performed before accessing protected functionality.
-- **Adopted mechanism:** opaque session ids (`identity.user_session`) sent as `Authorization: Bearer <sessionId>`, validated **at the edge** by Kong's global `pre-function` (introspection against identity) and again per Java service by `AuthTokenFilter` with RBAC; Kong carries no `jwt` plugin (edge JWT is the ADR-007 target state).
+- **Adopted mechanism:** opaque session ids (`identity.user_session`) sent as `Authorization: Bearer <sessionId>`, validated **at the edge** by Kong's global `pre-function` (introspection against identity) and again by every service's own guard with RBAC (`AuthTokenFilter` in Java, an equivalent in TS/Python/Go — not just the Java services); Kong carries no `jwt` plugin (edge JWT is the ADR-007 target state).
 - Session lifetime: closed by logout (`session_status = Closed`); `password_policy.expiration_days` = 90 for passwords. There are no access/refresh tokens today — see `07-api/authentication.md`.
 - Role-Based Access Control (RBAC) must be implemented.
 - Roles considered in the SRS:

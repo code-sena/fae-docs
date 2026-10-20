@@ -25,22 +25,22 @@
 
 | Field | Value |
 |-------|-------|
-| Number in catalog | 04 |
+| Number in catalog | 05 |
 | Local port | 8085 |
-| Repository | [Service repo URL] |
-| DB engine | PostgreSQL |
-| Communicates with | biometric-service, academic-service |
+| Repository | `back-end/05-ms-attendance` |
+| DB engine | PostgreSQL (schema `attendance`) |
+| Communicates with | none synchronously (biometric and scheduling feed it via API/events, not the other way) |
 | Consumed by | API Gateway, staff and administrators |
 
 ---
 
 ## Local rules
 
-- `Class_Session` represents a real class occurrence, not the generic schedule.
+- `Class_Session` is **owned by Scheduling** (`04-ms-scheduling`); Attendance references it by public ID.
 - Attendance is only valid while the associated session is `Open`.
-- `Attendance.student_id` and `Class_Session.opened_by` are external IDs without FK to other bounded contexts.
-- `Justification` is a child record of `Attendance` and keeps review and approval state.
-- `schedule_id` stays as an external reference to the academic schedule.
+- `Attendance_Record.academic_actor_id` and `Class_Session.opened_by` are external IDs without FK to other bounded contexts.
+- `Justification` is a 1:1 child of `Attendance_Record` (UNIQUE `attendance_record_id`) and keeps review and approval state.
+- `class_session_id` is the external reference to the scheduled session (there is no `schedule_id`).
 
 ---
 

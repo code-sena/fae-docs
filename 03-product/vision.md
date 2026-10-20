@@ -88,6 +88,9 @@ Phase 1 (0-3 months) ──── Phase 2 (3-6 months) ──── Phase 3 (6-1
 ### Horizon 3 — Scale
 
 - Fingerprint biometrics via `Biometric_Update_Case`, advanced analytics, multi-school tenancy, Kafka replay for ops.
+> Note 2026-10-15: fingerprint enrollment/verification already shipped in Web
+> (`BiometricsView` + kiosk) ahead of this roadmap — treat as early delivery
+> pending roadmap update, not as scope violation.
 
 ## Product principles (trade-offs)
 

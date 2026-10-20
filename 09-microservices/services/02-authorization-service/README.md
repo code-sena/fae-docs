@@ -27,17 +27,17 @@
 |-------|-------|
 | Number in catalog | 02 |
 | Local port | 8082 |
-| Repository | [Service repo URL] |
-| DB engine | PostgreSQL |
-| Communicates with | identity-service, academic-service, attendance-service |
+| Repository | `back-end/02-ms-authorization` |
+| DB engine | PostgreSQL (schema `authorization`) |
+| Communicates with | identity-service (session/permission evaluation) |
 | Consumed by | API Gateway and internal services |
 
 ---
 
 ## Local rules
 
-- `Role` is scoped by `school_id` and must be unique per school.
-- `Permission` is centralized by permission name, independent of school.
+- `Role` is **global** — it has **no `school_id`**; the same role serves every school.
+- `Permission` is centralized by permission name (`contexto.recurso:acción`), independent of school.
 - `Role_Permission` is the association table that grants capabilities to roles.
 - `User_Role` is the link between the external `user_id` and authorization roles.
 - `user_id` is not a local FK; it points to the Identity context by public ID.

@@ -9,7 +9,7 @@
 ```
                      ┌──────────────────────┐
   External clients    │ API Gateway / Edge   │
-  (Web, Mobile, API) ─▶│ Kong :8080           │
+  (Web, Mobile, API) ─▶│ Kong :8000           │
                      │ Session check + CORS │
                      │ (no jwt plugin)      │
                      └──────────┬───────────┘
@@ -50,7 +50,7 @@
 | 07 | `ms-configuration` | Academic and security configuration values, biometric update cases | 8087 | PostgreSQL | Relational | 🟢 Active |
 | 08 | `ms-notification` | Alert types and alert lifecycle management | 8088 | PostgreSQL | Relational | 🟢 Active |
 | 09 | `ms-quality` (tooling) | ISO 25010/29110/ISTQB quality metrics | 8089 | PostgreSQL (`quality`) | Relational | 🟢 Active |
-| 99 | `kong-gateway` | Edge routing, session check, CORS and rate limiting (**no jwt**) | 8080 / 8001 | Redis | Rate-limit store | 🟢 Active |
+| 99 | `kong-gateway` | Edge routing, session check, CORS and rate limiting (**no jwt**) | 8000 / 8001 | Redis | Rate-limit store | 🟢 Active |
 
 **Status legend:** 🟢 Active | 🟡 In development | 🔴 Planned | ⏸ Deprecated
 
@@ -77,16 +77,18 @@
 **Owned entities:**
 - `Person`
 - `App_User`
-- `City` (legacy — deprecated in the model, endpoints still served)
+- `City` (**removed** — dropped by Liquibase; cities come from the external `countriesnow.space` API)
 - `User_Session`
 - `Password_Policy` (singleton global)
 
 **Authentication reality:**
 - Login returns an **opaque `sessionId`** (row in `identity.user_session`); it is sent back as
   `Authorization: Bearer <sessionId>` and checked **at the edge** by Kong's global `pre-function`
-  (introspection against identity) and then per service by `AuthTokenFilter`
-  (Java services 01/02/04/05), which also applies RBAC. There are **no JWT access/refresh tokens
-  and no Redis session store** — Kong carries no `jwt` plugin. See `07-api/authentication.md`.
+  (introspection against identity) and then by every service's own guard, which also applies RBAC
+  — `AuthTokenFilter` in Java (01/02/04/05), `registerAuthGuard` in TS (03/07/09),
+  `require_permission` in Python (06), `AuthMiddleware` in Go (08). There are **no JWT
+  access/refresh tokens and no Redis session store** — Kong carries no `jwt` plugin. See
+  `07-api/authentication.md`.
 
 **Cross-context rule:**
 - `Person` has no `school_id` — multi-tenancy via `Academic.academic_actor`.
@@ -146,7 +148,7 @@
 
 **Cross-context rule:**
 - `Academic_Actor.person_id` is a public ID (→ Identity.person), not a local FK.
-- `School.city_id` is a public ID (→ external `countriesnow.space` catalog; the local `identity.city` table is legacy).
+- `School.city_id` is a public ID (→ external `countriesnow.space` catalog; the local `identity.city` table was dropped).
 - `Academic_Actor` unifies Student/Instructor via `actor_type_id` — no separate tables.
 
 ---
@@ -225,7 +227,7 @@
 
 **Cross-context rule:**
 - `person_id` is a public identity reference (→ Identity.person), not a foreign key.
-- `biometric_update_case` is **not** owned here — lives in Configuration service (SQL) and references these collections by logical `_id`.
+- `biometric_update_case` is **not** owned here — lives in Configuration service (SQL) and references these collections by logical `_id`. In practice `ms-biometric` also runs its own independent `/api/v1/biometric/update-request*` workflow against a local MongoDB `biometric_update_cases` collection, unsynced with the canonical one (`R-004`, see `08-uml/diagrams/source/seq-biometric-update-duplication.mmd`).
 
 **Database note:** Per ADR-003, Biometric uses MongoDB instead of PostgreSQL. This is a
 documented exception to the single-database strategy in ADR-002, justified by the specialized
@@ -311,7 +313,7 @@ vector search requirements of biometric embedding data.
 | **Folder (repo)** | `FULL/back-end/99-api-gateway/` (`kong/kong.yml`) |
 | **Responsibility** | Routes requests to the 9 services, applies CORS and rate limits, exposes the platform to clients |
 | **Type** | Infrastructure service |
-| **Port** | 8080 (proxy) / 8001 (admin) |
+| **Port** | 8000 (proxy) / 8001 (admin) |
 | **DB** | Redis (rate-limiting store) |
 | **Bounded context** | None; cross-cutting infrastructure |
 | **Technology** | Kong OSS 3.6, DB-less declarative config |
@@ -321,9 +323,10 @@ vector search requirements of biometric embedding data.
 - The gateway is not a business owner in the bounded-context model.
 - **Authentication is enforced at the edge here**: a global `pre-function` (Lua) requires a valid
   active session on every non-public route — no `jwt` plugin and no consumers, the token is an
-  opaque `sessionId` introspected against identity. The Java services (`AuthTokenFilter`) check it
-  again and add RBAC; services 03/06/07/08/09 do not check it on their own (R-003); see
-  `07-api/authentication.md`.
+  opaque `sessionId` introspected against identity. Every service checks it again and adds RBAC
+  on its own — not just the Java ones: `AuthTokenFilter` (01/02/04/05), `registerAuthGuard`
+  (03/07/09), `require_permission` (06), `AuthMiddleware` (08), four duplicated implementations
+  (`R-003`, corrected 2026-10-11); see `07-api/authentication.md`.
 - The only health route routed at the edge is `GET /health/quality` → `ms-academic:8083`.
 - Routes match by path prefix (`/api/v1/persons`, `/api/v1/users`, `/api/v1/auth`, …); there is
   no gateway-level `/health`.
@@ -360,7 +363,7 @@ vector search requirements of biometric embedding data.
 
 | Domain entity | Source of truth | Access pattern |
 |---------------|-----------------|----------------|
-| Person, App_User, User_Session, Password_Policy, City (legacy) | Identity Service | API + events |
+| Person, App_User, User_Session, Password_Policy | Identity Service | API + events |
 | Role, Permission, User_Role | Authorization Service | API + events |
 | School, Program, Academic_Period, Cohort, Course, Academic_Actor, Enrollment | Academic Service | API + events |
 | Environment, Schedule_Block, Class_Session | Scheduling Service | API + events |

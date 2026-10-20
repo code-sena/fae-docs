@@ -22,7 +22,7 @@
 
 | Bounded Context | Entities (02-domain) | SQL Tables / Collections | Verdict |
 |---|---:|---|---|
-| Identity | 2 (Person, App_User) + VOs | 4 tables (`person`, `app_user`, `user_session`, `password_policy`; `city` deprecated) | 3NF |
+| Identity | 2 (Person, App_User) + VOs | 4 tables (`person`, `app_user`, `user_session`, `password_policy`; `city` dropped) | 3NF |
 | Authorization | 4 (Role, Permission, Role_Permission, User_Role) | 4 tables | 3NF |
 | Academic | 8 (School, Program, Academic_Period, Cohort, Course, Academic_Actor_Type, Academic_Actor, Enrollment) | 8 tables | 3NF |
 | Scheduling | 3 (Environment, Schedule_Block, Class_Session) | 3 tables | 3NF |

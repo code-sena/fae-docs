@@ -3,13 +3,19 @@
 > **Current state (verified 2026-10-17) — read this first.** The tables below are the **target
 > design**; they were never built as written. What actually runs today:
 >
-> - **Flat topic names** `{service}-events` (e.g. `identity-events`, `attendance-events`), not the
->   `{context}.{entity}.events` pattern in §"Event naming convention".
+> - **Flat topic names** `{service}-events` (e.g. `identity-events`, `attendance-events`) for most
+>   publishers, not the `{context}.{entity}.events` pattern in §"Event naming convention". One
+>   exception: `05-ms-attendance` publishes justification **reviews** on the canonical
+>   `attendance.justification.events` topic (`ReviewJustificationUseCaseImpl.TOPIC`), while
+>   justification **creation** still uses the flat `justification-events`.
 > - **Payloads are minimal JSON** (ids + status), not the rich payloads shown below.
-> - **There are no consumers.** Every service publishes best-effort
->   (`KafkaTemplate`/`kafkajs` with failures swallowed by `.catch(() => undefined)`); **no service
->   subscribes to any topic**. There is **no transactional outbox, no DLQ and no compensation**
+> - **There is exactly one consumer in the platform:** `08-ms-notification` subscribes to
+>   `attendance.justification.events` (kafkajs, consumer group `notification-service`) and raises
+>   the `JUSTIFICATION_APPROVED` / `JUSTIFICATION_REJECTED` dashboard alerts. No other service
+>   subscribes to any topic. There is still **no transactional outbox, no DLQ and no compensation**
 >   (ADR-004 is only partially implemented — recorded as tech debt `AT-006`).
+> - The `08-ms-notification` consumer only runs when `KAFKA_BROKERS` is set; with the variable
+>   absent the service starts without a consumer.
 >
 > | Service | Topic actually published | Published on |
 > |---|---|---|
@@ -18,9 +24,10 @@
 > | 02 authorization | `role-events`, `permission-events` | role/permission created |
 > | 03 academic | `academic-events` | request-level (method/url/status) hook |
 > | 04 scheduling | `environment-events`, `schedule-block-events`, `class-session-events` | entity created |
-> | 05 attendance | `attendance-events`, `justification-events`, `justification-type-events`, `document-events` | record created |
+> | 05 attendance | `attendance-events`, `justification-events`, `justification-type-events`, `document-events`, `attendance.justification.events` | record created (flat) / justification reviewed (canonical) |
 > | 07 configuration | `configuration-events` | request-level (method/url/status) hook |
-> | 06 biometric · 08 notification · 09 quality | — | **publish nothing** |
+> | 06 biometric · 09 quality | — | **publish nothing** |
+> | 08 notification | — | **publishes nothing** (consumes `attendance.justification.events`) |
 >
 > See `09-microservices/communication-patterns.md` §2 for the corrected inventory.
 

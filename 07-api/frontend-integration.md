@@ -39,7 +39,7 @@
 | Prod target | — | gateway behind TLS, `https://<host>/api/v1/...` for both apps |
 
 Docker: the compose stack publishes the gateway on `KONG_PROXY_PORT` (8000) and the Web app on
-**8090** (`FRONTEND_PORT`), so browser CORS origins are `localhost:3000,5173,8090`.
+**8090** (`FRONTEND_PORT`), so browser CORS is permissive (Kong `cors` origins are `["*"]`).
 
 ## 3. Auth flows (both real)
 

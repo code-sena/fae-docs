@@ -2,7 +2,7 @@
 
 - **ID:** ADR-003
 - **Date:** 2026-09-03
-- **Status:** Proposed
+- **Status:** Accepted
 - **Implementation note (2026-10-05, verified against `FULL/`):** implemented as decided — embeddings live in MongoDB (`facial_embedding`, `fingerprint_embedding`, `faceattend_biometric`), and `configuration.biometric_update_case` is created by `database/07-ms-configuration-db` (physical hosting in the `configuration` schema is documented debt, per `AGENTS.md` §4.6). Job `06-ms-biometric-db` also creates a `biometric` schema.
 - **Authors:** [Diego Andrés Gutiérrez Nuñez, Juan David Arboleda Perdomo, Jonattan Steven Rizo Solano]
 

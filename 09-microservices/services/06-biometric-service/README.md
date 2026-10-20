@@ -14,9 +14,11 @@
 
 | Entity | Description |
 |--------|-------------|
-| Facial_Embedding | Stores the current facial vector for a subject. |
-| Fingerprint_Embedding | Stores the fingerprint template and finger metadata. |
-| Facial_Update_Case | Tracks a request to replace or revise a facial embedding. |
+| Facial_Embedding | Stores the current facial vector for a subject (MongoDB). |
+| Fingerprint_Embedding | Stores the fingerprint template and finger metadata (MongoDB). |
+| Biometric_Update_Case | Tracks a request to replace or revise an embedding (facial or fingerprint). |
+
+> **Note:** `biometric_update_case` is a SQL table **logically owned by Biometric but physically hosted in the `configuration` schema** (documented debt — see AGENTS.md §4.6).
 
 ---
 
@@ -24,10 +26,10 @@
 
 | Field | Value |
 |-------|-------|
-| Number in catalog | 05 |
+| Number in catalog | 06 |
 | Local port | 8086 |
-| Repository | [Service repo URL] |
-| DB engine | MongoDB / document storage with vector capability |
+| Repository | `back-end/06-ms-biometric` |
+| DB engine | MongoDB (embeddings) + SQL case table (in `configuration` schema) |
 | Communicates with | attendance-service |
 | Consumed by | Attendance validation workflow |
 
@@ -35,9 +37,9 @@
 
 ## Local rules
 
-- `subject_id` is an external identity reference to the Identity context, not a local FK.
+- `person_id` is an external identity reference to the Identity context, not a local FK.
 - Face and fingerprint data are separated into independent collections with their own indexes.
-- `Facial_Update_Case` tracks review state externally to the identity and attendance services.
+- `Biometric_Update_Case` tracks review state (`Pending/In_Review/Approved/Rejected`) externally to the identity and attendance services.
 - The service may evolve independently from the relational identity model.
 
 ---

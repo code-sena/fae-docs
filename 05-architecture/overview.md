@@ -204,7 +204,7 @@ Transversal concerns that apply to ALL services:
 | Health Checks | `GET /actuator/health` (Java) · `GET /health` (TS/Python/Go) · gateway: `GET /health/quality` | compose healthchecks |
 | Error format | Standard ErrorResponse | `07-api/contracts/openapi/_shared.yaml` |
 | Rate Limiting | At the API Gateway (redis policy: global 300/min) | `kong.yml` |
-| CORS | At the API Gateway (origins `localhost:3000, 5173, 8090`) | `kong.yml` |
+| CORS | At the API Gateway (origins `["*"]` — wildcard, credentials allowed) | `kong.yml` |
 | Circuit Breaker | Not implemented — see tech debt below | — |
 
 ---

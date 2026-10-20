@@ -4,11 +4,14 @@
 > **Rule:** If you need to access production directly, something is wrong in the process.
 > Most problems should be detected in staging.
 >
-> **Status note (develop branch):** the project currently runs a fully
-> containerized local stack via Docker Compose (`docker compose up -d --build`
-> from the repo root). There is **no CI/CD pipeline, no staging cluster and no
-> production deployment yet** — those are planned. This document describes what
-> exists today (local/dev) and the target model (staging/production).
+> **Status note (updated 2026-10-17):** the project runs a fully containerized
+> local stack via Docker Compose and a **production deployment on AWS EC2**
+> (t3.xlarge, us-east-1, 13 containers, Neon PostgreSQL — deployed 2026-10-16,
+> see `FULL/DESPLIEGUE.md` and ADR-020). The **web SPA publishes on Vercel**.
+> **CI runs on GitHub Actions** (`.github/workflows/ci.yml` — tests only, no CD);
+> deploy to production is still **manual over SSH**. dev/staging environments are
+> planned but not operational. This document describes what exists today and the
+> target model for the remaining environments.
 
 ---
 
@@ -17,18 +20,18 @@
 | Environment | Purpose | Update | Access | Data |
 |-------------|---------|--------|--------|------|
 | **local** | Development on the dev's machine (full Docker Compose stack: Postgres 17 + 8 Liquibase migrations, MongoDB 7, Redis 7, Kafka 3.8 KRaft, 9 microservices, Kong gateway, web frontend) | Manual (`docker compose up -d --build`) | Individual dev | Synthetic / seed (`tools/seed-api-test-data`, `database/database-init`) |
-| **dev** | Continuous integration, shared team validation of `develop` | Automatic (each PR merge to `develop`) — **planned**, not configured yet | Entire team | Synthetic |
+| **dev** | Continuous integration, shared team validation | Automatic (each PR merge) — **CI only, deploy planned** | Entire team | Synthetic |
 | **staging** | Pre-production, QA, demos (IEEE 829 regression runs, PO demos) | Automatic (each merge to `main`) — **planned** | Team + PO | Anonymized from prod (once prod exists); for now synthetic |
-| **production** | Real users (institutions: attendance via biometric recognition) | Manual (approval required) — **planned** | Tech Lead + DevOps only | Real |
+| **production** | Real users (institutions: attendance via biometric recognition) | **Manual over SSH** (`docker compose up -d --build` on the EC2 host) | Tech Lead + DevOps only | Real (Neon PostgreSQL) |
 
 ### What exists today vs. what is planned
 
 | Item | Local | Dev | Staging | Production |
 |---|---|---|---|---|
-| Docker Compose stack (root `docker-compose.yml` incl. `database/` + `back-end/`) | ✅ running | ⚠️ same compose, hosted runner — planned | ❌ planned | ❌ planned |
-| Secrets | `.env` from `.env.example` (dev values only, gitignored) | env injection (Vault/K8s Secrets) — planned | planned | planned |
-| DB migrations | ✅ Liquibase chain runs automatically on `up` (identity → authorization → academic → scheduling → attendance → biometric → configuration → notification) | same chain | same chain | manual gate (see checklist) |
-| Health verification | ✅ `healthcheck` per service + `docker compose ps` | smoke tests — planned | smoke + k6 perf — planned | canary monitoring — planned |
+| Docker Compose stack (root `docker-compose.yml` incl. `database/` + `back-end/`) | ✅ running | ⚠️ same compose, hosted runner — planned | ❌ planned | ✅ running on AWS EC2 (ADR-020) |
+| Secrets | `.env` from `.env.example` (dev values only, gitignored) | env injection (Vault/K8s Secrets) — planned | planned | `~/.env.prod` on the EC2 host (secrets manager pending) |
+| DB migrations | ✅ Liquibase chain runs automatically on `up` (identity → authorization → academic → scheduling → attendance → biometric → configuration → notification) | same chain | same chain | same chain against Neon |
+| Health verification | ✅ `healthcheck` per service + `docker compose ps` | smoke tests — planned | smoke + k6 perf — planned | healthchecks + Portainer; canary monitoring planned |
 
 ---
 
@@ -87,12 +90,12 @@ Infrastructure/host:  BIND_IP, FRONTEND_PORT, EXPO_PUBLIC_API_URL, SEED_*, BOOTS
 | `SEED_USERNAME` / `SEED_PASSWORD`, `BOOTSTRAP_USERNAME` / `BOOTSTRAP_PASSWORD` | dev-only test accounts (`SeedAdmin123!`, `Admin123!ChangeMe`) | synthetic seed | **not present** | **never** |
 | `LOG_LEVEL` | Spring default (`info`; debug per-package when needed) | `info` | `info` | `warn` |
 | `NODE_ENV` | `development` (outside Docker) / `production` (inside containers for ms-academic, ms-configuration, ms-quality) | `production` | `production` | `production` |
-| `CORS_ORIGIN` (Kong global plugin, `kong.yml`) | `http://localhost:3000`, `http://localhost:5173` (Expo dev), `http://localhost:8090` (SPA) | `https://dev.[domain]` | `https://staging.[domain]` | `https://[domain]` |
+| `CORS_ORIGIN` (Kong global plugin, `kong.yml`) | `["*"]` — wildcard, any origin accepted (was `localhost:3000/5173/8090` before; widened so LAN/phone clients work) | `["*"]` | `["*"]` | lock down to `https://[domain]` |
 
-> **Auth note:** the platform uses **opaque server-side sessions** (ms-identity +
-> Redis), not JWT — the Kong `jwt` plugin was removed intentionally
-> (`AuthTokenFilter` validates the session and calls authorization's
-> `/api/v1/auth/evaluate`). There is **no `JWT_SECRET` variable**. When RS256
+> **Auth note:** the platform uses **opaque server-side sessions** — a row in
+> `identity.user_session` (PostgreSQL) validated by Kong's `pre-function` and a
+> 10 s positive cache — **not JWT, and not Redis** (Redis is used only for Kong
+> rate-limiting). There is **no `JWT_SECRET` variable**. When RS256
 > JWT is reintroduced (ADR-007), provision keys through the Kong Admin API —
 > Kong cannot interpolate env vars in declarative config, so never commit them
 > in `kong.yml`.
@@ -106,10 +109,13 @@ Infrastructure/host:  BIND_IP, FRONTEND_PORT, EXPO_PUBLIC_API_URL, SEED_*, BOOTS
 
 ## CI/CD Pipeline
 
-> **Current state:** no pipeline files exist in the repository (no GitHub
-> Actions/GitLab CI). Everything below is the **target** model agreed with the
-> branching strategy; until it exists, "deploy to dev" is a manual
-> `git pull && docker compose up -d --build` on the dev host.
+> **Current state:** **CI runs on GitHub Actions** (`.github/workflows/ci.yml`,
+> 171 lines, plus `.github/dependabot.yml` for eight ecosystems). It tests every
+> push/PR to `main` with per-stack matrices (Java `mvn test`, Node `npm test` +
+> build, Python `pytest`, Go `go test`, both frontends incl. `expo export`).
+> **Deploy is still manual** — production is deployed over SSH with
+> `docker compose up -d --build` on the AWS EC2 host. The pipelines below are the
+> **target** model for deploy automation (ADR-018/ADR-020).
 
 ```
 Developer
@@ -264,9 +270,9 @@ docker compose run --rm liquibase rollback-count 1
 
 | Date | Service | Version | Environment | Deployed by | Issues |
 |------|---------|---------|-------------|-------------|--------|
-| [date] | [service] | v[X.Y.Z] | production | [name] | None |
+| 2026-10-16 | Full backend (9 ms + Kong + web) | compose `latest` | production (AWS EC2 t3.xlarge, Neon PostgreSQL) | Team | None documented — see `FULL/DESPLIEGUE.md` |
 
-*(No production deploys yet — first entry will be recorded here.)*
+*(Deploy record started 2026-10-16; the first production deployment is documented in `FULL/DESPLIEGUE.md`.)*
 
 ---
 

@@ -1,11 +1,12 @@
-# Authentication & Authorization — FaceAttendEDU
+﻿# Authentication & Authorization — FaceAttendEDU
 
 > Decisions 2026-10-03 (updated 2026-10-07, verified against `FULL/`): **Kong authenticates at the
 > edge.** A global `pre-function` (Lua) runs before routing on every non-public route: it requires
 > `Authorization: Bearer <uuid>` and calls `GET ms-identity:8081/api/v1/sessions/{id}`, accepting
 > only `sessionStatus = "Active"` (401 for a missing header, a non-UUID token or an
-> invalid/expired/closed session; 503 when identity does not answer; no cache — one identity call
-> per request; needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`). Kong still declares **no
+> invalid/expired/closed session; 503 when identity does not answer; **positive session checks are
+> cached 10 s** at the edge via `kong.cache` — logout invalidates the entry, so the revocation
+> window is 10 s; needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`). Kong still declares **no
 > `jwt` plugin and no consumers**: the bearer is an **opaque session id, not a JWT**, and `jwt`
 > RS256 issued by identity remains ADR-007's future evolution. The gateway authenticates at the
 > edge, and **every one of the 9 services re-authenticates and evaluates RBAC again on its own**
@@ -35,8 +36,10 @@
   and calls `GET ms-identity:8081/api/v1/sessions/{id}`; it accepts only HTTP 200 with
   `sessionStatus = "Active"`. **401** = missing header, not `Bearer`, token that is not an
   8-4-4-4-12 UUID, or invalid/expired/closed session; **503** = identity does not answer
-  (2 s/2 s/3 s timeouts). **No cache**: every authenticated request costs one call to identity.
-  Needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http` on the gateway container.
+  (2 s/2 s/3 s timeouts). **Cache:** positive checks are cached **10 s** (`kong.cache`, keyed
+  `faceattend:session:<id>`) and `/api/v1/auth/logout` invalidates the entry; every service guard
+  keeps its own 10 s window, so revocation propagates within 10 s. Needs
+  `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http` on the gateway container.
 - **Service enforcement (real), all 9 services:** `AuthTokenFilter` (Java 01/02/04/05, copy per
   MS) and its three equivalents — `registerAuthGuard` (TS 03/07/09, a Fastify `onRequest` hook),
   `require_permission` (Python 06, a FastAPI dependency), `AuthMiddleware` (Go 08, a Gin
@@ -73,7 +76,7 @@
 ## 2. Gateway enforcement matrix (real `kong.yml`)
 
 > The **global** plugins apply to every row below and run in this order: `pre-function` (edge
-> session check, see §1) → `cors` (origins `localhost:3000, 5173, 8090`) → `rate-limiting
+> session check, see §1) → `cors` (origins `["*"]`) → `rate-limiting
 > 300/min` (redis). The third column lists the **per-upstream** plugins only — i.e. what Kong
 > itself adds beyond the global pre-function. "None at Kong" never means unauthenticated: every
 > upstream also runs its own session+RBAC guard (see §1), Kong is just not layering an extra
@@ -81,7 +84,7 @@
 
 | Upstream | Paths | Gateway plugins (per-upstream) |
 |----------|-------|-----------------|
-| identity `ms-identity:8081` | `/api/v1/persons,/users,/auth,/sessions,/cities,/password-policies` + nested `~/users/.+/activate` | `cors(*)` + `rate-limiting 60/min redis` — no `jwt` plugin |
+| identity `ms-identity:8081` | `/api/v1/persons,/users,/auth,/sessions,/password-policies` + nested `~/users/.+/activate` | `cors(*)` + `rate-limiting 60/min redis` — no `jwt` plugin |
 | authorization `ms-authorization:8082` | `/api/v1/roles,/permissions` + `~/users/.+/roles`, `/api/v1/auth/evaluate` | `rate-limiting 100/min redis` — no `jwt` plugin |
 | academic `ms-academic:8083` | `/api/v1/schools,/programs,/academic-periods,/periods,/cohorts,/courses,/actor-types,/academic-actors,/enrollments` | none at Kong — MS-side `registerAuthGuard` (TS) |
 | scheduling `ms-scheduling:8084` | `/api/v1/environments,/schedule-blocks,/class-sessions` + nested `~/cohorts/.+/blocks` etc. | none at Kong — MS-side `AuthTokenFilter` (Java) |
@@ -91,7 +94,7 @@
 | notification `ms-notification:8088` | `/api/v1/alert-types,/alerts` | none at Kong — MS-side `AuthMiddleware` (Go) |
 | quality-health | `/health/quality` → `ms-academic:8083` | `cors(*)` (only health route at the gateway; **no `GET /health`**) |
 | quality `ms-quality:8089` | `/api/v1/quality` | `rate-limiting 100/min redis`, MS-side `registerAuthGuard` (TS) |
-| global | all | `cors(origins localhost:3000, 5173, 8090)`, `rate-limiting 300/min redis` |
+| global | all | `cors(origins ["*"])`, `rate-limiting 300/min redis` |
 
 ## 3. Identity flows (real)
 
@@ -139,9 +142,7 @@ POST /api/v1/users · GET /api/v1/users?page&limit · GET/PUT /{id} (204) ·
 POST /api/v1/persons · GET /api/v1/persons?page&limit · GET/PUT /{id} (204) ·
      PATCH /{id}/status (204)
 POST /api/v1/persons/{id}/transfer — NOT IMPLEMENTED (person has no school_id; use academic_actor)
-POST/GET/PUT/DELETE /api/v1/cities… — legacy: `identity.city` is deprecated in the model
-     (cities come from the external `countriesnow.space` catalog) but the endpoints and the
-     Liquibase table are still served.
+POST/GET/PUT/DELETE /api/v1/cities... — REMOVED (table dropped by Liquibase, no controller, no Kong route)
 ```
 
 Lists are paged with **`?page&limit` (1-based page)** and return the `PageResponse`
@@ -163,18 +164,17 @@ GET /api/v1/auth/evaluate?userId&permission → {userId,permission,allowed}
 
 Seed roles (changeset `02-ms-authorization-db/02-dml/004-unify-mobile-roles`):
 **`Administrador | Instructor | Aprendiz`** (the older `SUPER_ADMIN/SCHOOL_ADMIN/INSTRUCTOR/STUDENT`
-names are migrated away; clients still accept them as legacy aliases). 12 permissions
+names are migrated away; clients still accept them as legacy aliases). 13 permissions
 (`contexto.recurso:acción`, e.g. `attendance.record:read`) with per-role grants — see
 `database/SEEDS.md`.
 
 Kong itself does **not** call `/auth/evaluate` — the edge pre-function only checks that the
-session is `Active`, never a permission. Every service's own guard does call it: Java
-`AuthTokenFilter` evaluates the coarse `identity.person:read|write`; the TS/Python/Go guards
-evaluate a route-derived permission of their own (e.g. `academic.school:manage`,
-`attendance.record:write`, `biometric.case:request|review`, `configuration:manage`) — see
-`03-ms-academic/src/infrastructure/http/permissions.ts`,
-`07-ms-configuration/src/infrastructure/http/permissions.ts` and the equivalent files per
-service. Clients also call `evaluate` directly for their own UI gating (Mobile calls
+session is `Active`, never a permission. Every service's own guard does call it with a
+**route-derived** permission in all four stacks: Java `AuthTokenFilter.requiredPermission(method, path)`
+(e.g. `attendance.record:read` for GET in 04/05, `scheduling.session:manage` for class-session
+ops — see the tests in `05-ms-attendance`), TS `registerAuthGuard`, Python `require_permission`,
+Go `AuthMiddleware`; the canonical per-route map lives in `endpoint-matrix.md` §11. Clients also
+call `evaluate` directly for their own UI gating (Mobile calls
 `evaluate(userId, 'attendance.record:read')` right after login) — that is a third, independent
 check, not a substitute for the service-side one.
 
@@ -244,8 +244,8 @@ check, not a substitute for the service-side one.
   (or multipart for face).
 - Java MS `AuthTokenFilter` → handler: sets request attributes `X-User-Id`, `X-User-Roles` and a
   response header `X-User-Roles` (comma-separated). TS/Go/Python services do not read them.
-- CORS (global Kong plugin): origins `http://localhost:3000`, `http://localhost:5173`,
-  `http://localhost:8090`; methods GET/POST/PUT/PATCH/DELETE/OPTIONS; headers
+- CORS (global Kong plugin): origins `["*"]` (wildcard; was `localhost:3000/5173/8090` before —
+  widened so LAN/phone clients work); methods GET/POST/PUT/PATCH/DELETE/OPTIONS; headers
   `Authorization,Content-Type,X-Requested-With`; `credentials:true`; `max_age:3600`.
 
 ## 8. Expiration, refresh, logout (normative)
@@ -284,8 +284,9 @@ check is the global `pre-function`.
 ## 10. Gaps and TODOs (honest)
 
 - **Opaque session at the edge, not a signed token:** Kong authenticates by introspecting
-  identity on every authenticated request (no cache → +1 internal hop per call), so a stolen
-  session id is valid until logout/expiry and there is no revocation list besides the
+  identity (cached 10 s per session, logout invalidates → +1 internal hop at most once per 10 s
+  per session), so a stolen
+  session id is valid until logout/expiry (revocation window = 10 s) and there is no revocation list besides the
   `user_session` row. Replacing the introspection with `jwt` RS256 + JWKS from identity
   (ADR-007, `AT-007`) is pending.
 - **Duplicated auth code, not a missing check:** all 9 services independently re-implement the
@@ -293,13 +294,14 @@ check is the global `pre-function`.
   `08` Go `AuthMiddleware`, `01/02/04/05` Java `AuthTokenFilter`) because there is no shared
   module across stacks. This used to be a real gap (see git history) but is not one today —
   direct access to a service's published port still has to pass that service's own check.
-  Internal ports should still stay inside the Docker network as defense in depth, but the risk is
-  "one more layer to maintain, by hand, four times," not "no layer at all."
-- **Coarse permission only (Java):** `AuthTokenFilter` checks `identity.person:read|write` only;
-  the TS/Python/Go guards already do route-derived, finer-grained permissions
-  (`academic.school:manage`, `attendance.record:write`, `biometric.case:request|review`, …) —
-  bringing Java up to the same granularity, or wiring a shared Kong/OPA authorizer, is the
-  remaining work.
+  Internal ports should still stay inside the Docker network as defense in depth (`risks.md`
+  R-003), but the risk is "one more layer to maintain, by hand, four times," not "no layer at
+  all."
+- **Permission map duplicated per service:** the route→permission mapping is re-implemented per
+  stack (Java `requiredPermission` in each `AuthTokenFilter`, TS `permissions.ts`, and the
+  Python/Go equivalents) instead of living in one shared module. It is real RBAC today — the
+  canonical map is `endpoint-matrix.md` §11 — but keeping it in sync across nine services by hand
+  is the remaining work; a shared Kong/OPA authorizer is the long-term option.
 - **Biometric update case has two unsynced implementations:** `ms-configuration`
   (`/api/v1/biometric-update-cases`, Postgres, canonical per the data model) and `ms-biometric`
   (`/api/v1/biometric/update-request*`, MongoDB) both implement "request + review a biometric

@@ -24,9 +24,9 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 > **Status verified against the implemented back end (`../FULL`, services 01–09 + Kong gateway)
 > on 2026-10-07.** ✅ means the flow exists in code and is reachable through Kong with an
 > authenticated session; it does **not** mean automated tests exist — the test specs below are
-> still *(proposed)* (the only implemented test file in the back end is
-> `03-ms-academic/src/__tests__/academic.test.ts`, not mapped to an HU). NFR validation has not
-> been executed.
+> still *(proposed)* (the back end now has ~92 unit/integration test files across all 9 services,
+> run by `.github/workflows/ci.yml`, but **none is mapped to an HU** in this matrix). NFR
+> validation has not been executed.
 
 ### FR 1 — User Management
 
@@ -195,7 +195,7 @@ If there is code without an HU: possible gold-plating or bug introduced without 
 | SRS Inconsistency | FR 4.6 is named 'Role Change' but the description talks about limiting access. | Correct description in SRS. | Team / Instructor | 2026-06-16 |
 | SRS Inconsistency | NFR 2 is named 'Availability' but the criteria are about usability. | Recategorize or rename NFR. | Team / Instructor | 2026-06-16 |
 | FR without dedicated HU | Use Cases 1-5 from the SRS have no independent HU (they are covered within existing HUs). | Verify coverage with the team. | Product Owner | 2026-06-16 |
-| HU without test | No HU-level test spec is implemented; all specs in the matrix are *(proposed)*. The back end only contains `03-ms-academic/src/__tests__/academic.test.ts` (not mapped to an HU). | Execute the proposed specs. | QA / Dev | 2026-10-07 |
+| HU without test | No HU-level test spec is implemented; all specs in the matrix are *(proposed)*. The back end has ~92 unit/integration test files across the 9 services (Java JUnit, TS Jest, Python pytest, Go testing) but none is mapped to an HU. | Map existing tests to HUs and execute the proposed specs. | QA / Dev | 2026-10-17 |
 | NFR without validation tool | No NFR has a defined validation tool. | Define the testing and monitoring stack. | DevOps / Team | 2026-06-16 |
 
 ---

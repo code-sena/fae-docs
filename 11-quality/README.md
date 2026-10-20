@@ -53,7 +53,7 @@
 - **Security:** OWASP ZAP (basic security tests) + authentication bypass verification
   (reported in `IEEE829_TEST_SUMMARY_REPORT.md`: "Authentication bypass: Not possible ✅").
 - **What they test:** complete user flows with the entire system running (CRUD per service,
-  authentication through Kong with JWT + rate limit of 100/min, attendance reports).
+  authentication through Kong with opaque-session auth + rate limit of 300/min global, attendance reports).
 - **When they run:** before each deploy to staging. The seed is idempotent, and its exit code serves
   as a gate: `0` if everything passes (or only documented known bugs marked WARN), `1` for any other failure.
 
@@ -66,16 +66,19 @@
 
 | Service | Stack | Unit | Integration | Contract | Status in repo |
 |---------|-------|------|-------------|----------|----------------|
-| 01-ms-identity | Java Spring Boot | 80% (critical paths >80%) | Required | Recommended | 6+ test classes (use cases, domain, DTO, adapters) |
-| 02-ms-authorization | Java Spring Boot | 80% | Required | Recommended | RoleControllerTest |
-| 03-ms-academic | TS Fastify | 80% | Required (jest+supertest) | Recommended | academic.test.ts |
-| 04-ms-scheduling | Java Spring Boot | 70% | Required | Recommended | Pending (QA debt recorded) |
-| 05-ms-attendance | Java Spring Boot | 85% (critical) | Required | Required | AttendanceRecordControllerTest |
-| 06-ms-biometric | Python FastAPI | 80% | Required (pytest+httpx) | **Required** (router contract tests) | tests/unit/web + tests/ |
-| 07-ms-configuration | TS Fastify | 70% | Required | Recommended | No tests yet (minimum coverage required in PRs) |
-| 08-ms-notification | Go Gin | 80% | Required (go test) | Recommended | 3 handler/render test packages |
-| 09-ms-quality | TS Fastify | 80% | Required | Recommended | ISO 25010/ISTQB/29110 instruments as CRUD |
-| 99-api-gateway (Kong) | Kong OSS | — | Required (smoke: routes + JWT + rate limit) | — | kong/kong.yml verified in E2E |
+| 01-ms-identity | Java Spring Boot | 80% (critical paths >80%) | Required | Recommended | 22 test files (use cases, domain, DTO, adapters) |
+| 02-ms-authorization | Java Spring Boot | 80% | Required | Recommended | 19 test files (incl. `RoleControllerTest`) |
+| 03-ms-academic | TS Fastify | 80% | Required (jest+supertest) | Recommended | 2 test files (`academic.test.ts` + supertest suite) |
+| 04-ms-scheduling | Java Spring Boot | 70% | Required | Recommended | 10 test files (overlap-guard etc.) |
+| 05-ms-attendance | Java Spring Boot | 85% (critical) | Required | Required | 15 test files (incl. `AttendanceRecordControllerTest`) |
+| 06-ms-biometric | Python FastAPI | 80% | Required (pytest+httpx) | **Required** (router contract tests) | 7 test files (`tests/unit/web` + `tests/`) |
+| 07-ms-configuration | TS Fastify | 70% | Required | Recommended | 3 test files (incl. `crud.repository.test.ts`) |
+| 08-ms-notification | Go Gin | 80% | Required (go test) | Recommended | 6 test files (handler/render packages) |
+| 09-ms-quality | TS Fastify | 80% | Required | Recommended | 8 test files (ISO 25010/ISTQB/29110 instruments) |
+| 99-api-gateway (Kong) | Kong OSS | — | Required (smoke: routes + session auth + rate limit) | — | kong/kong.yml verified in E2E |
+
+> **Source of truth for pass/fail:** `.github/workflows/ci.yml` runs every test suite on each
+> push/PR to `main`; the figures below are the last recorded cycle and may lag behind CI.
 
 **Global target (IEEE 829 §1.4):** test pass rate ≥ 95%, coverage ≥ 70%, P95 ≤ 200 ms,
 5xx errors ≤ 1%, successful CRUD tests 100%. Most recent run: **81 tests, 78 passed,

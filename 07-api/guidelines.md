@@ -16,7 +16,7 @@
 | 06 | Biometric | `06-ms-biometric` | 8086 | Python 3.12 + FastAPI + Motor | MongoDB `facial_embedding`, `fingerprint_embedding` |
 | 07 | Configuration | `07-ms-configuration` | 8087 | TS Fastify + Zod | `configuration` (Postgres) |
 | 08 | Notification | `08-ms-notification` | 8088 | Go 1.22 + Gin + pgx | `notification` (Postgres) |
-| 09 | Quality | `09-ms-quality` | 8089 | TS Fastify + Zod | in-memory + best-effort Postgres |
+| 09 | Quality | `09-ms-quality` | 8089 | TS Fastify + Zod | `quality` (Postgres, `Pool`; no in-memory fallback — a DB outage is a fatal boot error) |
 | 99 | Gateway | `99-api-gateway` | 8000 (proxy) / 8001 (admin) | Kong OSS 3.6 DB-less + Redis 7 | — |
 
 Source of truth: `COMPOSE.md`, `back-end/SERVICES.md`, `back-end/docker-compose.yml`,
@@ -114,7 +114,7 @@ Always include `traceId`/`correlationId`/`x-request-id` when available; never le
 
 ## 8. Audit and soft-delete
 
-All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,row_version`. Exposed in contracts as `createdAt,updatedAt,rowVersion` (and `deletedAt` where relevant). Deletes are soft except biometric template deactivation (`is_active=false`) and in-memory quality stores.
+All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,row_version`. Exposed in contracts as `createdAt,updatedAt,rowVersion` (and `deletedAt` where relevant). Deletes are soft except biometric template deactivation (`is_active=false`).
 
 ## 9. Security
 
@@ -130,7 +130,7 @@ All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_b
   too. Four separate implementations of the same contract, not a gap (`risks.md` R-003,
   corrected 2026-10-11).
 - Local service-to-service calls use UUID cross-references, never cross-schema FKs.
-- CORS: global Kong plugin `http://localhost:3000,http://localhost:5173,http://localhost:8090`;
+- CORS: global Kong plugin `origins ["*"]` (wildcard — any origin accepted, credentials allowed);
   the identity service also declares `*` on its own plugin for local dev. TLS terminates at Kong in prod.
 
 ## 10. Health and quality probes

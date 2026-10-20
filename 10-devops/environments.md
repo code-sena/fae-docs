@@ -4,11 +4,14 @@
 > **Rule:** If you need to access production directly, something is wrong in the process.
 > Most problems should be detected in staging.
 >
-> **Status note (develop branch):** the project currently runs a fully
-> containerized local stack via Docker Compose (`docker compose up -d --build`
-> from the repo root). There is **no CI/CD pipeline, no staging cluster and no
-> production deployment yet** — those are planned. This document describes what
-> exists today (local/dev) and the target model (staging/production).
+> **Status note (2026-10-20, checked against `ProyectoFaceAttendEDU/.github/workflows/`):** the project
+> runs a fully containerized local stack via Docker Compose (`docker compose up -d --build`
+> from the repo root). CI exists: `ci.yml` runs the Java, Node, Python, mobile and web tests on
+> pushes and pull requests to `main`. Production has workflows, not a deployed environment yet:
+> `deploy-production.yml` runs CI, then Neon migrations, then the EC2 backend, then the Vercel frontend,
+> and each job waits for manual approval in the GitHub environment `production`. There is **no staging
+> environment** ("for cost", `DESPLIEGUE.md`) and no automatic dev environment. `DESPLIEGUE.md` is still a
+> template with placeholders, so whether production is live is not recorded (see `15-project-control/open-questions.md` Q-005).
 
 ---
 
@@ -19,7 +22,7 @@
 | **local** | Development on the dev's machine (full Docker Compose stack: Postgres 17 + 8 Liquibase migrations, MongoDB 7, Redis 7, Kafka 3.8 KRaft, 9 microservices, Kong gateway, web frontend) | Manual (`docker compose up -d --build`) | Individual dev | Synthetic / seed (`tools/seed-api-test-data`, `database/database-init`) |
 | **dev** | Continuous integration, shared team validation of `develop` | Automatic (each PR merge to `develop`) — **planned**, not configured yet | Entire team | Synthetic |
 | **staging** | Pre-production, QA, demos (IEEE 829 regression runs, PO demos) | Automatic (each merge to `main`) — **planned** | Team + PO | Anonymized from prod (once prod exists); for now synthetic |
-| **production** | Real users (institutions: attendance via biometric recognition) | Manual (approval required) — **planned** | Tech Lead + DevOps only | Real |
+| **production** | Real users (institutions: attendance via biometric recognition) | Manual approval through the GitHub environment `production` (`deploy-production.yml`); target host AWS EC2 `us-east-1` — **not confirmed as live** | Tech Lead + DevOps only | Real |
 
 ### What exists today vs. what is planned
 

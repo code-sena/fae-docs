@@ -28,9 +28,9 @@
 | Number in catalog | 08 |
 | Local port | 8088 |
 | Schema | `notification` (PostgreSQL 17) |
-| Stack | Go 1.22 + Gin + pgx + zap |
+| Stack | Node 20 + Fastify + Drizzle ORM (`pg`) + kafkajs + nodemailer + pino |
 | Folder in repo | `FULL/back-end/08-ms-notification/` |
-| Communicates with | **none of the other 8 services** — it exposes an internal `POST /api/v1/emails` (consumed by Identity for password-reset mails) and calls an optional external SMTP/push/SMS webhook; **it does not consume Kafka** (no Kafka client exists in the Go code) |
+| Communicates with | **identity** (Identity calls its internal `POST /api/v1/emails` for password-reset mails) and **attendance** (consumes the Kafka topic `attendance.justification.events` when `KAFKA_BROKERS` is set, which compose does); it also calls an optional external SMTP/push/SMS webhook. It publishes no events of its own and has no link with biometric |
 | Consumed by | Web/Mobile through Kong `:8000` (`/api/v1/alerts`, `/alert-types`) |
 
 ---
@@ -40,5 +40,5 @@
 - [API Contract](../../../07-api/contracts/openapi/08-notification-service.yaml)
 - Data model → [`06-data/domains/07-notification.md`](../../../06-data/domains/07-notification.md)
 - Catalog entry → [`service-catalog.md`](../../service-catalog.md)
-- Per-service pages (`data-model.md`, `events.md`, `decisions.md`, `runbook.md`) are **pending** —
-  follow `../../_template/service/` when writing them.
+- Per-service pages: [`data-model.md`](data-model.md) · [`decisions.md`](decisions.md) ·
+  [`events.md`](events.md) · [`runbook.md`](runbook.md)

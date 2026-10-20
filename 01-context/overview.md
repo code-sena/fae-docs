@@ -25,7 +25,7 @@ In many academic processes, attendance depends on a single instructor taking man
 - **Databases:** Single logical DB `faceattend_db` on PostgreSQL 17 (**8 schemas**) + MongoDB 7 (facial/fingerprint vectors) + Redis 7 (Kong rate-limiting store)
 - **Edge:** Kong OSS 3.6 :8080 (proxy) / :8001 (admin) — global `pre-function` session check (introspection against identity) + cors + rate-limiting, **no jwt plugin**; RBAC stays in the Java services (`07-api/authentication.md`)
 - **Events:** Kafka (KRaft) `:9092` — real broker, producers via `KafkaTemplate` / `kafkajs` (ADR-006)
-- **Infrastructure:** Docker Compose (root `docker-compose.yml` + `COMPOSE.md`), Liquibase migrations (8 jobs, ADR-010), Jenkins CI/CD (ADR-011)
+- **Infrastructure:** Docker Compose (root `docker-compose.yml` + `COMPOSE.md`), Liquibase migrations (8 jobs, ADR-010), GitHub Actions CI/CD (ADR-011; the ADR says Jenkins, see its implementation note)
 
 ## Main architecture — Bounded Contexts & Services (Schema per Context, Single DB)
 

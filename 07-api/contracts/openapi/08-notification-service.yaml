@@ -3,27 +3,40 @@ info:
   title: Notification Service API
   version: 1.0.0
   description: |
-    Servicio 08-ms-notification (Go 1.22 Gin + pgx :8088, schema `notification`).
+    Servicio 08-ms-notification (TypeScript Fastify + Drizzle + kafkajs :8088, schema `notification`;
+    reescrito desde Go 1.22/Gin/pgx el 2026-10-18 — ADR-021, paridad funcional).
     Tipos de alerta y alertas sobre `academic_actor`.
 
     ## Fuente real
-    - Handlers: `alert_handler.go`, `alert_type_handler.go`, `email_handler.go`,
-      `quality_middleware.go`, `cmd/server/main.go:55-101`
+    - Handlers: `src/infrastructure/http/routes.ts`, `authGuard.ts`, `permissions.ts`,
+      `actorScope.ts`, `qualityMiddleware.ts`, `src/main.ts`
+    - Consumidor Kafka: `src/infrastructure/messaging/justification.consumer.ts` —
+      `attendance.justification.events` (grupo `notification-service`, solo con `KAFKA_BROKERS`)
     - Dominio: `Alert{alert_id,academic_actor_id,alert_type_id,raised_at,resolved_at?,created_at,updated_at?,row_version}`,
       `AlertType{alert_type_id,code,name,severity,channel,…}`
     - Comandos: `CreateAlertCommand{academic_actor_id*,alert_type_id*}`,
       `CreateAlertTypeCommand{code*,name*,severity*,channel?}`, `UpdateAlertTypeCommand{code?,name?,severity?,channel?}`
     - Filtros: `?actorId&?typeId&?resolved|?status=open|resolved|pending`; `?limit&offset` (types default 50/0)
-    - Envelopes: `{alerts:[]}`, `{alert_types:[]}`; errores `{error:string}` (`ErrValidation→400,ErrNotFound→404,ErrDuplicate→409`)
-    - Seeds: `ABSENCE_THRESHOLD,SCHEDULE_CONFLICT`. `notification-preferences` documentado en SERVICE.md NO existe.
-    - Gateway: no per-upstream plugins (`kong.yml:104-110`). The edge `pre-function` validates
+    - Envelopes: `{alerts:[]}`, `{alert_types:[]}`; errores `{error,message,timestamp}`
+    - Seeds reales de `alert_type` (5, `08-ms-notification-db/02-dml/001-seed-alert-type-table.yaml`):
+      `ATTENDANCE_ABSENTEEISM` (WARNING/DASHBOARD), `ATTENDANCE_TARDINESS` (WARNING/DASHBOARD),
+      `ATTENDANCE_LOW` (CRITICAL/EMAIL), `JUSTIFICATION_PENDING` (INFO/DASHBOARD),
+      `BIOMETRIC_UPDATE` (INFO/PUSH). Los códigos `ABSENCE_THRESHOLD`/`SCHEDULE_CONFLICT` que
+      citaba la versión anterior de este contrato **no existen**.
+      **Gap abierto:** el consumidor Kafka exige `JUSTIFICATION_APPROVED` y
+      `JUSTIFICATION_REJECTED`, que **no están en los seeds** — sin esas filas cada evento lanza
+      `missing alert-type seed for code …`, se reintenta con backoff y bloquea la partición.
+      `notification-preferences` documentado en SERVICE.md NO existe.
+    - Gateway: no per-upstream plugins (solo el `rate-limiting` global de 6000/min). The edge `pre-function` validates
       the opaque session UUID for `/api/v1/alerts` and `/api/v1/alert-types`; the MS itself also
-      validates it again on its own via its Go `AuthMiddleware` and adds RBAC (corrected
-      2026-10-11 — `AT-004` is duplicated auth code across stacks, not a missing check).
+      validates it again on its own via `registerAuthGuard` and adds RBAC (corrected
+      2026-10-20 — `AT-004` is duplicated auth code across stacks, not a missing check).
     - **Internal only:** `POST /api/v1/emails` has **no Kong route** — it is reachable only
       inside the compose network (01-ms-identity calls it after issuing a recovery code).
       Optional shared secret `X-Internal-Token` (`EMAIL_INTERNAL_TOKEN`; when empty the route
       is open inside the network).
+    - **Aliases sin prefijo:** los handlers se registran también bajo `/alerts` y
+      `/alert-types`; Kong no los enruta, existen para llamadas internas directas a :8088.
 
 servers:
   - url: http://localhost:8088

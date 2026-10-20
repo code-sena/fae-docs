@@ -69,7 +69,7 @@ graph TB
     AT[ms-attendance<br/>:8085<br/>Java Spring<br/>schema attendance]
     BM[ms-biometric<br/>:8086<br/>Python FastAPI<br/>MongoDB + schema biometric]
     CF[ms-configuration<br/>:8087<br/>TS Fastify<br/>schema configuration]
-    NT[ms-notification<br/>:8088<br/>Go Gin<br/>schema notification]
+    NT[ms-notification<br/>:8088<br/>TS Fastify<br/>schema notification]
     QL[ms-quality<br/>:8089<br/>TS Fastify<br/>ISO 25010 tooling]
   end
   subgraph Data
@@ -129,8 +129,8 @@ graph TB
 
 > **Corrected (2026-10-11, re-verified against `FULL/`):** services **03 (academic), 06
 > (biometric), 07 (configuration), 08 (notification) and 09 (quality) each run their own
-> session+RBAC guard** (`registerAuthGuard` in TS, `require_permission` in Python,
-> `AuthMiddleware` in Go — same contract as the Java `AuthTokenFilter`, duplicated per service, no
+> session+RBAC guard** (`registerAuthGuard` in TS for 03/07/08/09, `require_permission` in
+> Python — same contract as the Java `AuthTokenFilter`, duplicated per service, no
 > shared module), applied to every `/api/**` route except `/health`. A call that reaches a
 > service's port directly (compose publishes them on `127.0.0.1:8083-8089`) still has to pass
 > that service's own check. Internal ports should still stay inside the Docker network as
@@ -164,7 +164,7 @@ From day 1: structured JSON logs, metrics with Prometheus,
 distributed traces with Jaeger/Zipkin. It is not optional or a story for "later".
 
 ### P5: Security & Privacy by Design
-Biometric vectors are encrypted at rest (ADR-016), PII minimized in logs/traces per `00-governance/security-policy.md` and Law 1581 (ADR-017). Authentication issues **opaque session ids** (`user_session`) validated **at the edge** by Kong's global `pre-function` (introspection against identity) and checked again by every service's own guard (`AuthTokenFilter` in Java, `registerAuthGuard` in TS, `require_permission` in Python, `AuthMiddleware` in Go), which also applies RBAC (evaluation endpoint `GET /api/v1/auth/evaluate` in ms-authorization); Kong carries no `jwt` plugin. Target state (ADR-007): signed JWT RS256 at the edge — see `07-api/authentication.md`.
+Biometric vectors are encrypted at rest (ADR-016), PII minimized in logs/traces per `00-governance/security-policy.md` and Law 1581 (ADR-017). Authentication issues **opaque session ids** (`user_session`) validated **at the edge** by Kong's global `pre-function` (introspection against identity) and checked again by every service's own guard (`AuthTokenFilter` in Java, `registerAuthGuard` in TS, `require_permission` in Python), which also applies RBAC (evaluation endpoint `GET /api/v1/auth/evaluate` in ms-authorization); Kong carries no `jwt` plugin. Target state (ADR-007): signed JWT RS256 at the edge — see `07-api/authentication.md`.
 
 Network segmentation reinforces this in depth at the Docker level (root `docker-compose.yml`,
 which `include:`-merges `database/docker-compose.yml` and `back-end/docker-compose.yml` into one
@@ -201,9 +201,9 @@ Transversal concerns that apply to ALL services:
 | Authentication / Authorization | Opaque `sessionId` Bearer validated **at the edge** by Kong's global `pre-function` (identity introspection) and checked again by `AuthTokenFilter` (Java 01/02/04/05), which is also the only place where RBAC runs. Kong has no `jwt` plugin; TS/Python/Go services (03/06/07/08/09) do not validate anything themselves — direct port access bypasses the gateway (R-003) | `07-api/authentication.md`, `00-governance/security-policy.md` |
 | Logging | Structured JSON + Correlation ID | Shared logger in internal lib |
 | Tracing | OpenTelemetry → Jaeger | Middleware in each service |
-| Health Checks | `GET /actuator/health` (Java) · `GET /health` (TS/Python/Go) · gateway: `GET /health/quality` | compose healthchecks |
+| Health Checks | `GET /actuator/health` (Java) · `GET /health` (TS/Python) · gateway: `GET /health/quality` | compose healthchecks |
 | Error format | Standard ErrorResponse | `07-api/contracts/openapi/_shared.yaml` |
-| Rate Limiting | At the API Gateway (redis policy: global 300/min) | `kong.yml` |
+| Rate Limiting | At the API Gateway (redis policy: **6000/min** global and per-upstream; onboarding route 5/min · 20/hour per IP) | `kong.yml` |
 | CORS | At the API Gateway (origins `["*"]` — wildcard, credentials allowed) | `kong.yml` |
 | Circuit Breaker | Not implemented — see tech debt below | — |
 
@@ -215,8 +215,8 @@ Transversal concerns that apply to ALL services:
 |----|-------------|--------|---------|--------------|
 | AT-001 | Single PostgreSQL instance is SPOF for all schemas — no per-schema HA | Medium (single institution, but blocks HA) | P2 | Sprint 6 — evaluate per-schema backup + read replica |
 | AT-002 | No import-boundary lint rule: `domain/` of one module can still import another module's `domain/` | Medium — erodes future extractability | P1 | Sprint 3 — add eslint import-boundary + CI check |
-| AT-003 | Notification-service Go runtime adds 4th runtime for 2 tables — ops overhead | Low — isolated, low churn | P3 | Evaluate consolidating to TS/Fastify if Go learning cost > benefit |
-| AT-004 | **Corrected 2026-10-11:** all 9 services do run their own session+RBAC guard (`AuthTokenFilter` Java, `registerAuthGuard` TS, `require_permission` Python, `AuthMiddleware` Go) — the real debt is that it is 4 independent, hand-maintained implementations of the same contract, not a missing check | Medium — maintenance/drift risk (a fix to one does not propagate to the other three), not an open bypass; keep internal ports inside the Docker network as defense in depth regardless | P2 | Extract a shared validation library per stack (or a Kong/OPA authorizer) to remove the duplication |
+| AT-003 | ~~Notification-service Go runtime adds 4th runtime for 2 tables — ops overhead~~ **Resolved 2026-10-18:** `08-ms-notification` was rewritten in TypeScript + Fastify (ADR-021), so the platform is back to **3 runtimes**. The Go source was removed with the rewrite | Closed | — | Done — superseded by ADR-021 |
+| AT-004 | **Corrected 2026-10-11:** all 9 services do run their own session+RBAC guard (`AuthTokenFilter` Java, `registerAuthGuard` TS, `require_permission` Python) — the real debt is that it is 3 independent, hand-maintained implementations of the same contract, not a missing check | Medium — maintenance/drift risk (a fix to one does not propagate to the others), not an open bypass; keep internal ports inside the Docker network as defense in depth regardless | P2 | Extract a shared validation library per stack (or a Kong/OPA authorizer) to remove the duplication |
 | AT-005 | Password-recovery endpoints (`auth/forgot-password`, `verify-code`, `reset-password`) implemented in `01-ms-identity` (verified 2026-10-07); the end-to-end email delivery is not verified yet | Low — with `SMTP_HOST` empty the service answers `202 {status:"skipped"}` and the flow stalls | P3 | Verify the e2e flow (SMTP delivery) |
 | AT-006 | No circuit breaker, no transactional outbox, no Kafka DLQ (producers ignore publish errors) | Medium — silent event loss | P2 | With ADR-004/006 hardening |
 | AT-007 | Session check is HTTP introspection, not a signed token: Kong's `pre-function` and each `AuthTokenFilter` resolve the session through a **10 s cache**, so identity is called on a cache miss rather than literally every request, and Kong has no `jwt` plugin nor consumers | Medium — duplicated auth code plus one extra internal hop per cache miss; ADR-007 target not reached | P2 | Replace introspection with edge JWT (RS256) per ADR-007 |

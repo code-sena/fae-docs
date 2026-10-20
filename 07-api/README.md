@@ -19,19 +19,23 @@ can work in parallel (frontend, backend, other services) with an agreed contract
 
 | # | Service | Port | Stack | Contract | Auth at Kong |
 |---|---------|------|-------|----------|--------------|
-| 01 | Identity | 8081 | Java Spring | `contracts/openapi/01-identity-service.yaml` | edge session check (auth routes public; rate-limit 60/min) |
-| 02 | Authorization | 8082 | Java Spring | `contracts/openapi/02-authorization-service.yaml` | edge session check (rate-limit 100/min) |
-| 03 | Academic | 8083 | TS Fastify | `contracts/openapi/03-academic-service.yaml` | edge session check (no MS-side auth) |
-| 04 | Scheduling | 8084 | Java Spring | `contracts/openapi/04-scheduling-service.yaml` | edge session check + MS-side auth |
-| 05 | Attendance | 8085 | Java Spring | `contracts/openapi/05-attendance-service.yaml` | edge session check (rate-limit 200/min) |
-| 06 | Biometric | 8086 | Python FastAPI | `contracts/openapi/06-biometric-service.yaml` | edge session check (no MS-side auth) |
-| 07 | Configuration | 8087 | TS Fastify | `contracts/openapi/07-configuration-service.yaml` | edge session check (no MS-side auth) |
-| 08 | Notification | 8088 | Go Gin | `contracts/openapi/08-notification-service.yaml` | edge session check (no MS-side auth) |
-| 09 | Quality | 8089 | TS Fastify | `contracts/openapi/09-quality-service.yaml` | edge session check (rate-limit 100/min) |
-
-> Decisions 2026-10-03: Quality 09 is tooling owned by `11-quality`, not a DDD bounded context (00-06 stay at 8 contexts). Ports frozen from `FULL/back-end/docker-compose.yml` + `99-api-gateway/kong/kong.yml` + `COMPOSE.md`. Kong has **no `jwt` plugin and no consumers** (removed 2026-10-05), but it **does authenticate at the edge**: a global `pre-function` requires `Authorization: Bearer <sessionId>` on every non-public route and introspects identity (`authentication.md` §1, `endpoint-matrix.md` §10.1). Permissions (RBAC) stay per-MS in `AuthTokenFilter` (01/02/04/05); Kong also applies cors + rate-limiting.
-| 99 | Gateway | 8000/8001 | Kong + Redis | `contracts/openapi/api-gateway.yaml` | global `pre-function` session check + cors + rate-limit 300/min |
+| 01 | Identity | 8081 | Java Spring | `contracts/openapi/01-identity-service.yaml` | edge session check (auth + onboarding routes public; rate-limit 6000/min) |
+| 02 | Authorization | 8082 | Java Spring | `contracts/openapi/02-authorization-service.yaml` | edge session check (rate-limit 6000/min) |
+| 03 | Academic | 8083 | TS Fastify | `contracts/openapi/03-academic-service.yaml` | edge session check (global rate-limit only) |
+| 04 | Scheduling | 8084 | Java Spring | `contracts/openapi/04-scheduling-service.yaml` | edge session check (global rate-limit only) |
+| 05 | Attendance | 8085 | Java Spring | `contracts/openapi/05-attendance-service.yaml` | edge session check (rate-limit 6000/min) |
+| 06 | Biometric | 8086 | Python FastAPI | `contracts/openapi/06-biometric-service.yaml` | edge session check (global rate-limit only; WS may pass `?token=`) |
+| 07 | Configuration | 8087 | TS Fastify | `contracts/openapi/07-configuration-service.yaml` | edge session check (global rate-limit only) |
+| 08 | Notification | 8088 | TypeScript Fastify | `contracts/openapi/08-notification-service.yaml` | edge session check (global rate-limit only) |
+| 09 | Quality | 8089 | TS Fastify | `contracts/openapi/09-quality-service.yaml` | edge session check (rate-limit 6000/min) |
+| 99 | Gateway | 8000/8001 | Kong + Redis | `contracts/openapi/api-gateway.yaml` | global `pre-function` session check + cors + rate-limit 6000/min |
 | — | frontend-web (SPA) | 8090→80 | Expo + nginx | `docker-compose.yml` (root) | — (consumes Kong :8000) |
+
+> Decisions 2026-10-03: Quality 09 is tooling owned by `11-quality`, not a DDD bounded context (00-06 stay at 8 contexts). Ports frozen from `FULL/back-end/docker-compose.yml` + `99-api-gateway/kong/kong.yml` + `COMPOSE.md`. Kong has **no `jwt` plugin and no consumers** (removed 2026-10-05), but it **does authenticate at the edge**: a global `pre-function` requires `Authorization: Bearer <sessionId>` on every non-public route and introspects identity (`authentication.md` §1, `endpoint-matrix.md` §10.1).
+>
+> **Rate limits are uniform, not per-service tiers.** Kong applies a **global** `rate-limiting` plugin of **6000 req/min** (redis policy), and every upstream that carries its own `rate-limiting` plugin is set to the same **6000/min**. The one exception is the public onboarding route (`/api/v1/onboarding`), limited to **5/min and 20/hour per IP** because it needs no prior session. Upstreams without their own plugin (academic, scheduling, biometric, configuration, notification) inherit only the global 6000/min. The limits are annotated in `kong.yml` as a deliberately loose development ceiling, not a production capacity target.
+>
+> **Service-side auth is enforced everywhere.** Every one of the 9 services re-validates the session and, where the route needs one, the permission: `AuthTokenFilter` (01/02/04/05, Java), `registerAuthGuard` (03/07/08/09, TypeScript) and `require_permission` (06, Python). No service relies on the gateway alone.
 
 Shared: `contracts/openapi/_shared.yaml`. Template: `_template-service.yaml`. Lint: `redocly.yaml`.
 

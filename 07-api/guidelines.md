@@ -15,7 +15,7 @@
 | 05 | Attendance | `05-ms-attendance` | 8085 | Java 21 + Spring Boot 4.1 | `attendance` (Postgres) |
 | 06 | Biometric | `06-ms-biometric` | 8086 | Python 3.12 + FastAPI + Motor | MongoDB `facial_embedding`, `fingerprint_embedding` |
 | 07 | Configuration | `07-ms-configuration` | 8087 | TS Fastify + Zod | `configuration` (Postgres) |
-| 08 | Notification | `08-ms-notification` | 8088 | Go 1.22 + Gin + pgx | `notification` (Postgres) |
+| 08 | Notification | `08-ms-notification` | 8088 | TS Fastify + Zod + Drizzle | `notification` (Postgres) |
 | 09 | Quality | `09-ms-quality` | 8089 | TS Fastify + Zod | `quality` (Postgres, `Pool`; no in-memory fallback — a DB outage is a fatal boot error) |
 | 99 | Gateway | `99-api-gateway` | 8000 (proxy) / 8001 (admin) | Kong OSS 3.6 DB-less + Redis 7 | — |
 
@@ -82,7 +82,7 @@ Canonical (see `pagination.md`):
 | 200 | Success with body | Resource / list |
 | 201 | Created | Created resource (+ `Location` where Java/TS set it) |
 | 204 | Success without body | Empty |
-| 400 | Validation (`Zod`, `Bean Validation`, `Pydantic`, `Gin binding`) | `ErrorResponse` |
+| 400 | Validation (`Zod`, `Bean Validation`, `Pydantic`) | `ErrorResponse` |
 | 401 | Missing/invalid/expired session bearer (checked first by Kong's `pre-function`, then by `AuthTokenFilter` in the Java MSs) | `ErrorResponse` |
 | 403 | Authenticated but RBAC denies (`GET /auth/evaluate → allowed:false`, or required permission missing) | `ErrorResponse` |
 | 404 | Not found (`SchoolNotFound`, `no active facial template`, `no match found`) | `ErrorResponse` |
@@ -123,11 +123,12 @@ All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_b
   global `pre-function` rejects every non-public route without `Authorization: Bearer <sessionId>`
   (opaque UUID from `POST /api/v1/auth/login`) by introspecting identity — public at the edge are
   health probes, `OPTIONS`, `login`, `logout`, `refresh`, `forgot-password`, `verify-code`,
-  `reset-password` and `GET /api/v1/auth/me`. Behind that, every service repeats the check on its
+  `reset-password` and `POST /api/v1/onboarding/schools` (`GET /api/v1/auth/me` is **not** public:
+  it needs the bearer like any other route). Behind that, every service repeats the check on its
   own and adds RBAC (`GET /api/v1/auth/evaluate`) — Java (`01,02,04,05`) in `AuthTokenFilter`, TS
-  (`03,07,09`) in `registerAuthGuard`, Python (`06`) in `require_permission`, Go (`08`) in
-  `AuthMiddleware`; bootstrap routes (`me`, `GET /sessions/*`) and health/docs are public there
-  too. Four separate implementations of the same contract, not a gap (`risks.md` R-003,
+  (`03,07,08,09`) in `registerAuthGuard`, Python (`06`) in `require_permission`;
+  bootstrap routes and health/docs are public there
+  too. Three separate implementations of the same contract, not a gap (`risks.md` R-003,
   corrected 2026-10-11).
 - Local service-to-service calls use UUID cross-references, never cross-schema FKs.
 - CORS: global Kong plugin `origins ["*"]` (wildcard — any origin accepted, credentials allowed);

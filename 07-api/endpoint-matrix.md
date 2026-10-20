@@ -19,8 +19,8 @@
 > container still needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`. The bearer is an **opaque session id, not a
 > JWT**; `jwt` RS256 issued by identity stays a future evolution (ADR-007) and Kong carries no
 > `jwt` plugin nor consumers. Every service then re-authenticates and evaluates RBAC again on its
-> own: Java `AuthTokenFilter` (01/02/04/05), TS `registerAuthGuard` (03/07/09), Python
-> `require_permission` (06), Go `AuthMiddleware` (08) — same contract, duplicated per service, no
+> own: Java `AuthTokenFilter` (01/02/04/05), TS `registerAuthGuard` (03/07/08/09), Python
+> `require_permission` (06) — same contract, duplicated per service, no
 > shared module (the full per-route permission map is in §11). Full rules and public-route list in
 > `authentication.md`; details per contract in `contracts/openapi/`.
 
@@ -39,7 +39,9 @@
 | POST /api/v1/auth/login | ✅ | public | Login (`identifier` = email **or** username) → `{sessionId,userId,sessionStatus}` |
 | POST /api/v1/auth/refresh | ✅ | public | Rotate the opaque session → new `UserSessionDto`, old one closed (401 if expired or already rotated) |
 | POST /api/v1/auth/logout?sessionId | ✅ | public | Logout → 204 |
-| GET /api/v1/auth/me?username\|email | ✅ | public | Current user → `UserDto` (params optional) |
+| GET /api/v1/auth/me?username\|email | ✅ | session | Current user → `UserDto` (params optional). Requires the bearer at the edge — it is **not** in the gateway's public POST list |
+| PUT /api/v1/auth/me/profile | ✅ | session | Self-service profile. The caller comes from the session attribute `X-User-Id`, never from the body or the path; changing e-mail or blood type requires `currentPassword` |
+| POST /api/v1/onboarding/schools | ✅ | **public** (no prior session) | Public school sign-up: creates the school **and** its first administrator, both pending activation → 202 `{schoolId,userId,status:"PENDING_ACTIVATION"}`. Kong limits this upstream to 5/min · 20/hour per IP |
 | POST /api/v1/auth/forgot-password | ✅ | public | Issue + email a 6-digit code → 202 `{status:"accepted"}` (anti-enumeration) |
 | POST /api/v1/auth/verify-code | ✅ | public | Validate `{email,code}` (6 digits, 10 min, 5 attempts, 60 s resend cooldown) → 200 `{status:"verified"}` |
 | POST /api/v1/auth/change-password | ✅ | session | `{currentPassword,newPassword}` → 200 `{status:"updated"}`; closes the other sessions |
@@ -174,6 +176,14 @@
 | GET /api/v1/biometric/update-requests/{person_id} | ✅ | session | By person — only sees this collection, never the configuration-side cases |
 | PATCH /api/v1/biometric/update-request/{request_id}/review | ✅ | session | Review — no ordering guard, same as the configuration side |
 | DELETE /api/v1/biometric/update-request/{request_id} | ✅ | session | Delete → 204 (soft delete: is_active=false) |
+| GET /api/v1/biometric/facial/liveness-challenge?actions | ✅ | session, any role | Issues the liveness challenge consumed by `/liveness-step` (ported from `10-ms-face-auth`) |
+| POST /api/v1/biometric/facial/liveness-step | ✅ | session, any role | Validates one challenge action; replay-protected. Required before `/enroll-image` and `/identify-image` |
+| POST /api/v1/biometric/facial/enroll-image | ✅ | session, any role | Enrols from a raw image (dlib encoding) → 201; enforces RN-29 self-enrolment/re-enrolment |
+| POST /api/v1/biometric/facial/identify-image | ✅ | session, staff only | 1:N from a raw image |
+| POST /api/v1/biometric/fingerprint/enroll-sample | ✅ | session, any role | Enrols from a raw sample (OpenCV keypoints) → 201 |
+| POST /api/v1/biometric/fingerprint/identify-sample | ✅ | session, staff only | 1:N from a raw sample, optional finger filter |
+| GET /api/v1/biometric/{person_id}/summary | ✅ | session | Combined facial + fingerprint summary for one person (not nested under `/facial` or `/fingerprint`) |
+| WS /api/v1/biometric/ws | ✅ | session via `?token=` **or** `Authorization` header | Real-time capture channel. The only route where Kong's `pre-function` accepts the session in the query string (browser WS upgrade cannot send headers) |
 
 ## 7. Configuration 07 (`07-ms-configuration`, TS 8087 → `07-configuration-service.yaml`)
 
@@ -189,19 +199,24 @@
 | PATCH /api/v1/biometric-update-cases/{id}/review | ✅ | session | `In_Review\|Approved\|Rejected` + `reviewedAt` (`requestedBy` mandatory) |
 | GET /api/v1/persons/{personId}/biometric-cases | ✅ nested | session | By person |
 
-## 8. Notification 08 (`08-ms-notification`, Go 8088 → `08-notification-service.yaml`)
+## 8. Notification 08 (`08-ms-notification`, TypeScript Fastify 8088 → `08-notification-service.yaml`)
 
 | METHOD path | Kong | Auth | Description |
 |-------------|------|------|-------------|
-| POST /api/v1/alerts | ✅ | session | Create → 201 `{alert_id}` |
-| GET /api/v1/alerts?actorId&typeId&resolved\|status&limit&offset | ✅ | session | List `{alerts}` |
-| GET /api/v1/alerts/{id} | ✅ | session | Get |
-| PATCH /api/v1/alerts/{id}/resolve | ✅ | session | Resolve |
-| DELETE /api/v1/alerts/{id} | ✅ | session | Delete → 204 |
+| POST /api/v1/alerts | ✅ | session | Create → 201 `{alert_id}`. Fires the `WEBHOOK_URL` integration (HMAC-SHA256 when `WEBHOOK_SECRET` is set) only for `EMAIL`/`PUSH` alert types, fire-and-forget |
+| GET /api/v1/alerts?actorId&typeId&resolved\|status&limit&offset | ✅ | session | List `{alerts}` — filtered to the caller's actor scope (`?status=open\|pending` is an alias of `resolved=false`) |
+| GET /api/v1/alerts/{id} | ✅ | session | Get (403 outside the caller's actor scope) |
+| PATCH /api/v1/alerts/{id}/resolve | ✅ | session | Resolve (sets `resolvedAt`) |
+| DELETE /api/v1/alerts/{id} | ✅ | session | Delete → 204 (soft delete) |
 | POST /api/v1/alert-types | ✅ | session | Create → 201 (`severity` INFO/WARNING/CRITICAL, `channel` DASHBOARD/EMAIL/PUSH) |
 | GET /api/v1/alert-types?limit=50&offset=0 | ✅ | session | List `{alert_types}` |
 | GET/PUT/DELETE /api/v1/alert-types/{id} | ✅ | session | CRUD |
 | POST /api/v1/emails | ❌ no Kong route | internal only | Send a recovery email (`{to,template,data}`, template-only to avoid an open relay) → 202; optional `X-Internal-Token`; reachable only inside the compose network (called by 01-ms-identity) |
+| `/alerts`, `/alert-types` (no `/api/v1` prefix) | ✅ | session | Same handlers registered on the unprefixed paths — Kong does not route them, they exist for internal/direct calls on port 8088 |
+
+> **Async input:** the service also runs the platform's only Kafka consumer
+> (`attendance.justification.events`, group `notification-service`) — see
+> `09-microservices/event-catalog.md`. It is not an HTTP route, so it has no row above.
 
 ## 9. Quality 09 (`09-ms-quality`, TS 8089 → `09-quality-service.yaml`)
 
@@ -227,9 +242,10 @@
 ## 10. Gateway 99 (Kong 8000 → `api-gateway.yaml`)
 
 See table in `authentication.md §2` and `kong/kong.yml`. Global plugins: `pre-function` (edge
-authentication), `cors` (origins `["*"]`) and `rate-limiting 300/min`
-(redis policy), plus per-service redis limits (identity 60, authorization 100, attendance 200,
-quality 100 per minute). No `jwt` plugin and no consumers.
+authentication), `cors` (origins `["*"]`) and `rate-limiting 6000/min`
+(redis policy). Per-service redis limits are set to the **same 6000/min** (identity,
+authorization, attendance, quality), except the public onboarding route at **5/min and 20/hour
+per IP**. No `jwt` plugin and no consumers.
 
 ### 10.1 Edge authentication (global `pre-function`, Lua, `kong.yml`)
 
@@ -240,8 +256,8 @@ quality 100 per minute). No `jwt` plugin and no consumers.
 | 401 | No `Authorization` header, not `Bearer`, token not an 8-4-4-4-12 UUID, or session invalid/expired/closed → `{"status":401,"error":"Unauthorized","message":"Missing or invalid bearer token" \| "Invalid or expired session"}` |
 | 503 | Identity unreachable/timeout → `{"status":503,"error":"Service Unavailable","message":"Cannot verify session"}` |
 | Cache | Positive checks cached **10 s** (`kong.cache`, key `faceattend:session:<id>`); logout invalidates at the edge, each service guard keeps its own 10 s window |
-| Public routes | `OPTIONS` (any path, CORS), `/health*`, `/api/v1/health`, `/api/health`, `POST /api/v1/auth/{login,logout,refresh,forgot-password,verify-code,reset-password}`, `GET /api/v1/auth/me` |
-| Authorization | Not evaluated at the gateway — RBAC is re-evaluated inside each of the 9 services (Java `AuthTokenFilter` 01/02/04/05, TS `registerAuthGuard` 03/07/09, Python `require_permission` 06, Go `AuthMiddleware` 08) — per-route map in §11 |
+| Public routes | `OPTIONS` (any path, CORS), `/health*`, `/api/v1/health`, `/api/health`, `POST /api/v1/auth/{login,logout,refresh,forgot-password,verify-code,reset-password}`, `POST /api/v1/onboarding/schools` |
+| Authorization | Not evaluated at the gateway — RBAC is re-evaluated inside each of the 9 services (Java `AuthTokenFilter` 01/02/04/05, TS `registerAuthGuard` 03/07/08/09, Python `require_permission` 06) — per-route map in §11 |
 | Requirement | `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http` on the gateway container (`back-end/docker-compose.yml`) |
 
 `GET /health/quality` is the only health route at the gateway (proxied to

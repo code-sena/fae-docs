@@ -6,6 +6,17 @@
 - **Supersedes:** ADR-011 (CI/CD Platform — Jenkins)
 - **Authors:** FaceAttend EDU Team
 
+> **Implementation note (2026-10-20):** deploy automation now exists:
+> `.github/workflows/deploy-production.yml` orchestrates CI → database (Neon)
+> → backend (EC2) → frontend (Vercel) on push to `main`, each step gated by the
+> manual approval of the `production` GitHub environment, with reusable
+> `deploy-database/backend/frontend.yml` workflows. The "CD stays manual"
+> statements below reflect the 2026-10-17 reality. Workflow files verified on
+> `develop`; confirm they have landed on `main` before relying on the chain.
+> Also: Dependabot is **paused** (`open-pull-requests-limit: 0`, monthly,
+> no `gomod` entry since the Go service was removed) — it does not open the
+> weekly update PRs mentioned in the justification. See `10-devops/ci-cd.md`.
+
 ---
 
 ## Context
@@ -15,7 +26,7 @@ ADR-011 chose Jenkins, self-hosted, as the CI/CD platform. That decision was nev
 **Known constraints:**
 - The repository is hosted on GitHub; PRs and reviews already happen there.
 - Team of 3 with no dedicated DevOps role (carried over from ADR-011).
-- Four language runtimes must build in CI: Java 21, Node 20, Python 3.12 (with dlib compiled from source), Go 1.22.
+- Three language runtimes must build in CI: Java 21, Node 20, Python 3.12 (with dlib compiled from source). *(A fourth, Go 1.22, was listed here until 2026-10-18, when `08-ms-notification` moved to TypeScript — ADR-021. No Go job was ever present in `ci.yml`.)*
 - CD (deploy automation) is still out of scope: deploys to EC2 are manual `docker compose` over SSH (ADR-020).
 
 ---
@@ -33,11 +44,16 @@ ADR-011 chose Jenkins, self-hosted, as the CI/CD platform. That decision was nev
 
 **Current pipeline (what `ci.yml` actually does):**
 - `java-services` (01, 02, 04, 05): Temurin 21 + `mvn -B test`.
-- `node-services` (03, 07, 09): Node 20 + `npm ci` + `npm test` + `npm run build`.
+- `node-services` (03, 07, 08, 09): Node 20 + `npm ci` + `npm test` + `npm run build`.
 - `python-services` (06): Python 3.12 + Poetry 1.8.3 + `pytest` (build-essential/cmake/libopenblas for dlib).
-- `go-service` (08): Go 1.22 + `go test ./...`.
 - `mobile` / `web`: `npm ci` + `npm test` (+ `npx expo export --platform web` for web).
-- Security scans (`npm audit`, `bandit`, `govulncheck`) run as informative steps (`continue-on-error: true`) — gating on them is pending (see `11-quality/testing-strategy.md`).
+- Security scans (`npm audit`, `bandit`) run as informative steps (`continue-on-error: true`) — gating on them is pending (see `11-quality/testing-strategy.md`).
+
+> **Correction (2026-10-20):** an earlier version of this note listed a `go-service` job
+> (`go test ./...`) and a `govulncheck` scan for `08-ms-notification`. **Neither ever existed in
+> `ci.yml`** — the workflow has only the five jobs above. After the 2026-10-18 rewrite (ADR-021)
+> the notification service is covered by the `node-services` matrix instead. The workflow is
+> 157 lines.
 
 ---
 

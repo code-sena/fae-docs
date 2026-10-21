@@ -37,20 +37,19 @@ images carry everything else.
 |------|----------------|---------|--------------|-------------|
 | Java (JDK) | 21 | `01-ms-identity`, `02-ms-authorization`, `04-ms-scheduling`, `05-ms-attendance` (Spring Boot 4.1.1) | adoptium.net | `java -version` |
 | Maven wrapper | bundled (`./mvnw`) | same Java services | — (no global install needed) | `./mvnw -v` |
-| Node.js + npm | 20 LTS+ | `03-ms-academic`, `07-ms-configuration`, `09-ms-quality` (Fastify+TS), Web/Mobile frontends, `tools/seed-api-test-data` | nodejs.org | `node -v && npm -v` |
+| Node.js + npm | 20 LTS+ | `03-ms-academic`, `07-ms-configuration`, `08-ms-notification`, `09-ms-quality` (Fastify+TS), Web/Mobile frontends, `tools/seed-api-test-data` | nodejs.org | `node -v && npm -v` |
 | Python + Poetry | 3.12, Poetry 1.8+ | `06-ms-biometric` (FastAPI) | python.org / python-poetry.org | `python --version && poetry --version` |
-| Go | 1.22+ | `08-ms-notification` (Gin) | go.dev | `go version` |
+| ~~Go~~ | — | ~~`08-ms-notification` (Gin)~~ **Removed 2026-10-18:** the service was rewritten in TypeScript (ADR-021); no Go remains in the repo | — | — |
 | Expo CLI | via `npx expo` (no global install) | `front-end/Web`, `front-end/Mobile` | included with project deps | `npx expo --version` |
 
 **Stack tool reference (project docs):**
 - Java + Spring Boot → `back-end/0X-ms-*/STACK.md` (hexagonal layout per `_stacks/java-spring.md`)
-- Node.js + TypeScript → `back-end/03-ms-academic/STACK.md`, `07-ms-configuration/STACK.md`, `09-ms-quality/STACK.md`
+- Node.js + TypeScript → `back-end/03-ms-academic/STACK.md`, `07-ms-configuration/STACK.md`, `08-ms-notification/STACK.md`, `09-ms-quality/STACK.md`
 - Python + FastAPI → `back-end/06-ms-biometric/STACK.md`
-- Go → `back-end/08-ms-notification/STACK.md`
 - Full service map (stacks, ports, DBs) → `back-end/SERVICES.md`
 
 **Recommended (not required):**
-- Editor: IntelliJ IDEA (Java), VS Code (TS/Python/Go/frontends)
+- Editor: IntelliJ IDEA (Java), VS Code (TS/Python/frontends)
 - Insomnia/Postman or plain `curl` for manual endpoint testing
 - Mailpit (one `docker run`, see Step 7) if you work on the email channel
 
@@ -73,7 +72,7 @@ Verified against `docker-compose.yml` (root), `back-end/docker-compose.yml` and
 | 8085 | `ms-attendance` | Attendance records, justifications (Java) |
 | 8086 | `ms-biometric` | Facial/fingerprint embeddings (Python + MongoDB) |
 | 8087 | `ms-configuration` | Config params + biometric update cases (TS) |
-| 8088 | `ms-notification` | Alerts + SMTP email channel (Go) |
+| 8088 | `ms-notification` | Alerts + SMTP email channel + Kafka consumer (TS) |
 | 8089 | `ms-quality` | ISO 25010 instrument & evaluations (TS) |
 | 5432 | PostgreSQL 17 | Single instance, 8 schemas (`faceattend_db`) |
 | 27017 | MongoDB 7 | Biometric vector store |
@@ -169,9 +168,8 @@ Skip entirely if you only work through Docker. Otherwise, per service:
 | Stack | Services | Command (inside the service dir) |
 |-------|----------|----------------------------------|
 | Java + Maven wrapper | 01, 02, 04, 05 | `./mvnw install -DskipTests` |
-| Node.js + npm | 03, 07, 09 | `npm install` |
+| Node.js + npm | 03, 07, 08, 09 | `npm install` |
 | Python + Poetry | 06 | `poetry install` |
-| Go | 08 | `go mod download` |
 | Frontends | `front-end/Web`, `front-end/Mobile` | `npm install` |
 | Seed tool | `tools/seed-api-test-data` | none (zero dependencies, Node ≥ 20) |
 
@@ -214,9 +212,8 @@ service you're editing, and run it natively from its directory:
 | Service | Native dev command |
 |---------|--------------------|
 | Java (01, 02, 04, 05) | `./mvnw spring-boot:run` |
-| TS (03, 07, 09) | `npm run dev` (ts-node-dev --respawn) |
+| TS (03, 07, 08, 09) | `npm run dev` (ts-node-dev --respawn) |
 | Python (06) | `poetry run uvicorn main:app --reload --port 8086` |
-| Go (08) | `make dev` (= `go run ./cmd/server/...`) |
 
 Note: a natively-run service still answers on its usual port (8081–8089) and
 Kong routes to it via `host.docker.internal` where configured; if routing gets
@@ -237,7 +234,7 @@ docker compose ps
 # 2. Gateway routes respond (public smoke route via Kong -> ms-quality)
 curl -s http://localhost:8000/health/quality
 
-# 3. Direct service health (Java: actuator; TS/Python/Go: /health)
+# 3. Direct service health (Java: actuator; TS/Python: /health)
 curl -s http://localhost:8081/actuator/health   # {"status":"UP"}
 curl -s http://localhost:8083/health
 
@@ -376,9 +373,8 @@ cd database/0X-ms-*-db && docker compose up liquibase  # migrate one context
 
 # Tests (per service directory)
 ./mvnw test                              # Java: 01, 02, 04, 05
-npm test                                 # TS: 03, 07, 09 (jest; 03 has supertest/testcontainers)
+npm test                                 # TS: 03, 07, 08, 09 (jest; 03 has supertest/testcontainers)
 poetry run pytest                        # Python: 06
-make test                                # Go: 08   (make test-cover for coverage)
 cd tools/seed-api-test-data && npm run seed            # E2E smoke across all services
 
 # Database access
@@ -407,7 +403,7 @@ curl -s http://localhost:8001/services | head      # declarative: edit kong.yml,
 | Web dev server (Expo/Metro) | http://localhost:3000 | — |
 | Kong Admin API | http://localhost:8001 | DB-less; edit `kong.yml`, don't POST config |
 | Mailpit UI (if started) | http://localhost:8025 | none |
-| Per-service health | http://localhost:808X/actuator/health (Java) · http://localhost:808X/health (TS/Py/Go) | — |
+| Per-service health | http://localhost:808X/actuator/health (Java) · http://localhost:808X/health (TS/Py) | — |
 
 > Swagger/OpenAPI UI is **not exposed through Kong** today; each service's
 > contract is documented in its `SERVICE.md` (e.g. `back-end/01-ms-identity/SERVICE.md`).

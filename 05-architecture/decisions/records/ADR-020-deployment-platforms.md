@@ -5,6 +5,17 @@
 - **Status:** Accepted
 - **Authors:** FaceAttend EDU Team
 
+> **Implementation note (2026-10-20):** the "manual deploy" statements below
+> are now half-superseded: `.github/workflows/deploy-backend.yml` performs the
+> same SSH + `docker-compose.prod.yml` flow from GitHub Actions (running
+> `.github/scripts/deploy-backend-remote.sh` on the host, with health gate and
+> Kong check), and `deploy-production.yml` orchestrates database → backend →
+> frontend behind the `production` environment approval. The EC2/Neon/Vercel
+> platform choice itself is unchanged. The "HTTP only / TLS pending" trade-off
+> may also be outdated: a `Caddyfile.prod` exists in the repository — TLS
+> state on the EC2 host was not verifiable from the code and needs
+> confirmation. See `10-devops/ci-cd.md`.
+
 ---
 
 ## Context

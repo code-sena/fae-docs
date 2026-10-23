@@ -4,6 +4,12 @@
 - **Date:** 2026-09-03
 - **Status:** Accepted
 - **Implementation note (2026-10-05, verified against `FULL/`):** **partially implemented.** Domain events are published straight to Kafka (`KafkaTemplate` in Java, `kafkajs` in TS) but there is **no transactional outbox table, no DLQ and no compensation handlers** — publish failures are swallowed (`.catch(() => undefined)`). Recorded as tech debt `AT-006` in `05-architecture/overview.md` §8.
+- **Update (2026-10-23):** `08-ms-notification` consumes `attendance.justification.events` (group
+  `notification-service`, since the Go implementation, ported unchanged to kafkajs in the 2026-10-18
+  TypeScript rewrite, ADR-021) and, since 2026-10-22, `scheduling.class-session.closed` (group
+  `notification-service-class-session`). So the saga's **consumer side is live for two flows only**; the
+  outbox, DLQ and compensation
+  parts of this decision remain unimplemented.
 - **Authors:** [Diego Andrés Gutiérrez Nuñez, Juan David Arboleda Perdomo, Jonattan Steven Rizo Solano]
 
 ---

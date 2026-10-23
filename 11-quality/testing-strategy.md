@@ -214,6 +214,11 @@ export default function () {
 
 ## CI configuration per pipeline
 
+> **Note:** the pipeline below is the **target model**, not the current
+> `ci.yml`. Today's workflow has only per-stack test jobs (unit-level) with
+> informational audits — no lint, contract or performance jobs yet. Current
+> state: [`10-devops/ci-cd.md`](../10-devops/ci-cd.md).
+
 ```yaml
 # .github/workflows/ci.yml (simplified)
 jobs:

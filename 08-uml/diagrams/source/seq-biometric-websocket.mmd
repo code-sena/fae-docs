@@ -56,5 +56,5 @@ sequenceDiagram
     WS-->>C1: pong frame
     end
 
-    Note over C1,M: Verified 2026-10: this endpoint mirrors the full REST facial/fingerprint enroll-verify-identify surface over a stateful WebSocket, with idempotent replay and multi-client broadcast fan-out (a CHECK_IN/CHECK_OUT direction on every frame) — a real, fully built entry/exit feature for RF 3.1. No client in front-end/Mobile or front-end/Web ever opens this socket — it is reachable and correct, but entirely unused.
+    Note over C1,M: Verified 2026-10: this endpoint mirrors the full REST facial/fingerprint enroll-verify-identify surface over a stateful WebSocket, with idempotent replay and multi-client broadcast fan-out (a CHECK_IN/CHECK_OUT direction on every frame) — a real, fully built entry/exit feature for RF 3.1. It IS wired on the Web client: the attendance kiosk (`useAttendanceKioskViewModel` → `AttendanceKioskView`) opens it through `src/services/ws/biometricSocket.js`, passing the session as ?token= because a browser cannot send headers during the upgrade. Mobile does not use it.
     Note over MGR: Fan-out is scoped to this one process's in-memory connection set — with more than one ms-biometric replica, clients connected to different instances never see each other's events (a documented limitation in connection_manager.py, not a bug introduced here)

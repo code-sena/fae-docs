@@ -1,8 +1,9 @@
 # Data Model — Quality Service
 
 > ISO/IEC 25010, ISO/IEC 29110 and ISTQB assessment instruments persisted in their own
-> `quality` schema. Quality is **tooling, not a bounded context** — it is not part of the DBML
-> relational model.
+> `quality` schema. Quality is **tooling, not a bounded context** — it has no domain model of its
+> own, but its 7 tables **are declared in the DBML** (`QUALITY` section of
+> `FULL/database/faceattend_edu_mr_v4.dbml`) with the standard audit block and naming rules.
 
 ---
 

@@ -8,7 +8,8 @@
 ## DEC-001 The service is a REST CRUD + mail dispatcher, not a Kafka consumer
 
 **Date:** 2026-10-11
-**Status:** Active (verified 2026-10-17)
+**Status:** Superseded 2026-10-18 by DEC-004 / ADR-021 — the TypeScript rewrite added the
+platform's first Kafka consumer (`attendance.justification.events`). Kept for history.
 
 **Context:**
 `SERVICE.md` §5 documents Kafka consumption (`attendance-events`, `scheduling-events`, …) to raise
@@ -20,13 +21,19 @@ sent through the internal `POST /api/v1/emails`. The service deliberately has no
 so it starts, scales and fails independently of Kafka.
 
 **Alternatives considered:**
-- Subscribing to domain topics to derive alerts: rejected for now — no consumer exists anywhere in
+- Subscribing to domain topics to derive alerts: rejected for now — no consumer existed anywhere in
   the platform (AT-006), and alerting rules would need replay/backfill semantics first.
 
 **Consequences:**
 - ✅ No Kafka in the container: fewer moving parts, trivially horizontal-scalable
 - ⚠️ Alert *derivation* (e.g. "3 absences → ABSENTEEISM") lives in clients, not here —
   `SERVICE.md` must be read as target, not as built behavior
+
+> **What changed (2026-10-18):** the rejection above rested on "no consumer exists anywhere". The
+> justification-review consumer made that premise obsolete. The consumer is **opt-in** — it only
+> starts when `KAFKA_BROKERS` is set — so the "no broker dependency by default" property of this
+> decision still holds for environments that do not set it. Absenteeism/tardiness derivation is
+> still not implemented and remains out of scope.
 
 ---
 
@@ -40,7 +47,8 @@ Password-reset/verification mails must never break the issuing flow, and dev/CI 
 no SMTP server.
 
 **Decision:**
-`POST /api/v1/emails` uses stdlib `net/smtp`; if `SMTP_HOST` is empty it returns
+`POST /api/v1/emails` uses nodemailer (rewritten from the Go stdlib `net/smtp` in 2026-10-18); if
+`SMTP_HOST` is empty it returns
 `202 {"status":"skipped","reason":"smtp_not_configured"}` (fail-open at the transport level).
 Internal callers may be authenticated with `X-Internal-Token` (`EMAIL_INTERNAL_TOKEN`).
 
@@ -74,3 +82,39 @@ names/details through the API when rendering the dashboard.
 - ✅ Notification migrates independently of Academic
 - ⚠️ Deleting/anonymizing an actor can leave alerts whose subject no longer resolves — dashboards
   must tolerate dangling IDs
+
+---
+
+## DEC-004 Rewritten in TypeScript/Fastify, keeping the Go handler semantics
+
+**Date:** 2026-10-18
+**Status:** Active
+
+**Context:**
+The Go implementation made this the platform's only fourth runtime for two CRUD tables
+(`AT-003`), and 03/07/09 already proved the TS/Fastify hexagonal pattern in this codebase. The
+rewrite was also the opportunity to finally give the service its Kafka consumer.
+
+**Decision:**
+Rewrite the service in TypeScript + Fastify + Zod + Drizzle + pino, porting each Go handler
+one-for-one, and add the `attendance.justification.events` consumer with kafkajs
+(group `notification-service`, opt-in via `KAFKA_BROKERS`). Auth moves from the Go
+`AuthMiddleware` to the same `registerAuthGuard` used by 03/07/09. Rationale and the full
+options matrix are recorded in `05-architecture/decisions/records/ADR-021-notification-service-typescript.md`.
+
+**Alternatives considered:**
+- Keep Go: rejected — a fourth runtime for two tables, with no Go anywhere else in the platform
+  to share tooling, linting or on-call knowledge with.
+- Node/Express: rejected — the other TS services use Fastify, and matching it means one guard,
+  one error contract and one set of conventions instead of two.
+
+**Consequences:**
+- ✅ Back to **3 runtimes** platform-wide; `AT-003` closed
+- ✅ The auth guard, error envelope and audit-field handling are now the same code family as
+  03/07/09, so a fix propagates across four services instead of one
+- ✅ First real end-to-end event flows: justification reviewed → dashboard alert; class closed → absences + instructor e-mail (added later)
+- ⚠️ The consumer has no DLQ — a poison message blocks its partition until it is skipped or the
+  offset is intervened on manually
+- ⚠️ kafkajs has no manual commit primitive; the Go reader's per-message retry loop had to be
+  ported *inside* `eachMessage` to keep the same "block the partition rather than drop the
+  event" behaviour

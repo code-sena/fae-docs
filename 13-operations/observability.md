@@ -7,7 +7,7 @@
 > — the metrics/tracing/alerting described below is the **target** model (ADR-012, still
 > Proposed). Do not assume `/metrics` endpoints or PagerDuty routing exist.
 
-> An unobservable system cannot be operated. Observability in FaceAttend-Edu is designed to support a polyglot architecture (Java, TS, Python, Go) ensuring that regardless of the runtime, the operational visibility remains consistent.
+> An unobservable system cannot be operated. Observability in FaceAttend-Edu is designed to support a polyglot architecture (Java, TS, Python) ensuring that regardless of the runtime, the operational visibility remains consistent.
 
 ---
 
@@ -20,7 +20,6 @@ Given the polyglot nature of the project, we implement a standardized observabil
 | **Java (Spring Boot)** | Logback / SLF4J | Micrometer / Prometheus | OpenTelemetry Java Agent |
 | **TypeScript (Fastify)**| Pino / Winston | prom-client | OpenTelemetry Node SDK |
 | **Python (FastAPI)** | structlog / Logging | prometheus_client | OpenTelemetry Python SDK |
-| **Go (Gin)** | Zap / Logrus | prometheus/client_golang | OpenTelemetry Go SDK |
 | **Gateway (Kong)** | Kong Log Plugins | Kong Prometheus Plugin | OpenTelemetry (Native) |
 
 ---
@@ -95,7 +94,7 @@ Since a single user action (e.g., marking attendance) involves **Kong $\rightarr
 
 ### Trace Propagation Flow
 1. **Kong Gateway:** Generates the initial `trace-id` and injects it into headers.
-2. **Application Layer:** Each service (Java/TS/Python/Go) extracts the ID and creates a child span.
+2. **Application Layer:** Each service (Java/TS/Python) extracts the ID and creates a child span.
 3. **Data Layer:** Automatic instrumentation for PostgreSQL (via Hibernate/Drizzle/FastAPI) and MongoDB.
 
 ---

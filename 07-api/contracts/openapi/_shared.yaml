@@ -6,8 +6,8 @@ info:
     Schemas y componentes compartidos entre todos los contratos API del proyecto.
     Referencia estos componentes en tus contratos con: $ref: './_shared.yaml#/components/...'
 
-    Cubren la realidad de los 4 stacks: Java Spring (01,02,04,05), TS Fastify (03,07,09),
-    Python FastAPI (06) y Go Gin (08), más Kong Gateway (99).
+    Cubren la realidad de los 3 stacks: Java Spring (01,02,04,05), TS Fastify (03,07,08,09)
+    y Python FastAPI (06), más Kong Gateway (99).
 
 components:
   schemas:
@@ -334,5 +334,5 @@ components:
         Incluir en el header: Authorization: Bearer <sessionId>.
         Kong valida el token en el edge con un pre-function (introspección de la sesión contra
         identity; sin plugin jwt ni consumers): cada microservicio lo vuelve a validar por su
-        cuenta — los Java (01/02/04/05) con AuthTokenFilter, los TS (03/07/09) con
-        registerAuthGuard, el Python (06) con require_permission, el Go (08) con AuthMiddleware.
+        cuenta — los Java (01/02/04/05) con AuthTokenFilter, los TS (03/07/08/09) con
+        registerAuthGuard y el Python (06) con require_permission.

@@ -4,6 +4,14 @@
 - **Date:** 2026-09-12
 - **Status:** Proposed
 - **Implementation note (2026-10-05, verified against `FULL/`):** Kafka is **live**, not just "ready" — a KRaft broker runs in compose (`:9092`) and producers are wired in the Java (`spring-boot-starter-kafka` / `KafkaTemplate`) and TS (`kafkajs`) services. What is still missing: consumers with retry/DLQ topics (none exist) and a documented topic inventory in the deployment.
+- **Update (2026-10-23):** the platform has **one consuming service, two consumers** — `08-ms-notification`
+  reads `attendance.justification.events` (group `notification-service`, raises the
+  dashboard alert to the apprentice when a justification is approved or rejected) and `scheduling.class-session.closed` (group
+  `notification-service-class-session`, records class absences and e-mails the instructor).
+  This is **not new** for the justification flow: the Go implementation already had
+  it and it was ported unchanged to kafkajs in the TypeScript rewrite (ADR-021). It has
+  in-place retry with backoff but **still no DLQ and no outbox**, and every other topic remains
+  published-and-unread. AT-006 stands for everything except those two flows.
 - **Authors:** FaceAttend EDU Team
 
 ---

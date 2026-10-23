@@ -6,7 +6,7 @@
 
 | Param | Type | Default | Max | Used by |
 |-------|------|---------|-----|---------|
-| `limit` | int 1..100 | 20 | 100 | TS `03/07/09`, Go `08`, new Java lists |
+| `limit` | int 1..100 | 20 | 100 | TS `03/07/09`, new Java lists (`08` uses its own defaults, see below) |
 | `offset` | int ≥0 | 0 | — | same as above |
 | `page` | int ≥1 | 1 | — | **canonical for identity `01`** (`GET /users|/persons|/sessions?page&limit` → `meta{page,limit,total,totalPages}`); not understood by the other services |
 
@@ -32,8 +32,8 @@ Reusable in `_shared.yaml`: `LimitParam`, `OffsetParam`, `PageParam`.
 - `03/07` return bare sliced array; `09` returns envelope `{data,total,limit,offset}` (`09/routes.ts:75-84`).
 - Filters are exact-match: `?name=` (configurations), `?status=` / `?updateStatus=` / `?enrollmentStatus=` (cases/enrollments), `?schoolId/?programId/?cohortId/?actorId` (academic), `?service&?status&?projectId&?processId` (quality).
 
-### Go (`08-notification`)
-- `GET /api/v1/alert-types?limit=50&offset=0`; `GET /api/v1/alerts?actorId&typeId&resolved|status&limit&offset`.
+### TypeScript (`08-notification`)
+- `GET /api/v1/alert-types?limit=50&offset=0`; `GET /api/v1/alerts?actorId&typeId&resolved|status&limit&offset`. Unlike the other TS services, `08` defaults to `limit=50` for both lists, has no 100 cap, accepts `0`, and falls back to 50 on invalid values (`getLimitOffset` in `routes.ts`).
 - `status=open|pending|resolved` maps to `resolved` bool; response envelopes `{alerts:[]}` / `{alert_types:[]}` (not `data/meta`).
 
 ### Python (`06-biometric`)
@@ -47,7 +47,7 @@ Reusable in `_shared.yaml`: `LimitParam`, `OffsetParam`, `PageParam`.
 ## 4. Frontend guidance
 
 - Web: `api/apiClient.js` reads the page envelope (`isPageEnvelope`/`unwrapPage`) and exposes
-  `fetchAllPages(path, query)`; identity calls pass `page/limit`, TS/Go calls `limit/offset`.
+  `fetchAllPages(path, query)`; identity calls pass `page/limit`, TS calls `limit/offset`.
 - Mobile: identity lists use `{page:1,limit:…}`; two viewmodels still send JSON-Server
   `?_limit=100|500` (`useManageEnvironmentViewModel`, `useAttendanceReportViewModel`) — migrate
   them to `?limit=&offset=`; keep `_sort/_order` client-side until backend supports it.
@@ -67,7 +67,7 @@ GET http://localhost:8000/api/v1/schools?limit=20&offset=40
 # Java filtered
 GET http://localhost:8000/api/v1/attendance-records?classSessionId=12&attendanceStatus=Absent
 
-# Go filtered + paginated
+# TS (08) filtered + paginated
 GET http://localhost:8000/api/v1/alerts?actorId=77&status=open&limit=20&offset=0
 # → 200 {"alerts":[...]}
 ```

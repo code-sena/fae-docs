@@ -111,7 +111,7 @@ of `POST /api/v1/biometric/facial/enroll|verify`).
   maps to `admin|teacher|student`.
 - Errors: `ApiError(status,message,data)`; login maps `0/408` to connection errors; viewmodels
   use `useCustomAlert`.
-- Pagination: identity lists use **`?page&limit` → `{data,meta}`**; TS/Go use
+- Pagination: identity lists use **`?page&limit` → `{data,meta}`**; TS services use
   `?limit&offset` + `x-total-count`. A few Mobile calls still pass JSON-Server leftovers
   (`_limit:500` in `useAttendanceReportViewModel`, `_limit:100` in `useManageEnvironmentViewModel`)
   — harmless today (ignored by the backends) but MUST be migrated.

@@ -29,7 +29,7 @@ We classify incidents based on the impact on the academic process (attendance re
 | Role | Responsibility | When activated |
 |------|----------------|----------------|
 | **Incident Commander (IC)** | Coordinates response, manages the "War Room", and makes final decisions on mitigation. | P0 and P1 always |
-| **Tech Lead** | Leads the technical diagnosis across the polyglot stack (Java, TS, Python, Go). | P0 and P1 always |
+| **Tech Lead** | Leads the technical diagnosis across the polyglot stack (Java, TS, Python). | P0 and P1 always |
 | **On-Call Engineer** | First responder. Executes technical actions (restarts, rollbacks, config changes). | All incidents |
 | **Comms Lead** | Communicates updates to institution administrators and users. | P0 and P1 |
 
@@ -71,7 +71,7 @@ Initial update template for stakeholders:
 ### Step 4: DIAGNOSE (10-30 min)
 **Diagnostic path for FaceAttend-Edu:**
 1. **Kong Gateway:** Check `kong.yml` and logs. Is the request reaching the microservice?
-2. **Microservice Logs:** Check the specific runtime log (Spring Boot, Fastify, FastAPI, or Gin).
+2. **Microservice Logs:** Check the specific runtime log (Spring Boot, Fastify or FastAPI).
 3. **Network Connectivity:** Verify if the service can reach the data tier (`faceattend-data` network).
 4. **Biometric Hardware:** If the issue is only with fingerprints, check if the *DigitalPersona Runtime* is installed on the client machines (see `COMPOSE.md` §9).
 5. **Database State:** Check for locked rows in PostgreSQL or high CPU in MongoDB.

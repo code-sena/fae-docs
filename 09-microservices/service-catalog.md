@@ -85,8 +85,8 @@
 - Login returns an **opaque `sessionId`** (row in `identity.user_session`); it is sent back as
   `Authorization: Bearer <sessionId>` and checked **at the edge** by Kong's global `pre-function`
   (introspection against identity) and then by every service's own guard, which also applies RBAC
-  — `AuthTokenFilter` in Java (01/02/04/05), `registerAuthGuard` in TS (03/07/09),
-  `require_permission` in Python (06), `AuthMiddleware` in Go (08). There are **no JWT
+  — `AuthTokenFilter` in Java (01/02/04/05), `registerAuthGuard` in TS (03/07/08/09),
+  `require_permission` in Python (06). There are **no JWT
   access/refresh tokens and no Redis session store** — Kong carries no `jwt` plugin. See
   `07-api/authentication.md`.
 
@@ -273,7 +273,8 @@ vector search requirements of biometric embedding data.
 | **Port** | 8088 |
 | **DB** | PostgreSQL, schema `notification` |
 | **Bounded context** | Notification |
-| **Technology** | Go 1.22 + Gin + pgx + zap |
+| **Technology** | TypeScript + Fastify + Zod + Drizzle + pino (rewritten from Go/Gin 2026-10-18, ADR-021) |
+| **Also consumes** | Kafka topics `attendance.justification.events` (group `notification-service`) and `scheduling.class-session.closed` (group `notification-service-class-session`) — the platform's only consumers |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -297,7 +298,7 @@ vector search requirements of biometric embedding data.
 | **DB** | PostgreSQL, schema `quality` |
 | **Bounded context** | None — excluded from the 8 product contexts |
 | **Technology** | TypeScript + Fastify + Zod |
-| **Externally exposed** | Yes, via API Gateway (`/api/v1/quality`, rate limit 100/min) |
+| **Externally exposed** | Yes, via API Gateway (`/api/v1/quality`, rate limit 6000/min) |
 
 **Owned entities:**
 - `Quality_Project`, `Quality_Evaluation`, `Quality_Evaluation_Item`
@@ -325,7 +326,7 @@ vector search requirements of biometric embedding data.
   active session on every non-public route — no `jwt` plugin and no consumers, the token is an
   opaque `sessionId` introspected against identity. Every service checks it again and adds RBAC
   on its own — not just the Java ones: `AuthTokenFilter` (01/02/04/05), `registerAuthGuard`
-  (03/07/09), `require_permission` (06), `AuthMiddleware` (08), four duplicated implementations
+  (03/07/08/09), `require_permission` (06), three duplicated implementations
   (`R-003`, corrected 2026-10-11); see `07-api/authentication.md`.
 - The only health route routed at the edge is `GET /health/quality` → `ms-academic:8083`.
 - Routes match by path prefix (`/api/v1/persons`, `/api/v1/users`, `/api/v1/auth`, …); there is

@@ -8,8 +8,11 @@
 > local stack via Docker Compose and a **production deployment on AWS EC2**
 > (t3.xlarge, us-east-1, 13 containers, Neon PostgreSQL — deployed 2026-10-16,
 > see `FULL/DESPLIEGUE.md` and ADR-020). The **web SPA publishes on Vercel**.
-> **CI runs on GitHub Actions** (`.github/workflows/ci.yml` — tests only, no CD);
-> deploy to production is still **manual over SSH**. dev/staging environments are
+> **CI/CD runs on GitHub Actions** (`.github/workflows/`): `ci.yml` tests every
+> push/PR to `main`, and `deploy-production.yml` deploys on every push to `main`
+> through the chain database (Neon) → backend (EC2) → frontend (Vercel), gated
+> by the manual approval of the `production` GitHub environment (details in
+> [`ci-cd.md`](./ci-cd.md)). dev/staging environments are
 > planned but not operational. This document describes what exists today and the
 > target model for the remaining environments.
 
@@ -22,7 +25,7 @@
 | **local** | Development on the dev's machine (full Docker Compose stack: Postgres 17 + 8 Liquibase migrations, MongoDB 7, Redis 7, Kafka 3.8 KRaft, 9 microservices, Kong gateway, web frontend) | Manual (`docker compose up -d --build`) | Individual dev | Synthetic / seed (`tools/seed-api-test-data`, `database/database-init`) |
 | **dev** | Continuous integration, shared team validation | Automatic (each PR merge) — **CI only, deploy planned** | Entire team | Synthetic |
 | **staging** | Pre-production, QA, demos (IEEE 829 regression runs, PO demos) | Automatic (each merge to `main`) — **planned** | Team + PO | Anonymized from prod (once prod exists); for now synthetic |
-| **production** | Real users (institutions: attendance via biometric recognition) | **Manual over SSH** (`docker compose up -d --build` on the EC2 host) | Tech Lead + DevOps only | Real (Neon PostgreSQL) |
+| **production** | Real users (institutions: attendance via biometric recognition) | `deploy-production.yml` on push to `main` (database → backend → frontend), each step gated by manual approval of the `production` environment | Tech Lead + DevOps only | Real (Neon PostgreSQL) |
 
 ### What exists today vs. what is planned
 
@@ -76,7 +79,7 @@ Infrastructure/host:  BIND_IP, FRONTEND_PORT, EXPO_PUBLIC_API_URL, SEED_*, BOOTS
 |----------|------------------------|-----|---------|------------|
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `postgres` / `postgres` / `faceattend_db` | Vault | Vault | Vault |
 | `MONGO_USER` / `MONGO_PASSWORD` / `MONGO_DB` | `mongoadmin` / `mongopass` / `faceattend_biometric` | Vault | Vault | Vault |
-| `DATABASE_URL` (TS/Go services: academic, configuration, notification, quality) | interpolated from `POSTGRES_*` → `postgres://…@postgres:5432/faceattend_db` | Vault | Vault | Vault |
+| `DATABASE_URL` (TS services: academic, configuration, notification, quality) | interpolated from `POSTGRES_*` → `postgres://…@postgres:5432/faceattend_db` | Vault | Vault | Vault |
 | `SPRING_DATASOURCE_URL/_USERNAME/_PASSWORD` (Java: identity, authorization, scheduling, attendance) | interpolated from `POSTGRES_*` (JDBC, one schema each via `SPRING_DATASOURCE_HIKARI_SCHEMA`) | Vault | Vault | Vault |
 | `MONGODB_URL` / `SPRING_DATA_MONGODB_URI` (biometric, attendance) | interpolated from `MONGO_*` | Vault | Vault | Vault |
 | `KAFKA_BROKERS` / `SPRING_KAFKA_BOOTSTRAP_SERVERS` | `kafka:29092` (container network) | Vault | Vault | Vault |
@@ -85,6 +88,7 @@ Infrastructure/host:  BIND_IP, FRONTEND_PORT, EXPO_PUBLIC_API_URL, SEED_*, BOOTS
 | `FACEATTEND_LIQUIBASE_IMAGE` | `liquibase/liquibase:4.29.0` | pinned tag | pinned tag | pinned tag |
 | `BIND_IP` | `127.0.0.1` (loopback; `0.0.0.0` only to debug from LAN/phone) | n/a (internal) | n/a | n/a |
 | `KONG_PROXY_PORT` / `KONG_ADMIN_PORT` | `8000` / `8001` (admin always loopback-bound) | `80/443` behind TLS | `80/443` behind TLS | `80/443` behind TLS, **admin API never exposed** |
+| `API_DOMAIN` (ADR-022) | not used (optional `DOMAIN` for the `docker-compose.tls.yml` overlay; defaults to `localhost` with Caddy's local CA) | required by `docker-compose.prod.yml`: DNS name pointing at the host, used by `Caddyfile.prod` for the Let's Encrypt certificate | same | same |
 | `FRONTEND_PORT` | `8090` | 80/443 | 80/443 | 80/443 |
 | `EXPO_PUBLIC_API_URL` (baked at frontend build time) | `http://localhost:8000` (physical devices: PC LAN IP, e.g. `http://192.168.1.10:8000`) | `https://dev.[domain]` | `https://staging.[domain]` | `https://[domain]` |
 | `SEED_USERNAME` / `SEED_PASSWORD`, `BOOTSTRAP_USERNAME` / `BOOTSTRAP_PASSWORD` | dev-only test accounts (`SeedAdmin123!`, `Admin123!ChangeMe`) | synthetic seed | **not present** | **never** |
@@ -109,89 +113,66 @@ Infrastructure/host:  BIND_IP, FRONTEND_PORT, EXPO_PUBLIC_API_URL, SEED_*, BOOTS
 
 ## CI/CD Pipeline
 
-> **Current state:** **CI runs on GitHub Actions** (`.github/workflows/ci.yml`,
-> 171 lines, plus `.github/dependabot.yml` for eight ecosystems). It tests every
-> push/PR to `main` with per-stack matrices (Java `mvn test`, Node `npm test` +
-> build, Python `pytest`, Go `go test`, both frontends incl. `expo export`).
-> **Deploy is still manual** — production is deployed over SSH with
-> `docker compose up -d --build` on the AWS EC2 host. The pipelines below are the
-> **target** model for deploy automation (ADR-018/ADR-020).
+> **Current state (verified in `.github/workflows/`):** **CI** (`ci.yml`, 157
+> lines) tests every push/PR to `main` with per-stack matrices (Java
+> `mvn test`, Node `npm test` + build for 03/07/08/09 and both frontends incl.
+> `expo export`, Python `pytest`). **Deploy exists**: `deploy-production.yml`
+> runs on every push to `main` (or manual dispatch of `database`/`backend`/
+> `frontend`) through the chain **CI → database (Neon, Liquibase) → backend
+> (EC2, SSH) → frontend (Vercel)**, with each step gated by the manual
+> approval of the `production` GitHub environment. Dependabot is configured
+> but paused (`open-pull-requests-limit: 0`). Details in [`ci-cd.md`](./ci-cd.md).
 
 ```
 Developer
   │
-  │ git push feature/HU-XXX
+  │ git push → PR against `main`
   │
   ▼
 ┌─────────────────────────────────────────────────────────┐
-│  PR PIPELINE (runs on every push to a branch)           │
+│  CI (ci.yml — every push/PR to main)                    │
 │  ─────────────────────────────────────────────          │
-│  1. Lint + Format check      (< 2 min)                  │
-│     - Web/Mobile: eslint (front-end/Web/eslint.config.js)│
-│     - TS services: tsc --noEmit                         │
-│     - Java: mvn compile; Python: ruff; Go: go vet       │
+│  1. Build deps + install   (< 2 min)                    │
+│     - npm ci (Node services, Web, Mobile)               │
+│     - mvn compile (Java) · poetry install (Python)      │
 │  2. Unit Tests               (< 5 min)                  │
-│     - mvn test (01,02,04,05) · npm test (03,07,09)      │
-│     - pytest (06) · go test (08)                        │
-│  3. Build                    (< 3 min)                  │
-│     - docker compose config (validate model)            │
-│     - per-service Dockerfile builds                     │
+│     - mvn test (01,02,04,05) · npm test (03,07,08,09)   │
+│     - pytest (06) · npm test (Web, Mobile)              │
+│  3. Build + audit            (< 3 min)                  │
+│     - npm run build (Node services)                     │
+│     - expo export --platform web (Web)                  │
+│     - npm audit / bandit (informational, non-blocking)  │
 │  ─────────────────────────────────────────────          │
-│  If it fails: blocks the PR merge                       │
+│  Note: there is no separate lint/format gate in CI today │
+│  (eslint / tsc --noEmit / ruff run locally, not in the  │
+│  workflow) — adding one is open tech debt.               │
+│  If a job fails: blocks the PR merge                    │
 └─────────────────────────────────────────────────────────┘
   │
-  │ PR approved and merged to `develop`
+  │ PR approved and merged to `main`
   │
   ▼
 ┌─────────────────────────────────────────────────────────┐
-│  DEVELOP PIPELINE (deploy to dev)                       │
+│  DEPLOY PRODUCTION (deploy-production.yml — push main)  │
 │  ─────────────────────────────────────────────          │
-│  1. Lint + Build + Unit Tests   (< 10 min)              │
-│  2. Integration Tests           (< 15 min)              │
-│     - compose up postgres+liquibase chain, then ms-*    │
-│     - tools/seed-api-test-data as end-to-end smoke      │
-│       (exit 0 = all requests OK or documented bugs)     │
-│  3. Build Docker images         (< 5 min)               │
-│     - faceattend/ms-*:latest (+ frontend-web)           │
-│  4. Deploy to dev               (< 5 min)               │
-│     - docker compose up -d (or K8s when available)      │
-│  5. Smoke tests in dev          (< 3 min)               │
-│     - GET :8000/* via Kong; docker compose ps healthy   │
+│  0. Re-runs CI (deploy only proceeds if green)          │
+│  1. Database (Neon)            [approval gate]          │
+│     - Liquibase via docker-compose.neon.yml (update)    │
+│  2. Backend (EC2)              [approval gate]          │
+│     - SSH + deploy-backend-remote.sh                    │
+│     - docker compose -f docker-compose.prod.yml --build │
+│     - health wait (≤10 min) + Kong check :8000          │
+│  3. Frontend (Vercel)          [approval gate]          │
+│     - remote build with Vercel env vars                 │
+│  Failure at any step stops the chain.                   │
+│  Rollback: manual (redeploy previous SHA on EC2).       │
 └─────────────────────────────────────────────────────────┘
-  │
-  │ Release: merge develop → main
-  │
-  ▼
-┌─────────────────────────────────────────────────────────┐
-│  MAIN PIPELINE (deploy to staging)                      │
-│  ─────────────────────────────────────────────          │
-│  1. All tests                   (< 20 min)              │
-│  2. Contract Tests              (< 5 min)               │
-│     - inter-service calls: identity↔authorization       │
-│       (session evaluate), identity→notification (email  │
-│       X-Internal-Token), Kafka domain events            │
-│  3. Build + push images with tag (< 5 min)              │
-│     - faceattend/ms-*:v[X.Y.Z] (currently only :latest) │
-│  4. Deploy to staging           (< 5 min)               │
-│  5. Smoke tests in staging      (< 5 min)               │
-│  6. Performance tests (k6)      (< 15 min)              │
-│     - targets: biometric 1:1/match (06), attendance     │
-│       marking (05), Kong rate-limit behavior            │
-│  7. Notify PO (ready for QA)                            │
-└─────────────────────────────────────────────────────────┘
-  │
-  │ Manual approval by Tech Lead
-  │
-  ▼
-┌─────────────────────────────────────────────────────────┐
-│  DEPLOY TO PRODUCTION                                   │
-│  ─────────────────────────────────────────────          │
-│  1. Canary deploy (10% of traffic)                      │
-│  2. Monitor metrics for 15 min                          │
-│  3. If OK: 100% of traffic                              │
-│  4. If KO: automatic rollback                           │
-└─────────────────────────────────────────────────────────┘
-```
+
+Target (not operational yet): dev/staging environments — automated deploy on
+merge with the seed smoke test (`tools/seed-api-test-data`), contract and k6
+performance suites, and a canary split of production traffic once an
+orchestrator supports it. Canary/Blue-Green remain targets: with a single
+Compose stack there is no traffic splitting.
 
 ---
 

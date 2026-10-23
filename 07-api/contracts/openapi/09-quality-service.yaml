@@ -13,12 +13,12 @@ info:
     - 25010 exige los 24 scores 1-5 y rechaza desconocidos; pesos Func 20%, Desempeño/Reliab/Seg 15% c/u, Compat/Usab/Mant 10% c/u, Port 5%
     - 29110 `ratings N/P/L/F`, readiness `PM&SI>50%`, 11 work products; assessments exigen proyecto existente y cobertura total
     - ISTQB 30×1-5; pesos fund/ciclo/estát/herr 15% c/u, técn/gest 20% c/u
-    - Gateway `rate-limiting 100/min` (sin plugin jwt) además del `pre-function` global de sesión (`kong.yml:124-140`); el propio MS también revalida la sesión y evalúa permisos en `src/infrastructure/http/authGuard.ts` (`registerAuthGuard`, corregido 2026-10-11).
+    - Gateway `rate-limiting 6000/min` (sin plugin jwt) además del `pre-function` global de sesión (`kong.yml`); el propio MS también revalida la sesión y evalúa permisos en `src/infrastructure/http/authGuard.ts` (`registerAuthGuard`, corregido 2026-10-11).
 
 servers:
   - url: http://localhost:8089
     description: Direct (dev)
-  - url: http://localhost:8080
+  - url: http://localhost:8000
     description: Via Kong gateway (dev, preferred)
   - url: https://api.dev.{domain}
     description: Development

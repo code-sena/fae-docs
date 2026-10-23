@@ -4,6 +4,11 @@
 - **Date:** 2026-09-12
 - **Status:** Proposed
 - **Implementation note (2026-10-05, verified against `FULL/`):** the per-service stack matches the implementation — Java 21 + **Spring Boot 4.1** (01/02/04/05), TypeScript + Fastify + Zod (03/07/**09**), Python 3.12 + FastAPI (06), Go 1.22 + Gin (08), Kong OSS 3.6, PostgreSQL 17, MongoDB 7, Redis 7, Kafka (KRaft). Two deltas: a ninth service **`ms-quality` :8089** (TS, ISO 25010 tooling, not a bounded context) exists, and the modules are separate containers rather than one process (see ADR-002 note). Where the tables below still read `Spring Boot 3` or port `8090` for notifications, read **Spring Boot 4.1** and **8088** (`ms-notification`); the deployed port block is `8081`-`8089`.
+- **Superseded in part (2026-10-18):** `08-ms-notification` was **rewritten in TypeScript +
+  Fastify + Zod + Drizzle + pino**, so the platform runs **3 runtimes**, not 4 — Go is gone from
+  the codebase. The tables and scoring matrices below keep their original Go rows as the historical
+  record of the 2026-09-12 decision; the current state is ADR-021. This also closed the tech debt
+  `AT-003` ("4th runtime for 2 tables").
 - **Authors:** FaceAttend EDU Team
 
 ---

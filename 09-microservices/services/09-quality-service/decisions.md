@@ -53,7 +53,7 @@ whitelisted with an identifier regex before interpolation.
 **Consequences:**
 - ✅ Tooling can evolve without touching the domain model or the DBML authority
 - ⚠️ The `quality` tables are invisible in `database/faceattend_edu_mr_v4.dbml` — count them
-  separately (`06-data/models.md` "Running database vs DBML" note: 36 tables total)
+  separately (`06-data/models.md` "Running database vs DBML" note: 36 tables total; 37 after `notification_log`)
 
 ---
 

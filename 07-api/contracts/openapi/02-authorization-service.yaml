@@ -15,9 +15,9 @@ info:
       `PermissionResponse{permissionId,permissionName,description}`,
       `AssignRoleRequest{roleId}`, `AssignPermissionRequest{permissionId}`
     - Gateway: the edge `pre-function` (Lua) validates the opaque session UUID against identity
-      before the request reaches this service, plus `rate-limiting 100/min` and the global
+      before the request reaches this service, plus `rate-limiting 6000/min` and the global
       `cors`; no `jwt` plugin. The MS then validates the bearer again with `AuthTokenFilter`
-      and resolves RBAC (`kong.yml:31-49, 150-192`).
+      and resolves RBAC (`kong.yml`).
     - Legacy alias: every route is also declared **without** the `/api/v1` prefix (`/roles`,
       `/permissions`, `/user-roles`, `/users/{id}/roles`, `/auth/evaluate`). Kong routes only
       the `/api/v1/...` form; the alias works on the direct port only (and there
@@ -27,7 +27,7 @@ info:
 servers:
   - url: http://localhost:8082
     description: Direct (dev)
-  - url: http://localhost:8080
+  - url: http://localhost:8000
     description: Via Kong gateway (dev, preferred)
   - url: https://api.dev.{domain}
     description: Development

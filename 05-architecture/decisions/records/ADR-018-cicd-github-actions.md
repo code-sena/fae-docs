@@ -6,6 +6,17 @@
 - **Supersedes:** ADR-011 (CI/CD Platform — Jenkins)
 - **Authors:** FaceAttend EDU Team
 
+> **Implementation note (2026-10-20):** deploy automation now exists:
+> `.github/workflows/deploy-production.yml` orchestrates CI → database (Neon)
+> → backend (EC2) → frontend (Vercel) on push to `main`, each step gated by the
+> manual approval of the `production` GitHub environment, with reusable
+> `deploy-database/backend/frontend.yml` workflows. The "CD stays manual"
+> statements below reflect the 2026-10-17 reality. Workflow files are present on
+> `main` and `develop` (verified 2026-10-23).
+> Also: Dependabot is **paused** (`open-pull-requests-limit: 0`, monthly,
+> no `gomod` entry since the Go service was removed) — it does not open the
+> weekly update PRs mentioned in the justification. See `10-devops/ci-cd.md`.
+
 ---
 
 ## Context
@@ -15,7 +26,7 @@ ADR-011 chose Jenkins, self-hosted, as the CI/CD platform. That decision was nev
 **Known constraints:**
 - The repository is hosted on GitHub; PRs and reviews already happen there.
 - Team of 3 with no dedicated DevOps role (carried over from ADR-011).
-- Four language runtimes must build in CI: Java 21, Node 20, Python 3.12 (with dlib compiled from source), Go 1.22.
+- Three language runtimes must build in CI: Java 21, Node 20, Python 3.12 (with dlib compiled from source). *(A fourth, Go 1.22, was listed here until 2026-10-18, when `08-ms-notification` moved to TypeScript — ADR-021. No Go job was ever present in `ci.yml`.)*
 - CD (deploy automation) is still out of scope: deploys to EC2 are manual `docker compose` over SSH (ADR-020).
 
 ---
@@ -28,16 +39,21 @@ ADR-011 chose Jenkins, self-hosted, as the CI/CD platform. That decision was nev
 
 1. **Already running and green:** `ci.yml` (171 lines) tests all nine services plus both frontends on every push/PR to `main`, with `concurrency: cancel-in-progress`. Switching platforms would discard working pipelines to satisfy a preference recorded on paper.
 2. **Zero infrastructure:** no server to provision, patch or keep online — the sovereignty concern that drove ADR-011 does not outweigh the maintenance cost for a team of 3.
-3. **Matrix builds per stack:** the workflow uses a matrix per service (`java-services`, `node-services`, `python-services`, `go-service`, `mobile`, `web`), so each service keeps its own toolchain and cache (Maven, npm, Poetry `.venv` keyed by `poetry.lock`).
-4. **Dependabot included:** `.github/dependabot.yml` gives weekly update PRs for every ecosystem in the monorepo, which a self-hosted Jenkins would not provide out of the box.
+3. **Matrix builds per stack:** the workflow uses a matrix per service (`java-services`, `node-services`, `python-services`, `mobile`, `web`), so each service keeps its own toolchain and cache (Maven, npm, Poetry `.venv` keyed by `poetry.lock`).
+4. **Dependabot included:** `.github/dependabot.yml` is configured for every ecosystem in the monorepo (currently paused: monthly, limit 0), which a self-hosted Jenkins would not provide out of the box.
 
 **Current pipeline (what `ci.yml` actually does):**
 - `java-services` (01, 02, 04, 05): Temurin 21 + `mvn -B test`.
-- `node-services` (03, 07, 09): Node 20 + `npm ci` + `npm test` + `npm run build`.
+- `node-services` (03, 07, 08, 09): Node 20 + `npm ci` + `npm test` + `npm run build`.
 - `python-services` (06): Python 3.12 + Poetry 1.8.3 + `pytest` (build-essential/cmake/libopenblas for dlib).
-- `go-service` (08): Go 1.22 + `go test ./...`.
 - `mobile` / `web`: `npm ci` + `npm test` (+ `npx expo export --platform web` for web).
-- Security scans (`npm audit`, `bandit`, `govulncheck`) run as informative steps (`continue-on-error: true`) — gating on them is pending (see `11-quality/testing-strategy.md`).
+- Security scans (`npm audit`, `bandit`) run as informative steps (`continue-on-error: true`) — gating on them is pending (see `11-quality/testing-strategy.md`).
+
+> **Correction (2026-10-20):** an earlier version of this note listed a `go-service` job
+> (`go test ./...`) and a `govulncheck` scan for `08-ms-notification`. **Neither ever existed in
+> `ci.yml`** — the workflow has only the five jobs above. After the 2026-10-18 rewrite (ADR-021)
+> the notification service is covered by the `node-services` matrix instead. The workflow is
+> 157 lines.
 
 ---
 
@@ -57,7 +73,7 @@ ADR-011 chose Jenkins, self-hosted, as the CI/CD platform. That decision was nev
 **Positive:**
 - CI keeps working with no infrastructure to operate.
 - Caches (Maven, npm, Poetry) are hosted and keyed per lockfile, keeping runs fast.
-- Dependabot covers security updates for all eight ecosystems.
+- Dependabot covers security updates for the configured ecosystems (paused, see the implementation note above).
 
 **Negative / Trade-offs:**
 - Pipeline logs and secrets live on GitHub — the sovereignty argument of ADR-011 is consciously given up.
@@ -75,7 +91,7 @@ ADR-011 chose Jenkins, self-hosted, as the CI/CD platform. That decision was nev
 | Risk | Probability | Impact | Mitigation |
 |------|------------|--------|-----------|
 | GitHub outage blocks CI | Low | Medium | Merges can wait; workflows are plain YAML and portable to any runner |
-| Informative security scans go unread | Medium | High | Promote `npm audit`/`bandit`/`govulncheck` to gating steps once baselines are clean |
+| Informative security scans go unread | Medium | High | Promote `npm audit`/`bandit` to gating steps once baselines are clean |
 | Minutes quota on private repos | Low | Low | Build times are small (tests only, no image push); public repo would be free |
 
 ---

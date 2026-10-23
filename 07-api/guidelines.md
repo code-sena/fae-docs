@@ -15,7 +15,7 @@
 | 05 | Attendance | `05-ms-attendance` | 8085 | Java 21 + Spring Boot 4.1 | `attendance` (Postgres) |
 | 06 | Biometric | `06-ms-biometric` | 8086 | Python 3.12 + FastAPI + Motor | MongoDB `facial_embedding`, `fingerprint_embedding` |
 | 07 | Configuration | `07-ms-configuration` | 8087 | TS Fastify + Zod | `configuration` (Postgres) |
-| 08 | Notification | `08-ms-notification` | 8088 | Go 1.22 + Gin + pgx | `notification` (Postgres) |
+| 08 | Notification | `08-ms-notification` | 8088 | TS Fastify + Zod + Drizzle | `notification` (Postgres) |
 | 09 | Quality | `09-ms-quality` | 8089 | TS Fastify + Zod | `quality` (Postgres, `Pool`; no in-memory fallback — a DB outage is a fatal boot error) |
 | 99 | Gateway | `99-api-gateway` | 8000 (proxy) / 8001 (admin) | Kong OSS 3.6 DB-less + Redis 7 | — |
 
@@ -50,7 +50,7 @@ Source of truth: `COMPOSE.md`, `back-end/SERVICES.md`, `back-end/docker-compose.
   - `GET /api/v1/class-sessions/{id}/attendance`, `GET /api/v1/academic-actors/{actorId}/attendance|enrollments`
   - `GET /api/v1/persons/{personId}/biometric-cases`, `GET /api/v1/justifications/{id}/documents`
 - IDs: cross-context references are **UUID** (`personId`, `userId`, `academicActorId`, `requestedBy`, `generatedBy`); local catalogs are **INT** (`roleId`, `permissionId`, `environmentId`, `schoolId`) or **BIGINT** (`cohortId`, `scheduleBlockId`, `classSessionId`, `attendanceRecordId`, `alertId`); small catalogs **SMALLINT** (`actorTypeId`, `alertTypeId`). `cityId` removed — external `countriesnow.space` string id. Never expose DB sequences directly without schema.
-- Serialization note: DBML `INT/BIGINT` is authoritative for the model. TS services (`03,07`) serialize numeric ids as JSON strings via Zod/Drizzle; Java/Go use JSON numbers. Both map to the same DBML integer — do not change the model to match one serialization.
+- Serialization note: DBML `INT/BIGINT` is authoritative for the model. TS services (`03,07`) serialize numeric ids as JSON strings via Zod/Drizzle; Java services use JSON numbers. Both map to the same DBML integer — do not change the model to match one serialization.
 
 ## 4. HTTP methods
 
@@ -71,7 +71,7 @@ Canonical (see `pagination.md`):
 - Java `01` identity: `?page=1&limit=20` (1-based) → `PageResponse {data,meta{page,limit,total,totalPages}}`.
 - Other Java services (`02,04,05`): filter-only lists (`?schoolId`, `?cohortId`, `?classSessionId`, `?status`, …) returning bare arrays — no pagination yet; add `?limit&offset` + envelope for new endpoints.
 - TS services (`03,07,09`): `?limit=20&offset=0`, cap 100, response header `x-total-count`; `09` list envelope is `{data,total,limit,offset}`; `03/07` return bare array + header.
-- Go service (`08`): `?limit&offset` (alert-types default 50/0), filters `?actorId&?typeId&?resolved|?status=open|resolved|pending`.
+- TS service (`08`): `?limit&offset` (default 50/0, same on alert-types), filters `?actorId&?typeId&?resolved|?status=open|resolved|pending`.
 - Python service (`06`): no pagination (single-template or small history).
 - Mobile legacy pattern `?_limit&?_sort&_order` is JSON-Server style and MUST NOT be added to new backend endpoints; backend uses `limit/offset` (identity: `page/limit`).
 
@@ -82,7 +82,7 @@ Canonical (see `pagination.md`):
 | 200 | Success with body | Resource / list |
 | 201 | Created | Created resource (+ `Location` where Java/TS set it) |
 | 204 | Success without body | Empty |
-| 400 | Validation (`Zod`, `Bean Validation`, `Pydantic`, `Gin binding`) | `ErrorResponse` |
+| 400 | Validation (`Zod`, `Bean Validation`, `Pydantic`) | `ErrorResponse` |
 | 401 | Missing/invalid/expired session bearer (checked first by Kong's `pre-function`, then by `AuthTokenFilter` in the Java MSs) | `ErrorResponse` |
 | 403 | Authenticated but RBAC denies (`GET /auth/evaluate → allowed:false`, or required permission missing) | `ErrorResponse` |
 | 404 | Not found (`SchoolNotFound`, `no active facial template`, `no match found`) | `ErrorResponse` |
@@ -108,7 +108,7 @@ Per-stack realities (see `error-catalog.md`):
 - Java 05: ISO-9001 `{error:{code,message,correlationId,timestamp,isoClause,severity}}` e.g. `ISO-8.2-VAL-001`.
 - TS 03/07/09: `{error:BadRequest|NotFound|InternalError,message,details?,timestamp}` + `x-total-count` on lists.
 - Python 06: `{error:NotFound|BadRequest|InternalError,message,path,timestamp}` + `422 {error:BadRequest,message:"Invalid biometric payload"}` + headers `x-request-id,x-process-time-ms`.
-- Go 08: `{error:string}` with `ErrValidation→400,ErrNotFound→404,ErrDuplicate→409`; `NoRoute→404`, `NoMethod→405`.
+- TS 08: same error shape as the other TS services (`{error:"BadRequest"|"NotFound"|"Forbidden",message,timestamp}`; see `error-catalog.md`).
 
 Always include `traceId`/`correlationId`/`x-request-id` when available; never leak stack traces.
 
@@ -122,12 +122,13 @@ All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_b
 - Auth has **two layers**: the edge and the MS. Kong has no `jwt` plugin and no consumers, but a
   global `pre-function` rejects every non-public route without `Authorization: Bearer <sessionId>`
   (opaque UUID from `POST /api/v1/auth/login`) by introspecting identity — public at the edge are
-  health probes, `OPTIONS`, `login`, `logout`, `refresh`, `forgot-password`, `verify-code`,
-  `reset-password` and `GET /api/v1/auth/me`. Behind that, every service repeats the check on its
+  health probes, `OPTIONS`, `login`, `login/verify` (2FA second step), `logout`, `refresh`, `forgot-password`, `verify-code`,
+  `reset-password` and `POST /api/v1/onboarding/schools` (`GET /api/v1/auth/me` is **not** public:
+  it needs the bearer like any other route). Behind that, every service repeats the check on its
   own and adds RBAC (`GET /api/v1/auth/evaluate`) — Java (`01,02,04,05`) in `AuthTokenFilter`, TS
-  (`03,07,09`) in `registerAuthGuard`, Python (`06`) in `require_permission`, Go (`08`) in
-  `AuthMiddleware`; bootstrap routes (`me`, `GET /sessions/*`) and health/docs are public there
-  too. Four separate implementations of the same contract, not a gap (`risks.md` R-003,
+  (`03,07,08,09`) in `registerAuthGuard`, Python (`06`) in `require_permission`;
+  bootstrap routes and health/docs are public there
+  too. Three separate implementations of the same contract, not a gap (`risks.md` R-003,
   corrected 2026-10-11).
 - Local service-to-service calls use UUID cross-references, never cross-schema FKs.
 - CORS: global Kong plugin `origins ["*"]` (wildcard — any origin accepted, credentials allowed);

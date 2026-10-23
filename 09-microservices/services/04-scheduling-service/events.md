@@ -44,7 +44,7 @@
 
 - **No DLQ, no retries, no outbox** — tracked as tech debt `AT-006` (ADR-004 only partially
   implemented).
-- **No consumer exists anywhere in the platform** (see `../communication-patterns.md` §2): today
+- **Only `scheduling.class-session.closed` has a consumer** (`08-ms-notification`); the other topics have none (see `../communication-patterns.md` §2): today
   these topics are an audit trail, not an integration mechanism.
 
 ---

@@ -11,7 +11,7 @@ Without documented DevOps:
 - Releases are high-risk events instead of routine
 
 **FaceAttend EDU context:** this project is a polyglot monorepo (Java/Spring,
-TypeScript/Fastify, Python/FastAPI, Go/Gin + two Expo frontends) orchestrated
+TypeScript/Fastify, Python/FastAPI + two Expo frontends) orchestrated
 end-to-end with Docker Compose. The single source of truth for "how everything
 runs" is the root `docker-compose.yml`, which includes `database/docker-compose.yml`
 (Postgres 17 + Liquibase chain + MongoDB + Redis + Kafka) and `back-end/docker-compose.yml`
@@ -41,7 +41,7 @@ migration chain, verification via Kong smoke route + login + seed tool, common i
 - [x] Node.js >= 20 LTS (frontends, TS services, seed tool)
 - [x] JDK 21 + Maven wrapper (only for native Java dev)
 - [x] Python 3.12 + Poetry (only for ms-biometric native dev)
-- [x] Go >= 1.22 (only for ms-notification native dev)
+- ~~[x] Go >= 1.22~~ **Not needed since 2026-10-18** — `08-ms-notification` is TypeScript now (ADR-021)
 
 ## Steps
 1. Clone the repository: `git clone <org>/FaceAttend-Edu.git && git checkout develop`
@@ -91,41 +91,18 @@ orchestrator exists**), rollback runbook, deploy log.
 | prod | api.[domain] — planned | Real users | Tech Lead + DevOps only | Real | Manual approval, Rolling deploy |
 ```
 
-### `ci-cd.md` ⭐ — ⚠️ target state for **deploy**; **CI already exists**
+### `ci-cd.md` ⭐ — ✅ written → see [`ci-cd.md`](./ci-cd.md)
 
 Description of the continuous integration and deployment pipeline.
-**Current truth:** **CI runs on GitHub Actions** — `.github/workflows/ci.yml` (171 lines) tests
-every push/PR to `main` with per-stack matrices (Java `mvn test`, Node `npm test` + build,
-Python `pytest`, Go `go test`, both frontends incl. `expo export`), and `.github/dependabot.yml`
-gives weekly update PRs for all eight ecosystems. **CD (deploy) is still manual**: production is
-deployed over SSH with `docker compose up -d --build` on the AWS EC2 host (see ADR-018/ADR-020
-and `environments.md`). The pipeline below remains the target for deploy automation.
-
-**Target format:**
-```markdown
-## PR Pipeline (runs on every Pull Request) — planned tool: GitHub Actions
-1. Lint & format: eslint (frontends) · tsc --noEmit (TS services) · mvn compile (Java) · ruff (Python) · go vet (Go)
-2. Unit tests: ./mvnw test (01,02,04,05) · npm test (03,07,09) · poetry run pytest (06) · make test (08)
-3. Integration tests: supertest/testcontainers suites (ms-academic) against ephemeral Postgres
-4. Coverage analysis (minimum threshold to be agreed with Tech Lead)
-5. Security analysis (SAST: dependabot/CodeQL + docker image scan)
-6. Build: docker compose config (validate model) + per-service Dockerfile builds
-→ If any step fails: PR merge is blocked
-
-## Pipeline on merge to `develop` (deploy to dev)
-1. All of the above
-2. Docker image build (faceattend/ms-*:latest + frontend-web)
-3. Deploy to dev environment (compose up -d on dev host)
-4. Smoke tests in dev: tools/seed-api-test-data (exit 0 = pass) + GET health via Kong
-
-## Release pipeline to production
-1. Merge develop → main triggers staging deploy + full suite + k6 performance (biometric match, attendance marking)
-2. Acceptance test suite executed by QA (IEEE 829 regression plan)
-3. PO approves the HUs included in the release
-4. Manual approval by Tech Lead
-5. Deploy to production: Rolling per service (compose recreate; canary only after K8s adoption)
-6. Post-deploy monitoring 30 min; rollback = redeploy previous tag (see environments.md § Rollback)
-```
+**Filled with:** the five GitHub Actions workflows found in `.github/workflows`
+(`ci.yml`, `deploy-production.yml`, `deploy-database.yml`, `deploy-backend.yml`,
+`deploy-frontend.yml`) plus `.github/dependabot.yml`: CI per-stack jobs
+(Java `mvn test`, Node `npm test` + build, Python `pytest`, both frontends),
+informational-only security steps, the production chain
+(CI → Neon → EC2 → Vercel) behind a manual-approval GitHub environment, the
+EC2 remote deploy script and its manual rollback, and the paused Dependabot
+policy (monthly, `develop` target, no majors). Anything that exists only as a
+target (lint gates, dev/staging deploys, mobile publishing) is marked as such.
 
 ---
 
@@ -142,7 +119,7 @@ and `environments.md`). The pipeline below remains the target for deploy automat
 Related files inside this section:
 - [`local-setup.md`](./local-setup.md) — complete local setup guide (golden path)
 - [`environments.md`](./environments.md) — environments, variables, deploy strategy, rollback
-- `ci-cd.md` — will live here once pipeline files are added to the repo (target defined below)
+- [`ci-cd.md`](./ci-cd.md) — GitHub Actions: CI per-stack jobs, production deploy chain, Dependabot
 
 ---
 
@@ -155,16 +132,19 @@ Related files inside this section:
   (image pulls + 4 Maven builds); subsequent starts are minutes.
 
 - **What happens automatically when I push?**
-  **CI on GitHub Actions**: every push/PR to `main` runs the per-stack test matrices
-  (Java/Node/Python/Go + both frontends) and blocks merges on failure; Dependabot
-  opens weekly update PRs. **Deploy is still manual** (no CD yet) — see `ci-cd.md`.
+  **CI on GitHub Actions**: every push/PR to `main` runs the per-stack test jobs
+  (Java/Node/Python + both frontends); Dependabot is configured (monthly,
+  currently paused) but opens no PRs. **A push to `main` also starts the
+  production deploy chain** (`deploy-production.yml`), gated by the manual
+  approval of the `production` GitHub environment — see [`ci-cd.md`](./ci-cd.md).
 
 - **How does code get to production?**
-  `feature/HU-XXX` → PR → `develop` → release PR `develop → main` (staging + full
-  suite + perf) → PO sign-off → Tech Lead manual approval → Rolling deploy per
-  service with health-gated recreation; migrations run before code (Liquibase
-  chain); rollback = redeploy previous tag or `liquibase rollback-count 1`
-  (forward-fix preferred). Detailed in [`environments.md`](./environments.md).
+  `feature/XXX` → PR → `main`: the push triggers `deploy-production.yml`, which
+  runs CI first and then deploys in order **database (Neon, Liquibase) →
+  backend (EC2, `docker-compose.prod.yml` + health gate) → frontend (Vercel)**;
+  each step waits for **manual approval of the `production` environment** and a
+  failure stops the chain. Rollback is manual: redeploy the previous SHA on
+  EC2 (see [`ci-cd.md`](./ci-cd.md) and [`environments.md`](./environments.md)).
 
 - **How many environments are there and what is each one for?**
   Four defined: **local** (dev machine, Docker Compose, synthetic/seed data),

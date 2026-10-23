@@ -3,7 +3,17 @@
 - **ID:** ADR-007
 - **Date:** 2026-09-12
 - **Status:** Accepted
-- **Implementation note (2026-10-07, verified against `FULL/`):** Kong OSS 3.6 runs **DB-less** with declarative `kong.yml`, routing by path to all 9 services, and **authenticates at the edge**: a global `pre-function` (Lua) requires `Authorization: Bearer <uuid>` on every non-public route and introspects `GET ms-identity:8081/api/v1/sessions/{id}`, accepting only `sessionStatus = "Active"` (401 for a missing/non-UUID/expired session, 503 when identity does not answer); **positive session checks are cached 10 s at the edge (`kong.cache:invalidate` on logout) and in every service guard** — revocation window = 10 s; needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`). **The `jwt` plugin and its consumers are still not configured** — the other plugins are `cors` (origins `["*"]`) and `rate-limiting` (redis policy: global 300/min; identity 60, authorization 100, attendance 200, quality 100). The bearer is an **opaque session id, not a JWT**: `jwt` RS256 issued by identity remains the target state (`AT-007`). The gateway authenticates at the edge; permissions (RBAC) are then evaluated again by every service's own guard, not just Java — `AuthTokenFilter` (`01/02/04/05`), `registerAuthGuard` (`03/07/09`), `require_permission` (`06`), `AuthMiddleware` (`08`), re-verified 2026-10-11 against `FULL/`; details in `07-api/authentication.md`.
+- **Implementation note (2026-10-07, verified against `FULL/`):** Kong OSS 3.6 runs **DB-less** with declarative `kong.yml`, routing by path to all 9 services, and **authenticates at the edge**: a global `pre-function` (Lua) requires `Authorization: Bearer <uuid>` on every non-public route and introspects `GET ms-identity:8081/api/v1/sessions/{id}`, accepting only `sessionStatus = "Active"` (401 for a missing/non-UUID/expired session, 503 when identity does not answer); **positive session checks are cached 10 s at the edge (`kong.cache:invalidate` on logout) and in every service guard** — revocation window = 10 s; needs `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`). **The `jwt` plugin and its consumers are still not configured** — the other plugins are `cors` (origins `["*"]`) and `rate-limiting`. The bearer is an **opaque session id, not a JWT**: `jwt` RS256 issued by identity remains the target state (`AT-007`). The gateway authenticates at the edge; permissions (RBAC) are then evaluated again by every service's own guard, not just Java — `AuthTokenFilter` (`01/02/04/05`), `registerAuthGuard` (`03/07/08/09`), `require_permission` (`06`), re-verified 2026-10-20 against `FULL/`; details in `07-api/authentication.md`.
+- **Related decisions (2026-10-23):** the opaque-session model that replaced the `jwt` plugin is recorded in ADR-023; TLS termination in front of Kong is recorded in ADR-022.
+- **Rate-limit correction (2026-10-20):** the previous note claimed differentiated tiers
+  (global 300/min; identity 60, authorization 100, attendance 200, quality 100). That is **not**
+  what `kong.yml` contains. Every `rate-limiting` plugin — the global one and each per-upstream
+  one — is set to **6000/min** on the redis policy, annotated in the config as a deliberately
+  loose development ceiling for screen load. The only differentiated limit is the **public
+  onboarding upstream** (`/api/v1/onboarding`), at **5/min and 20/hour per IP**, because it needs
+  no prior session. Upstreams without their own plugin (academic, scheduling, biometric,
+  configuration, notification) inherit only the global 6000/min. The 6000 figure is a dev
+  ceiling, **not a production capacity target** — sizing it for production is an open question.
 - **Authors:** FaceAttend EDU Team
 
 ---
@@ -45,7 +55,7 @@ The gateway must:
 - Target: replace the introspection with the `jwt` plugin validating RS256 tokens issued by identity-service (public key / JWKS) — see *Consequences* and `AT-007`.
 - Rate Limiting plugin enforces per-IP and per-user limits.
 - CORS plugin handles cross-origin requests for web clients.
-- The gateway authenticates at the edge; RBAC is then evaluated again by every service's own guard (Java `AuthTokenFilter`, TS `registerAuthGuard`, Python `require_permission`, Go `AuthMiddleware`), not just the Java ones.
+- The gateway authenticates at the edge; RBAC is then evaluated again by every service's own guard (Java `AuthTokenFilter`, TS `registerAuthGuard`, Python `require_permission`), not just the Java ones.
 - Kong routes to the microservice stack (ports 8081-8089 stay inside the Docker network; Kong listens on 8000).
 
 ---

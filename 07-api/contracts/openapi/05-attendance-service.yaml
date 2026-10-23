@@ -20,9 +20,9 @@ info:
       (SQL aggregation; `{}` without ids, max 300 ids per request)
     - Review: `PATCH /api/v1/justifications/{id}/review {reviewStatus,reviewedBy,resolutionNotes}`
     - Gateway: the edge `pre-function` (Lua) validates the opaque session UUID against identity
-      before the request reaches this service, plus `rate-limiting 200/min` and the global
+      before the request reaches this service, plus `rate-limiting 6000/min` and the global
       `cors`; no `jwt` plugin. The MS validates the bearer again with `AuthTokenFilter`
-      (`kong.yml:68-86, 150-192`).
+      (`kong.yml`).
     - Legacy alias: routes are also declared **without** the `/api/v1` prefix
       (`/attendance-records`, `/attendance-records/bulk`, `/attendance-records/summary`,
       `/justifications`, `/justification-types`, `/supporting-documents`). Kong routes only the
@@ -32,7 +32,7 @@ info:
 servers:
   - url: http://localhost:8085
     description: Direct (dev)
-  - url: http://localhost:8080
+  - url: http://localhost:8000
     description: Via Kong gateway (dev, preferred)
   - url: https://api.dev.{domain}
     description: Development

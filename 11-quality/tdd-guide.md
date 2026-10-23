@@ -6,14 +6,13 @@
 
 > **Stack note:** The TDD principles and cycles described here apply to any language.
 > FaceAttend EDU is polyglot; concrete examples below are annotated per stack.
-> - Node.js + TypeScript → [`_stacks/node-typescript.md`](../_stacks/node-typescript.md) (03-academic, 07-configuration, 09-quality — Fastify)
+> - Node.js + TypeScript → [`_stacks/node-typescript.md`](../_stacks/node-typescript.md) (03-academic, 07-configuration, 08-notification, 09-quality — Fastify)
 > - Java + Spring Boot → [`_stacks/java-spring.md`](../_stacks/java-spring.md) (01-identity, 02-authorization, 04-scheduling, 05-attendance)
 > - Python + FastAPI → [`_stacks/python-fastapi.md`](../_stacks/python-fastapi.md) (06-biometric)
-> - Go → [`_stacks/go.md`](../_stacks/go.md) (08-notification — Gin)
 
 **Repo evidence:** every existing test in this project follows the cycle documented here —
 `UserActivationServiceTest` (domain), `ResetPasswordUseCaseImplTest` (application, pure Fakes),
-`email_handler_test.go` (Go fake sender), `test_router_contract.py` (contract tier). IEEE 829
+`sender.test.ts` (jest spy on the nodemailer transport), `test_router_contract.py` (contract tier). IEEE 829
 test IDs (`TC-xx-xxx`) appear in test names so each test traces back to a requirement.
 
 ---
@@ -56,7 +55,6 @@ test IDs (`TC-xx-xxx`) appear in test names so each test traces back to a requir
 | Java (Maven) | `mvn test -Dtest=UserActivationServiceTest#shouldThrowExceptionWhenPersonIsInactive` | `mvn test` after each edit (IDE) |
 | TS/Fastify | `npm run test -- academic.test.ts` (vitest/jest) | `npm run test:watch` |
 | Python/FastAPI | `poetry run pytest tests/unit/web/test_router_contract.py -k enroll` | `pytest-watch` |
-| Go/Gin | `go test ./internal/infrastructure/http/handler/ -run TestEmail` | `go test -count=1 ./...` |
 
 ---
 
@@ -68,7 +66,7 @@ Good tests are:
 |--------|-----------|-------------|------------|
 | **F** | Fast | Run in milliseconds, not seconds | Unit suites (identity, notification) run < 1 s |
 | **I** | Isolated | Do not depend on other tests or execution order | `@BeforeEach` / `beforeEach()` rebuild doubles fresh |
-| **R** | Repeatable | Same result every time, regardless of environment | No network: Mongo disabled in contract tests, SMTP faked in Go |
+| **R** | Repeatable | Same result every time, regardless of environment | No network: Mongo disabled in contract tests, SMTP faked via jest mock of nodemailer |
 | **S** | Self-validating | Pass / Fail without manual interpretation | AssertJ / expect / testify assertions only |
 | **T** | Timely | Written BEFORE the code, not after | Required for new features; retro-applied via IEEE 829 suites |
 
@@ -124,19 +122,14 @@ class InMemoryBiometricRepository:
 ### 4. Spy
 Records the calls it receives. You can verify if it was called and with what arguments.
 
-```go
-// Real pattern from email_handler_test.go (08-ms-notification)
-type fakeSender struct {
-    err   error
-    calls int            // ← records how many times Send was invoked
-    last  email.Message  // ← records the argument of the last call
-}
+```typescript
+// Real pattern from infrastructure/email/__tests__/sender.test.ts (08-ms-notification)
+const sendMail = jest.fn().mockResolvedValue({});   // ← spy: records every call and its arguments
+nodemailer.createTransport.mockReturnValue({ sendMail });
 
-func (f *fakeSender) Send(_ context.Context, msg email.Message) error {
-    f.calls++
-    f.last = msg
-    return f.err
-}
+await sendEmail(cfg, { to: 'x@y.com', subject: 's', textBody: 't', htmlBody: '<p>h</p>' });
+
+expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ to: 'x@y.com', subject: 's' }));
 ```
 
 ### 5. Mock
@@ -158,7 +151,7 @@ expect(mockRepo.save).toHaveBeenCalledTimes(1);
 | Dummy | The collaborator does not matter in this test | identity use-case tests |
 | Stub | You control the input scenario (what a collaborator returns) | biometric dependency overrides |
 | Fake | Lightweight integration tests — behavior matters | ✅ everywhere (`Fake*`, `InMemory*`) |
-| Spy | You verify that something was called (output effect) | ✅ Go `fakeSender.calls` |
+| Spy | You verify that something was called (output effect) | ✅ `jest.fn()` sendMail spy (`sender.test.ts`) |
 | Mock | You verify both input and output behavior | sparingly (jest only) |
 
 **Preference:** Fake > Stub/Spy > Mock. Mocks are fragile — they break if you refactor the internal implementation.
@@ -421,7 +414,6 @@ Register each test with its IEEE 829 ID (`TC-05-012: …`) so traceability stays
 
 Other stacks: Maven Surefire runs JUnit 5 automatically on `mvn test` (add JaCoCo plugin for
 gates); `pyproject.toml` configures `pytest` (`asyncio_mode = auto`, markers `unit`/`contract`);
-Go uses plain `go test ./...` with `testify` assertions (already a dependency in 08).
 
 ---
 

@@ -3,32 +3,50 @@ info:
   title: Notification Service API
   version: 1.0.0
   description: |
-    Servicio 08-ms-notification (Go 1.22 Gin + pgx :8088, schema `notification`).
+    Servicio 08-ms-notification (TypeScript Fastify + Drizzle + kafkajs :8088, schema `notification`;
+    reescrito desde Go 1.22/Gin/pgx el 2026-10-18 — ADR-021, paridad funcional).
     Tipos de alerta y alertas sobre `academic_actor`.
 
     ## Fuente real
-    - Handlers: `alert_handler.go`, `alert_type_handler.go`, `email_handler.go`,
-      `quality_middleware.go`, `cmd/server/main.go:55-101`
-    - Dominio: `Alert{alert_id,academic_actor_id,alert_type_id,raised_at,resolved_at?,created_at,updated_at?,row_version}`,
-      `AlertType{alert_type_id,code,name,severity,channel,…}`
-    - Comandos: `CreateAlertCommand{academic_actor_id*,alert_type_id*}`,
+    - Handlers: `src/infrastructure/http/routes.ts`, `authGuard.ts`, `permissions.ts`,
+      `actorScope.ts`, `qualityMiddleware.ts`, `src/main.ts`
+    - Consumidores Kafka (no son rutas HTTP): `justification.consumer.ts` —
+      `attendance.justification.events` (grupo `notification-service`, solo con `KAFKA_BROKERS`); y
+      `classSession.consumer.ts` — `scheduling.class-session.closed` (grupo
+      `notification-service-class-session`; además exige `NOTIFICATION_SERVICE_USERNAME`/`PASSWORD`).
+      Con esas credenciales también arranca el planificador diario de alumnos en riesgo.
+    - Formato de campos: **camelCase** en peticiones y respuestas (`alertId`, `academicActorId`,
+      `alertTypeId`, `raisedAt`, `resolvedAt`, `createdAt`…), igual que el resto de servicios; la única
+      excepción es el cuerpo 201 de `POST /alerts`, que devuelve `{alert_id}` en snake_case.
+    - Dominio: `Alert{alertId,academicActorId,alertTypeId,raisedAt,resolvedAt?,createdAt,updatedAt?,rowVersion}`,
+      `AlertType{alertTypeId,code,name,severity,channel,…}`
+    - Comandos: `CreateAlertCommand{academicActorId*,alertTypeId*}`,
       `CreateAlertTypeCommand{code*,name*,severity*,channel?}`, `UpdateAlertTypeCommand{code?,name?,severity?,channel?}`
     - Filtros: `?actorId&?typeId&?resolved|?status=open|resolved|pending`; `?limit&offset` (types default 50/0)
-    - Envelopes: `{alerts:[]}`, `{alert_types:[]}`; errores `{error:string}` (`ErrValidation→400,ErrNotFound→404,ErrDuplicate→409`)
-    - Seeds: `ABSENCE_THRESHOLD,SCHEDULE_CONFLICT`. `notification-preferences` documentado en SERVICE.md NO existe.
-    - Gateway: no per-upstream plugins (`kong.yml:104-110`). The edge `pre-function` validates
+    - Envelopes: `{alerts:[]}`, `{alert_types:[]}`; errores `{error,message,timestamp}`
+    - Seeds reales de `alert_type` (5 base en `08-ms-notification-db/02-dml/001-seed-alert-type-table.yaml`
+      + 2 de justificación en `003-seed-justification-result-alert-types.yaml`, 7 en total):
+      `ATTENDANCE_ABSENTEEISM` (WARNING/DASHBOARD), `ATTENDANCE_TARDINESS` (WARNING/DASHBOARD),
+      `ATTENDANCE_LOW` (CRITICAL/EMAIL), `JUSTIFICATION_PENDING` (INFO/DASHBOARD),
+      `BIOMETRIC_UPDATE` (INFO/PUSH), `JUSTIFICATION_APPROVED` y `JUSTIFICATION_REJECTED`
+      (INFO/DASHBOARD, los que usa el consumidor de justificaciones). Los códigos `ABSENCE_THRESHOLD`/`SCHEDULE_CONFLICT` que
+      citaba la versión anterior de este contrato **no existen**.
+      `notification-preferences` documentado en SERVICE.md NO existe.
+    - Gateway: no per-upstream plugins (solo el `rate-limiting` global de 6000/min). The edge `pre-function` validates
       the opaque session UUID for `/api/v1/alerts` and `/api/v1/alert-types`; the MS itself also
-      validates it again on its own via its Go `AuthMiddleware` and adds RBAC (corrected
-      2026-10-11 — `AT-004` is duplicated auth code across stacks, not a missing check).
+      validates it again on its own via `registerAuthGuard` and adds RBAC (corrected
+      2026-10-20 — `AT-004` is duplicated auth code across stacks, not a missing check).
     - **Internal only:** `POST /api/v1/emails` has **no Kong route** — it is reachable only
       inside the compose network (01-ms-identity calls it after issuing a recovery code).
       Optional shared secret `X-Internal-Token` (`EMAIL_INTERNAL_TOKEN`; when empty the route
       is open inside the network).
+    - **Aliases sin prefijo:** los handlers se registran también bajo `/alerts` y
+      `/alert-types`; Kong no los enruta, existen para llamadas internas directas a :8088.
 
 servers:
   - url: http://localhost:8088
     description: Direct (dev)
-  - url: http://localhost:8080
+  - url: http://localhost:8000
     description: Via Kong gateway (dev, preferred)
   - url: https://api.dev.{domain}
     description: Development
@@ -80,7 +98,7 @@ paths:
     get:
       summary: Reporte de calidad
       tags: [Health]
-      security: []
+      description: Requiere permiso `configuration:manage` (no es público, a diferencia de `/health`).
       responses:
         '200':
           description: Reporte
@@ -144,17 +162,24 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateAlertCommand'
             example:
-              academic_actor_id: 77
-              alert_type_id: 1
+              academicActorId: 77
+              alertTypeId: 1
       responses:
         '201':
-          description: Alerta creada
+          description: Alerta creada (solo devuelve el id)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Alert'
+                type: object
+                required: [alert_id]
+                properties:
+                  alert_id:
+                    type: integer
+                    format: int64
         '400':
           $ref: './_shared.yaml#/components/responses/BadRequest'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
 
   /api/v1/alerts/{id}:
     parameters:
@@ -184,7 +209,7 @@ paths:
     parameters:
       - $ref: './_shared.yaml#/components/parameters/LongIdParam'
     patch:
-      summary: Resolver alerta (set resolved_at)
+      summary: Resolver alerta (set resolvedAt)
       operationId: resolveAlert
       tags: [Alert]
       responses:
@@ -229,8 +254,8 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateAlertTypeCommand'
             example:
-              code: ABSENCE_THRESHOLD
-              name: Umbral de ausencias
+              code: ATTENDANCE_CRITICAL
+              name: Asistencia crítica
               severity: WARNING
               channel: DASHBOARD
       responses:
@@ -320,13 +345,13 @@ paths:
                   format: email
                 template:
                   type: string
-                  enum: [verification_code]
-                  description: Only `verification_code` is supported (no free-form subject/body)
+                  enum: [verification_code, login_code, user_credentials]
+                  description: "Whitelisted templates (no free-form subject/body). Required data keys - `verification_code` and `login_code` take `code`; `user_credentials` takes `username` and `password`"
                 data:
                   type: object
                   additionalProperties:
                     type: string
-                  description: Template variables (`code` is required for `verification_code`)
+                  description: Template variables (see `template` for the required keys)
             example:
               to: apprentice@example.com
               template: verification_code
@@ -370,42 +395,42 @@ components:
       allOf:
         - $ref: './_shared.yaml#/components/schemas/AuditFields'
         - type: object
-          required: [alert_id, academic_actor_id, alert_type_id, raised_at]
+          required: [alertId, academicActorId, alertTypeId, raisedAt]
           properties:
-            alert_id:
+            alertId:
               type: integer
               format: int64
-            academic_actor_id:
+            academicActorId:
               type: integer
               format: int64
               description: Cross-context academic_actor id, no FK
-            alert_type_id:
+            alertTypeId:
               type: integer
-            raised_at:
+            raisedAt:
               $ref: './_shared.yaml#/components/schemas/Timestamp'
-            resolved_at:
+            resolvedAt:
               $ref: './_shared.yaml#/components/schemas/Timestamp'
               nullable: true
     CreateAlertCommand:
       type: object
-      required: [academic_actor_id, alert_type_id]
+      required: [academicActorId, alertTypeId]
       properties:
-        academic_actor_id:
+        academicActorId:
           type: integer
           format: int64
-        alert_type_id:
+        alertTypeId:
           type: integer
     AlertType:
       allOf:
         - $ref: './_shared.yaml#/components/schemas/AuditFields'
         - type: object
-          required: [alert_type_id, code, name, severity, channel]
+          required: [alertTypeId, code, name, severity, channel]
           properties:
-            alert_type_id:
+            alertTypeId:
               type: integer
             code:
               type: string
-              example: ABSENCE_THRESHOLD
+              example: ATTENDANCE_LOW
             name:
               type: string
             severity:

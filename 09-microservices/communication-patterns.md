@@ -4,8 +4,9 @@
 > described a target architecture that was never built as written: it named an "Audit Service"
 > that was removed from the domain (see `refactor/remove-audit-domain`), and it described
 > Kafka as a working publish/subscribe mechanism between services. Neither is true today. The
-> real system is almost entirely synchronous HTTP; Kafka exists but has **zero consumers**
-> anywhere in the back-end — every topic is published into and never read from. Sections below
+> real system is almost entirely synchronous HTTP; Kafka exists and has **two consumers, both in one service**
+> (`08-ms-notification` reading `attendance.justification.events` and `scheduling.class-session.closed`) — every other topic is
+> published into and never read from. Sections below
 > are marked **(real)** or **(target / not implemented)** throughout.
 
 ---
@@ -62,14 +63,14 @@ No other service calls another service's business API. In particular: `03-ms-aca
 
 ---
 
-## 2. Asynchronous communication (target state — not consumed)
+## 2. Asynchronous communication (two real consumers, rest target state)
 
 | Aspect | Detail |
 |--------|--------|
 | **Transport** | Kafka (KRaft, `:9092`), ADR-006 |
-| **Pattern (real)** | Publish only. No consumer exists anywhere in the back-end |
+| **Pattern (real)** | Publish for six services; two consumers in `08-ms-notification` (`attendance.justification.events`, `scheduling.class-session.closed`) |
 | **Pattern (target)** | Publish → Subscribe, eventual consistency |
-| **Use cases today** | None — events are produced and never read |
+| **Use cases today** | Justification reviewed → dashboard alert; class closed → absences + instructor e-mail. All other events are produced and never read |
 
 ### What's real
 
@@ -80,23 +81,28 @@ Six services publish best-effort (failures are only logged, no retry, no outbox,
 | `01-ms-identity` | `identity-events`, `password-policy-events` (**`city-events` no longer published** — the `city` table was dropped) |
 | `02-ms-authorization` | `role-events`, `permission-events` |
 | `03-ms-academic` | `academic-events` |
-| `04-ms-scheduling` | `class-session-events`, `environment-events`, `schedule-block-events` |
-| `05-ms-attendance` | `attendance-events`, `justification-events`, `justification-type-events`, `document-events` |
+| `04-ms-scheduling` | `class-session-events`, `environment-events`, `schedule-block-events`, `scheduling.class-session.closed` (class closed) |
+| `05-ms-attendance` | `attendance-events`, `justification-events`, `justification-type-events`, `document-events`, `attendance.justification.events` (review flow) |
 | `07-ms-configuration` | `configuration-events` |
 
-`06-ms-biometric`, `08-ms-notification` and `09-ms-quality` publish nothing. **No service consumes
-any topic.** Concretely: an `attendance-events` message is published on every attendance write,
-but nothing raises a `notification.alert` from it — alerts only exist when something calls
+`06-ms-biometric`, `08-ms-notification` and `09-ms-quality` publish nothing. **One service consumes a
+topic:** `08-ms-notification` (kafkajs, consumer group `notification-service`, started only when
+`KAFKA_BROKERS` is set) reads `attendance.justification.events` — published by
+`ReviewJustificationUseCaseImpl` after commit — and raises the `JUSTIFICATION_APPROVED` /
+`JUSTIFICATION_REJECTED` dashboard alert (ERF 6.3). Everything else is still unread:
+an `attendance-events` message is published on every attendance write,
+but nothing raises a `notification.alert` from it — those alerts only exist when something calls
 `POST /api/v1/alerts` directly. See `08-uml/diagrams/source/seq-facial-attendance.mmd` (SEQ-01)
 for the attendance write's own notes on this gap.
 
 ### What was planned but never built
 
-- A consumer side for any of the topics above.
+- A consumer side for any of the topics **other than** `attendance.justification.events`.
 - Dead Letter Queues per service (the table in the old version of this file, `identity.dlq`,
-  `attendance.dlq`, etc., does not exist — there is nothing to route a failure to, because there
-  is no consumer to fail).
-- Retry-with-backoff for event delivery.
+  `attendance.dlq`, etc., does not exist — there is nowhere to route a failure to: the real
+  consumers block its partition and retries in place instead of parking the message).
+- Retry-with-backoff for event **delivery** (publish side is still fire-and-forget; the backoff
+  that exists lives inside the notification consumer's handler loop).
 - An `audit.dlq` / Audit Service consuming anything — **the Audit bounded context was removed**
   (see `05-architecture/overview.md` and `02-domain/entities-and-rules.md`'s note on RN-30/31/
   37–41/44/45 being retired). Do not reintroduce "Audit Service" in this file or any diagram.
@@ -163,13 +169,13 @@ these, it is describing target state (ADR-006's eventual-consistency goal), not 
 | 503 | Service unavailable | Kong's edge check or a service's own guard could not reach identity/authorization |
 | 5xx | Server error | No circuit breaker exists (tech debt); retry with backoff is a client-side responsibility only |
 
-### Asynchronous errors (target — not implemented)
+### Asynchronous errors (partially implemented)
 
 | Mechanism | Status |
 |-----------|--------|
-| Dead Letter Queue (DLQ) | Not implemented — no consumer exists to fail into one |
-| Retry with backoff | Not implemented — a failed Kafka publish is only logged (AT-006) |
-| Idempotent handlers | N/A — there are no handlers |
+| Dead Letter Queue (DLQ) | Not implemented — the real consumers block their partition and retries in place, so there is nowhere to fail into |
+| Retry with backoff | Publish side: not implemented, a failed Kafka publish is only logged (AT-006). Consume side: implemented inside `08-ms-notification`'s handler (exponential backoff capped at 30 s; non-retryable events are skipped and the offset committed) |
+| Idempotent handlers | Implemented for the justification handler (`JUSTIFICATION_APPROVED`/`REJECTED` alerts are deduplicated on actor + alert type + `raised_at`); N/A for the rest |
 | Alerting on DLQ depth | N/A |
 | Per-service DLQ topics | Not implemented — remove any reference to `*.dlq` topic names from other docs; they describe a design that was never built |
 
@@ -187,7 +193,7 @@ these, it is describing target state (ADR-006's eventual-consistency goal), not 
 ## Correlations
 
 - Service catalog → `09-microservices/service-catalog.md`
-- Event catalog (producers only) → `09-microservices/event-catalog.md`
+- Event catalog → `09-microservices/event-catalog.md`
 - OpenAPI contracts → `07-api/contracts/openapi/`
 - Domain events (intended) vs. what's wired → `02-domain/domain-events.md`
 - Auth chain detail → `07-api/authentication.md`

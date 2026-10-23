@@ -81,7 +81,7 @@ IMPACT
 |-------|-------|
 | **ID** | R-003 |
 | **Category** | Technical |
-| **Description** | **Corrected 2026-10-11, re-verified against `FULL/`:** this risk described services with no auth check of their own; that is no longer true. `03-ms-academic`, `06-ms-biometric`, `07-ms-configuration`, `08-ms-notification` and `09-ms-quality` each run their own session+RBAC guard (`registerAuthGuard` TS, `require_permission` Python, `AuthMiddleware` Go — same contract as the Java `AuthTokenFilter`), applied to every `/api/**` route except `/health`. A direct call to a service's port (compose publishes them on `127.0.0.1:8083-8089`) still has to pass that service's own check; it is not an open bypass. See `07-api/authentication.md` §1. |
+| **Description** | **Corrected 2026-10-11, re-verified against `FULL/`:** this risk described services with no auth check of their own; that is no longer true. `03-ms-academic`, `06-ms-biometric`, `07-ms-configuration`, `08-ms-notification` and `09-ms-quality` each run their own session+RBAC guard (`registerAuthGuard` TS, `require_permission` Python — same contract as the Java `AuthTokenFilter`), applied to every `/api/**` route except `/health`. A direct call to a service's port (compose publishes them on `127.0.0.1:8083-8089`) still has to pass that service's own check; it is not an open bypass. See `07-api/authentication.md` §1. |
 | **Probability** | Low |
 | **Impact** | Medium |
 | **Risk level** | Low |

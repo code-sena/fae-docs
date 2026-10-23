@@ -38,7 +38,7 @@
 | Control | Rule |
 |---|---|
 | No default accounts | No changeset ships a password. The first administrator is created by hand with `database/scripts/bootstrap-admin.sh`; the old seed accounts are disabled by a changeset. |
-| First-login password change | Accounts created by bootstrap or by an administrator have `must_change_password`. Until it is changed, Kong rejects every write except the password change (403 `PASSWORD_CHANGE_REQUIRED`); web and mobile show the forced-change screen. |
+| First-login password change | The bootstrap administrator, and accounts whose temporary credentials identity e-mailed, have `must_change_password`. Until it is changed, Kong rejects every write except the password change (403 `PASSWORD_CHANGE_REQUIRED`); web and mobile show the forced-change screen. |
 | Brute force | Identity answers **429** with `Retry-After` from the 11th failed login per client IP within 60 s (on top of the per-account lockout). Successful logins do not count. |
 | Passwords | bcrypt, cost 12 (ADR-008). |
 

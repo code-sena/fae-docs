@@ -39,6 +39,8 @@ can work in parallel (frontend, backend, other services) with an agreed contract
 
 Shared: `contracts/openapi/_shared.yaml`. Template: `_template-service.yaml`. Lint: `redocly.yaml`.
 
+Generated from code (authoritative for 01, 02, 04, 05 and 06; CI in the project fails on drift): `contracts/generated/*.json`.
+
 ---
 
 ## Documents

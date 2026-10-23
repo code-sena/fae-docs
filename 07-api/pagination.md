@@ -32,7 +32,7 @@ Reusable in `_shared.yaml`: `LimitParam`, `OffsetParam`, `PageParam`.
 - `03/07` return bare sliced array; `09` returns envelope `{data,total,limit,offset}` (`09/routes.ts:75-84`).
 - Filters are exact-match: `?name=` (configurations), `?status=` / `?updateStatus=` / `?enrollmentStatus=` (cases/enrollments), `?schoolId/?programId/?cohortId/?actorId` (academic), `?service&?status&?projectId&?processId` (quality).
 
-### Go (`08-notification`)
+### TypeScript (`08-notification`)
 - `GET /api/v1/alert-types?limit=50&offset=0`; `GET /api/v1/alerts?actorId&typeId&resolved|status&limit&offset`.
 - `status=open|pending|resolved` maps to `resolved` bool; response envelopes `{alerts:[]}` / `{alert_types:[]}` (not `data/meta`).
 

@@ -4,7 +4,7 @@
 > plugin/consumers**, so `$TOKEN` is the opaque `sessionId` issued at login and sent as
 > `Authorization: Bearer`. Kong's `pre-function` checks it on every non-public route and every
 > service checks it again on its own (plus RBAC) — Java `AuthTokenFilter` (01/02/04/05) and an
-> equivalent guard in every TS/Python/Go service (03/06/07/08/09), not just Kong.
+> equivalent guard in every TS/Python service (03/06/07/08/09), not just Kong.
 
 ## 0. Token
 

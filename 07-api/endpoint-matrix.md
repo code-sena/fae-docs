@@ -266,8 +266,7 @@ per IP**. No `jwt` plugin and no consumers.
 ## 11. Required permission per route (RBAC)
 
 Every service validates the session against identity and evaluates the permission through
-`GET /api/v1/auth/evaluate` (Java `AuthTokenFilter`, TS `authGuard.ts`, Python `security.py`,
-Go `auth_middleware.go`). Seeded grants per role: `database/SEEDS.md` §3.
+`GET /api/v1/auth/evaluate` (Java `AuthTokenFilter`, TS `authGuard.ts` (03/07/08/09), Python `security.py`). Seeded grants per role: `database/SEEDS.md` §3.
 
 | Service | Rule | Permission |
 |---------|------|------------|

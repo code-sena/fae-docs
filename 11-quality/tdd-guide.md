@@ -12,7 +12,7 @@
 
 **Repo evidence:** every existing test in this project follows the cycle documented here —
 `UserActivationServiceTest` (domain), `ResetPasswordUseCaseImplTest` (application, pure Fakes),
-`email_handler_test.go` (Go fake sender), `test_router_contract.py` (contract tier). IEEE 829
+`sender.test.ts` (jest spy on the nodemailer transport), `test_router_contract.py` (contract tier). IEEE 829
 test IDs (`TC-xx-xxx`) appear in test names so each test traces back to a requirement.
 
 ---
@@ -122,19 +122,14 @@ class InMemoryBiometricRepository:
 ### 4. Spy
 Records the calls it receives. You can verify if it was called and with what arguments.
 
-```go
-// Real pattern from email_handler_test.go (08-ms-notification)
-type fakeSender struct {
-    err   error
-    calls int            // ← records how many times Send was invoked
-    last  email.Message  // ← records the argument of the last call
-}
+```typescript
+// Real pattern from infrastructure/email/__tests__/sender.test.ts (08-ms-notification)
+const sendMail = jest.fn().mockResolvedValue({});   // ← spy: records every call and its arguments
+nodemailer.createTransport.mockReturnValue({ sendMail });
 
-func (f *fakeSender) Send(_ context.Context, msg email.Message) error {
-    f.calls++
-    f.last = msg
-    return f.err
-}
+await sendEmail(cfg, { to: 'x@y.com', subject: 's', textBody: 't', htmlBody: '<p>h</p>' });
+
+expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ to: 'x@y.com', subject: 's' }));
 ```
 
 ### 5. Mock

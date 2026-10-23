@@ -17,7 +17,7 @@
 - **What they test:** use cases and domain logic isolated through ports (hexagonal architecture).
   Existing examples: `ResetPasswordUseCaseImplTest`, `RefreshSessionUseCaseImplTest`,
   `UserActivationServiceTest` (identity); email/alert rendering handlers in notification
-  (`email_handler_test.go`, `alert_handler_test.go`, `render_test.go`).
+  (`sender.test.ts`, `render.test.ts`, `routes.alerts.test.ts` under `08-ms-notification/src`).
 - **What they do NOT test:** a real database, network, Kafka, or other external services (these are
   replaced with in-memory doubles, e.g. `InMemoryRecoveryCodeAdapterTest` and
   `tests/support/in_memory_repositories.py` in biometric).

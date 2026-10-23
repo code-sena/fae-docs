@@ -51,11 +51,14 @@ Lists also send `x-total-count` header even on 200 with empty array.
 ```
 Plus headers `x-request-id`, `x-process-time-ms`, `x-content-type-options: nosniff`. Threshold `SIMILARITY_THRESHOLD=0.85`.
 
-### Go 08 — `alert_handler.go:140-150`, `main.go:60-65`
+### TypeScript 08 — `infrastructure/http/routes.ts`, `main.ts:46-61`
 ```json
-{ "error": "validation failed: academic_actor_id is required" }
+{ "error": "BadRequest", "message": "Invalid alert payload", "details": {...}, "timestamp": "…" }
+{ "error": "NotFound" }
+{ "error": "Forbidden", "message": "Forbidden: outside your scope", "timestamp": "…" }
+{ "error": "NotFound", "message": "Route GET /x not found", "timestamp": "…" }
 ```
-Mapping: `ErrValidation→400`, `ErrNotFound→404`, `ErrDuplicate→409`; `NoRoute→404 {error:"route not found"}`, `NoMethod→405`.
+`POST /api/v1/emails` uses its own codes (`FORBIDDEN` for a bad internal token, `VALIDATION_ERROR`, `DELIVERY_FAILED` 502). The global error handler maps `statusCode ≥ 400` through `errorNameFor` and hides raw messages for 5xx (`Unexpected internal error`). Rewritten from Go on 2026-10-18 (ADR-021): the old `{error:"validation failed: …"}` / `route not found` bodies no longer exist.
 
 ### Mobile client — `apiClient.js:70-83`
 `ApiError(status,message,data)`: `!ok → throw ApiError(status, result.message||"Error <status>")`; `AbortError→408 timeout`; network → `0`.

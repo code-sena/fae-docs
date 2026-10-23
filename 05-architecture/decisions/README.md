@@ -41,6 +41,8 @@ ADRs document important architectural decisions. Each file = one decision.
 | ADR-019 | Frontend on Expo (Web + Mobile) | Accepted | 2026-10-17 | UX |
 | ADR-020 | Deployment: AWS EC2 + Vercel | Accepted | 2026-10-17 | DevOps |
 | ADR-021 | Notification service rewritten in TypeScript/Fastify | Proposed | 2026-10-18 | Stack |
+| ADR-022 | TLS termination with Caddy in front of Kong | Proposed | 2026-10-23 | Edge / Security |
+| ADR-023 | Opaque session authentication with edge introspection | Proposed | 2026-10-23 | Security |
 
 > Update status to `Superseded by ADR-NNN` when replaced. Audit retirement (2026-09) is tracked in ADR-002/005/006 via `refactor/remove-audit-domain`.
 
@@ -61,5 +63,7 @@ Decisions are unchanged; each ADR file carries its own `Implementation note` lin
 | ADR-012 | Structured logs only — no Prometheus/Grafana/Jaeger deployed |
 | ADR-015 | Not implemented — Redis only serves Kong rate-limiting |
 | ADR-018 | CI on GitHub Actions is live (5 jobs, no lint gate); **CD now automated**: `deploy-production.yml` chain (CI → Neon → EC2 → Vercel) behind `production` environment approval — files verified on `develop` 2026-10-20; Dependabot configured but paused (limit 0) |
-| ADR-020 | EC2 (t3.xlarge, 13 containers) + Neon + Vercel as decided; deploys now run through `deploy-backend.yml` (SSH + `deploy-backend-remote.sh` + health gate) instead of hand-typed SSH; TLS state unverified (`Caddyfile.prod` exists) |
+| ADR-020 | EC2 (t3.xlarge, 13 containers) + Neon + Vercel as decided; deploys now run through `deploy-backend.yml` (SSH + `deploy-backend-remote.sh` + health gate) instead of hand-typed SSH; TLS terminated by Caddy per ADR-022 (`Caddyfile.prod`, `docker-compose.prod.yml`); issuance on the host still unverified |
+| ADR-022 | Implemented in `FULL/`: `caddy:2-alpine` in `docker-compose.prod.yml` (`Caddyfile.prod`, Let's Encrypt) and local overlay `docker-compose.tls.yml`; certificate issuance on EC2 not verifiable from code |
+| ADR-023 | Records the running behaviour (opaque `sessionId`, Kong `pre-function` + per-service guards, 10 s cache); JWT RS256 of ADR-007 stays a deferred option (`AT-007`) |
 | ADR-021 | Implemented in `FULL/` on 2026-10-18 — status left **Proposed** pending team ratification |

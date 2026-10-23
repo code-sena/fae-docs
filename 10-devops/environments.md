@@ -88,6 +88,7 @@ Infrastructure/host:  BIND_IP, FRONTEND_PORT, EXPO_PUBLIC_API_URL, SEED_*, BOOTS
 | `FACEATTEND_LIQUIBASE_IMAGE` | `liquibase/liquibase:4.29.0` | pinned tag | pinned tag | pinned tag |
 | `BIND_IP` | `127.0.0.1` (loopback; `0.0.0.0` only to debug from LAN/phone) | n/a (internal) | n/a | n/a |
 | `KONG_PROXY_PORT` / `KONG_ADMIN_PORT` | `8000` / `8001` (admin always loopback-bound) | `80/443` behind TLS | `80/443` behind TLS | `80/443` behind TLS, **admin API never exposed** |
+| `API_DOMAIN` (ADR-022) | not used (optional `DOMAIN` for the `docker-compose.tls.yml` overlay; defaults to `localhost` with Caddy's local CA) | required by `docker-compose.prod.yml`: DNS name pointing at the host, used by `Caddyfile.prod` for the Let's Encrypt certificate | same | same |
 | `FRONTEND_PORT` | `8090` | 80/443 | 80/443 | 80/443 |
 | `EXPO_PUBLIC_API_URL` (baked at frontend build time) | `http://localhost:8000` (physical devices: PC LAN IP, e.g. `http://192.168.1.10:8000`) | `https://dev.[domain]` | `https://staging.[domain]` | `https://[domain]` |
 | `SEED_USERNAME` / `SEED_PASSWORD`, `BOOTSTRAP_USERNAME` / `BOOTSTRAP_PASSWORD` | dev-only test accounts (`SeedAdmin123!`, `Admin123!ChangeMe`) | synthetic seed | **not present** | **never** |

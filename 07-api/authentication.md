@@ -52,11 +52,11 @@
   purpose.** The gateway's edge check and every service's own check are both real; see
   `08-uml/diagrams/source/seq-login.mmd` (SEQ-02) for the full call chain.
 - **No coverage gap today:** `03` academic, `06` biometric, `07` configuration, `08` notification
-  and `09` quality (TS/Python/Go) each run the guard above — confirmed 2026-10-11 against `FULL/`
+  and `09` quality (TS/Python) each run the guard above — confirmed 2026-10-11 against `FULL/`
   (`03-ms-academic/src/infrastructure/http/authGuard.ts`,
   `06-ms-biometric/infrastructure/web/security.py`,
   `07-ms-configuration/src/infrastructure/http/authGuard.ts`,
-  `08-ms-notification/internal/infrastructure/http/handler/auth_middleware.go`,
+  `08-ms-notification/src/infrastructure/http/authGuard.ts`,
   `09-ms-quality/src/infrastructure/http/authGuard.ts`, all wired unconditionally at boot). A
   direct call to a service's own port (8083/8086/8087/8088/8089, published on loopback by
   compose) still has to pass that service's own session+permission check — it is **not** an open
@@ -250,7 +250,7 @@ check, not a substitute for the service-side one.
 - Frontend → Kong: `Authorization: Bearer <sessionId>`, `Content-Type: application/json`
   (or multipart for face).
 - Java MS `AuthTokenFilter` → handler: sets request attributes `X-User-Id`, `X-User-Roles` and a
-  response header `X-User-Roles` (comma-separated). TS/Go/Python services do not read them.
+  response header `X-User-Roles` (comma-separated). TS/Python services do not read them.
 - CORS (global Kong plugin): origins `["*"]` (wildcard; was `localhost:3000/5173/8090` before —
   widened so LAN/phone clients work); methods GET/POST/PUT/PATCH/DELETE/OPTIONS; headers
   `Authorization,Content-Type,X-Requested-With`; `credentials:true`; `max_age:3600`.

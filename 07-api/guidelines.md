@@ -71,7 +71,7 @@ Canonical (see `pagination.md`):
 - Java `01` identity: `?page=1&limit=20` (1-based) → `PageResponse {data,meta{page,limit,total,totalPages}}`.
 - Other Java services (`02,04,05`): filter-only lists (`?schoolId`, `?cohortId`, `?classSessionId`, `?status`, …) returning bare arrays — no pagination yet; add `?limit&offset` + envelope for new endpoints.
 - TS services (`03,07,09`): `?limit=20&offset=0`, cap 100, response header `x-total-count`; `09` list envelope is `{data,total,limit,offset}`; `03/07` return bare array + header.
-- Go service (`08`): `?limit&offset` (alert-types default 50/0), filters `?actorId&?typeId&?resolved|?status=open|resolved|pending`.
+- TS service (`08`): `?limit&offset` (default 50/0, same on alert-types), filters `?actorId&?typeId&?resolved|?status=open|resolved|pending`.
 - Python service (`06`): no pagination (single-template or small history).
 - Mobile legacy pattern `?_limit&?_sort&_order` is JSON-Server style and MUST NOT be added to new backend endpoints; backend uses `limit/offset` (identity: `page/limit`).
 

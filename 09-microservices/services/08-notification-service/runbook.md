@@ -19,7 +19,7 @@
 | Health endpoints | `GET /health`, `GET /api/v1/health`, `GET /health/quality` |
 | Internal endpoint | `POST /api/v1/emails` (not routed publicly; called by Identity) |
 | DB | PostgreSQL schema `notification` (container `faceattend-postgres`, db `faceattend_db`) |
-| Key env vars | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`/`SMTP_PASS`, `EMAIL_INTERNAL_TOKEN`, `KAFKA_BROKERS` (enables the Kafka consumer — without it the service starts with no consumer) |
+| Key env vars | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`/`SMTP_PASSWORD`, `EMAIL_INTERNAL_TOKEN`, `KAFKA_BROKERS` (enables the Kafka consumers — without it the service starts with none; the class-session consumer and schedulers also need `NOTIFICATION_SERVICE_USERNAME`/`PASSWORD`), `IDENTITY_URL`, `AUTHORIZATION_URL`, `WEBHOOK_URL`/`WEBHOOK_SECRET` |
 | Dashboard / alert channel | Not deployed — see `13-operations/observability.md` |
 | Target RTO / RPO | Not defined (`NFR-010` pending) |
 

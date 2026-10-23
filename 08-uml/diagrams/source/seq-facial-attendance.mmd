@@ -75,5 +75,5 @@ sequenceDiagram
     end
 
     Note over CL: Verified 2026-10: endpoints.js declares facialIdentify and AttendanceService.create has no call site — the backend is ready but neither client wires capture to the attendance write yet
-    Note over K: attendance-events is published but not consumed — no service raises notification.alert from it (attendance alerts are only created via ms-notification POST /api/v1/alerts). The one exception platform-wide is a different topic: ms-notification consumes attendance.justification.events on review, so a justification outcome does raise an alert automatically
+    Note over K: attendance-events is published but not consumed — no service raises notification.alert from it (attendance alerts are only created via ms-notification POST /api/v1/alerts). The exceptions platform-wide are two different topics: ms-notification consumes attendance.justification.events on review, so a justification outcome does raise an alert automatically
     Note over ATT: ADR-004 describes an in-process event bus — the implemented mechanism is the Kafka topic attendance-events

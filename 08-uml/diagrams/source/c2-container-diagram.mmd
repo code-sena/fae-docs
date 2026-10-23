@@ -19,13 +19,13 @@ C4Container
         Container(attendance, "ms-attendance", "Java 21 + Spring Boot", "Attendance records, justifications and supporting documents. Port 8085")
         Container(biometric, "ms-biometric", "Python 3.12 + FastAPI", "Facial and fingerprint embeddings, vector search. Port 8086")
         Container(configuration, "ms-configuration", "TypeScript + Fastify", "Academic/security configuration values and biometric update cases. Port 8087")
-        Container(notification, "ms-notification", "TypeScript + Fastify", "Alert types, alert lifecycle, the internal e-mail channel and the platform's only Kafka consumer (attendance.justification.events). Port 8088")
+        Container(notification, "ms-notification", "TypeScript + Fastify", "Alert types, alert lifecycle, the internal e-mail channel and the platform's only Kafka consumers (attendance.justification.events, scheduling.class-session.closed). Port 8088")
         Container(quality, "ms-quality", "TypeScript + Fastify", "ISO 25010 / 29110 / ISTQB quality tooling (not a bounded context). Port 8089")
 
         ContainerDb(postgres, "PostgreSQL 17", "faceattend_db", "One schema per bounded context: identity, authorization, academic, scheduling, attendance, biometric, configuration, notification (+ quality). No cross-schema FK. On the faceattend-data network via database/docker-compose.yml, merged into the root compose with Docker Compose's include: — also published on 127.0.0.1:5432 for local dev")
         ContainerDb(mongodb, "MongoDB 7", "Document store with vector search", "Facial and fingerprint embeddings and match logs (ADR-003 — only polyglot exception). On the faceattend-data network")
         ContainerDb(redis, "Redis 7", "Rate-limit store", "Kong rate-limiting counters. On the faceattend-app network")
-        ContainerDb(kafka, "Kafka 3.x (KRaft) :9092", "Message broker", "Domain events between services (ADR-006). Six producers and exactly one consumer — 08-ms-notification on attendance.justification.events; every other topic is published and never read (AT-006). On the faceattend-data network")
+        ContainerDb(kafka, "Kafka 3.x (KRaft) :9092", "Message broker", "Domain events between services (ADR-006). Six producers and two consumers, both in 08-ms-notification (attendance.justification.events, scheduling.class-session.closed); every other topic is published and never read (AT-006). On the faceattend-data network")
     }
 
     System_Ext(countriesnow, "countriesnow.space", "External city and country catalog, called straight from the mobile client")
@@ -65,10 +65,10 @@ C4Container
     Rel(identity, kafka, "Publishes identity-events, password-policy-events (city-events no longer published — the city table was dropped)", "Async producer")
     Rel(authorization, kafka, "Publishes role-events, permission-events", "Async producer")
     Rel(academic, kafka, "Publishes academic-events (HTTP access log: method, url, status)", "Async producer")
-    Rel(scheduling, kafka, "Publishes class-session-events, environment-events, schedule-block-events", "Async producer")
+    Rel(scheduling, kafka, "Publishes class-session-events, environment-events, schedule-block-events, scheduling.class-session.closed (class closed)", "Async producer")
     Rel(attendance, kafka, "Publishes attendance-events, justification-events, justification-type-events, document-events (flat names) and attendance.justification.events on review (canonical name)", "Async producer")
     Rel(configuration, kafka, "Publishes configuration-events (HTTP access log: method, url, status)", "Async producer")
-    Rel(kafka, notification, "Delivers attendance.justification.events → raises the JUSTIFICATION_APPROVED / JUSTIFICATION_REJECTED dashboard alert (group notification-service; only started when KAFKA_BROKERS is set)", "Async consumer")
+    Rel(kafka, notification, "Delivers attendance.justification.events → raises the JUSTIFICATION_APPROVED / JUSTIFICATION_REJECTED dashboard alert (group notification-service; only started when KAFKA_BROKERS is set). Also delivers scheduling.class-session.closed (group notification-service-class-session; also needs the service-account credentials) → absences + instructor e-mail", "Async consumer")
 
     Rel(mobile, countriesnow, "Reads country codes and city lists directly from the browser", "HTTPS / REST")
 

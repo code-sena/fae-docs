@@ -92,7 +92,7 @@ Examples:
 - Today: the API Gateway **authenticates at the edge** — a global `pre-function` requires a valid
   active session on every non-public route (plus `cors` + `rate-limiting`), while every service
   validates the opaque bearer again on its own (`AuthTokenFilter` in Java, an equivalent guard in
-  TS/Python/Go) and checks permissions
+  TS/Python) and checks permissions
 - Target (ADR-007): the API Gateway validates the JWT (signature and expiration)
 - Each service validates the role permissions for the specific operation
 - Target (ADR-007): roles travel as claim `roles: ["Administrador"]`
@@ -105,7 +105,7 @@ Examples:
 
 - **HTTPS mandatory** in all environments except local
 - TLS 1.2 minimum; TLS 1.3 recommended
-- Certificates: Let's Encrypt (staging) / Corporate CA (production)
+- Certificates: Let's Encrypt issued by Caddy in production (ADR-022); Caddy's local CA for local TLS
 - HSTS enabled in production
 
 ### Internal service-to-service communication

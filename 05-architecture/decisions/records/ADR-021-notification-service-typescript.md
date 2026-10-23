@@ -26,7 +26,7 @@ layout, so the consolidation target was not a new pattern but an existing, prove
 - The service must keep working with the same database schema (PostgreSQL, schema `notification`)
   with no migration.
 - The Kafka consumer's at-least-once semantics and idempotency had to be preserved exactly —
-  it is the only real event flow in the platform.
+  it was the platform's only real event flow when this ADR was written (a class-session consumer was added on 2026-10-22).
 
 ---
 
@@ -49,7 +49,7 @@ propagates across four services instead of living in a fifth, unshared implement
 
 | Alternative | Pros | Cons | Reason for discarding |
 |------------|------|------|-----------------------|
-| **TypeScript + Fastify + Drizzle** (chosen) | Matches 03/07/09 exactly; one auth guard (`registerAuthGuard`), one error contract, one test runner (jest); Node already required by 3 services and both frontends; kafkajs is already a dependency elsewhere | Adds a fourth consumer of the same Postgres schema; Node's memory footprint is higher than Go's | — (chosen) |
+| **TypeScript + Fastify + Drizzle** (chosen) | Matches 03/07/09 exactly; one auth guard (`registerAuthGuard`), one error contract, one test runner (jest); Node already required by 3 services and both frontends; kafkajs is already a dependency elsewhere | Node's memory footprint is higher than Go's | — (chosen) |
 | Keep Go/Gin | No migration work; tiny binary and low memory | Fourth runtime with no second Go service to share lint, CI, on-call knowledge or reviewers with; keeps `AT-003` open indefinitely | The overhead it was meant to avoid never paid off — the service stayed at two tables |
 | Node + Express | Ubiquitous, huge ecosystem | Diverges from the Fastify pattern the other three TS services use: two HTTP frameworks, two error shapes, two guard wirings | Would replace one duplicated implementation with a different duplication |
 | Merge into `07-ms-configuration` | One fewer container; both are small support services | Couples two bounded contexts that have independent schemas and change rates; configuration has no notification responsibility in the domain model | Different bounded contexts — merging would blur ownership, not reduce runtime count |
@@ -91,11 +91,10 @@ propagates across four services instead of living in a fifth, unshared implement
 
 | Risk | Probability | Impact | Mitigation |
 |------|------------|--------|-----------|
-| Behaviour drift between the deleted Go service and the TS port | Medium | Medium | Spec pinned the Go behaviour first (`2026-10-18-notification-service-typescript-design.md` §2); parity is covered by 16 jest test files including an `authGuard` integration test and a consumer test |
-| **Missing alert-type seeds make the consumer block its partition** | High | High | The handler requires `JUSTIFICATION_APPROVED` / `JUSTIFICATION_REJECTED` rows that `001-seed-alert-type-table.yaml` does not insert; without them every event retries forever. Needs a new incremental changeset (existing seeds are never edited) — **open, not resolved by this ADR** |
+| Behaviour drift between the deleted Go service and the TS port | Medium | Medium | Spec pinned the Go behaviour first (`2026-10-18-notification-service-typescript-design.md` §2); parity is covered by 20 jest test files (as of 2026-10-22) including an `authGuard` integration test and a consumer test |
 | Poison message blocks the `attendance.justification.events` partition | Low | High | Non-retryable events (bad status, zero actor id, empty `reviewedAt`, unparseable JSON) are logged and skipped so the offset advances; a DLQ remains open debt (`AT-006`) |
 | Silent loss of alerts when `KAFKA_BROKERS` is unset | Medium | Medium | The consumer is deliberately opt-in; the absence must be visible in deployment config, not discovered in an incident |
-| `npm audit` findings in the new dependency tree | High | Low | Already an informational (`continue-on-error`) step in CI; Dependabot tracks them weekly |
+| `npm audit` findings in the new dependency tree | High | Low | Already an informational (`continue-on-error`) step in CI; Dependabot is configured but paused (monthly, `open-pull-requests-limit: 0`; see ADR-018) |
 
 ---
 

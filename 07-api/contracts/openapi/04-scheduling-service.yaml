@@ -21,7 +21,7 @@ info:
 servers:
   - url: http://localhost:8084
     description: Direct (dev)
-  - url: http://localhost:8080
+  - url: http://localhost:8000
     description: Via Kong gateway (dev, preferred)
   - url: https://api.dev.{domain}
     description: Development

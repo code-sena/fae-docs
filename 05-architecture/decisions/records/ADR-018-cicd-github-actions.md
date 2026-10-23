@@ -11,8 +11,8 @@
 > → backend (EC2) → frontend (Vercel) on push to `main`, each step gated by the
 > manual approval of the `production` GitHub environment, with reusable
 > `deploy-database/backend/frontend.yml` workflows. The "CD stays manual"
-> statements below reflect the 2026-10-17 reality. Workflow files verified on
-> `develop`; confirm they have landed on `main` before relying on the chain.
+> statements below reflect the 2026-10-17 reality. Workflow files are present on
+> `main` and `develop` (verified 2026-10-23).
 > Also: Dependabot is **paused** (`open-pull-requests-limit: 0`, monthly,
 > no `gomod` entry since the Go service was removed) — it does not open the
 > weekly update PRs mentioned in the justification. See `10-devops/ci-cd.md`.
@@ -39,8 +39,8 @@ ADR-011 chose Jenkins, self-hosted, as the CI/CD platform. That decision was nev
 
 1. **Already running and green:** `ci.yml` (171 lines) tests all nine services plus both frontends on every push/PR to `main`, with `concurrency: cancel-in-progress`. Switching platforms would discard working pipelines to satisfy a preference recorded on paper.
 2. **Zero infrastructure:** no server to provision, patch or keep online — the sovereignty concern that drove ADR-011 does not outweigh the maintenance cost for a team of 3.
-3. **Matrix builds per stack:** the workflow uses a matrix per service (`java-services`, `node-services`, `python-services`, `go-service`, `mobile`, `web`), so each service keeps its own toolchain and cache (Maven, npm, Poetry `.venv` keyed by `poetry.lock`).
-4. **Dependabot included:** `.github/dependabot.yml` gives weekly update PRs for every ecosystem in the monorepo, which a self-hosted Jenkins would not provide out of the box.
+3. **Matrix builds per stack:** the workflow uses a matrix per service (`java-services`, `node-services`, `python-services`, `mobile`, `web`), so each service keeps its own toolchain and cache (Maven, npm, Poetry `.venv` keyed by `poetry.lock`).
+4. **Dependabot included:** `.github/dependabot.yml` is configured for every ecosystem in the monorepo (currently paused: monthly, limit 0), which a self-hosted Jenkins would not provide out of the box.
 
 **Current pipeline (what `ci.yml` actually does):**
 - `java-services` (01, 02, 04, 05): Temurin 21 + `mvn -B test`.
@@ -73,7 +73,7 @@ ADR-011 chose Jenkins, self-hosted, as the CI/CD platform. That decision was nev
 **Positive:**
 - CI keeps working with no infrastructure to operate.
 - Caches (Maven, npm, Poetry) are hosted and keyed per lockfile, keeping runs fast.
-- Dependabot covers security updates for all eight ecosystems.
+- Dependabot covers security updates for the configured ecosystems (paused, see the implementation note above).
 
 **Negative / Trade-offs:**
 - Pipeline logs and secrets live on GitHub — the sovereignty argument of ADR-011 is consciously given up.
@@ -91,7 +91,7 @@ ADR-011 chose Jenkins, self-hosted, as the CI/CD platform. That decision was nev
 | Risk | Probability | Impact | Mitigation |
 |------|------------|--------|-----------|
 | GitHub outage blocks CI | Low | Medium | Merges can wait; workflows are plain YAML and portable to any runner |
-| Informative security scans go unread | Medium | High | Promote `npm audit`/`bandit`/`govulncheck` to gating steps once baselines are clean |
+| Informative security scans go unread | Medium | High | Promote `npm audit`/`bandit` to gating steps once baselines are clean |
 | Minutes quota on private repos | Low | Low | Build times are small (tests only, no image push); public repo would be free |
 
 ---

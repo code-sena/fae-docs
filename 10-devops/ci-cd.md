@@ -52,13 +52,11 @@ strict (a failure stops the chain):
 ci ──> database (Neon) ──> backend (EC2) ──> frontend (Vercel)
 ```
 
-> **Activation caveat:** these workflow files were verified in the repository's
-> `develop` checkout (2026-10-20). `deploy-frontend.yml` still carries a
-> validation push trigger on `feature/github-actions-deploy` — its own comment
-> states this exists because the workflow cannot run before it lands on the
-> default branch. Confirm the workflows are present on `main` before relying
-> on the automatic chain; `workflow_dispatch` of the individual deploy
-> workflows is the guaranteed path meanwhile.
+> **Activation:** all five workflow files are present on both `develop` and `main`
+> (verified 2026-10-23 with `git ls-tree origin/main .github/workflows/`).
+> `deploy-frontend.yml` still carries a validation push trigger on
+> `feature/github-actions-deploy`; it was only needed before the file landed on the
+> default branch and is preview-only.
 
 - **Concurrency:** a single production deploy at a time (no cancellation).
 - **Manual dispatch** allows deploying a subset: `all`, `database`, `backend`
@@ -99,7 +97,8 @@ secrets**: `EC2_HOST`, `EC2_USER`, `EC2_DEPLOY_DIR`, `EC2_SSH_KEY`,
 `EC2_KNOWN_HOSTS`, `ENV_PROD_FILE` (backend); `NEON_JDBC_URL`, `NEON_USER`,
 `NEON_PASSWORD` (database); `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
 `VERCEL_PROJECT_ID` (frontend). Missing values fail fast with an explicit
-error. Local equivalents are documented in
+error only in the backend and database workflows (their "Validar" steps);
+`deploy-frontend.yml` does not validate the Vercel values. Local equivalents are documented in
 [Local setup](./local-setup.md); environment semantics in
 [Environments](./environments.md).
 

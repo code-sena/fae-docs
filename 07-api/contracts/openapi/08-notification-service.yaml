@@ -10,22 +10,27 @@ info:
     ## Fuente real
     - Handlers: `src/infrastructure/http/routes.ts`, `authGuard.ts`, `permissions.ts`,
       `actorScope.ts`, `qualityMiddleware.ts`, `src/main.ts`
-    - Consumidor Kafka: `src/infrastructure/messaging/justification.consumer.ts` —
-      `attendance.justification.events` (grupo `notification-service`, solo con `KAFKA_BROKERS`)
-    - Dominio: `Alert{alert_id,academic_actor_id,alert_type_id,raised_at,resolved_at?,created_at,updated_at?,row_version}`,
-      `AlertType{alert_type_id,code,name,severity,channel,…}`
-    - Comandos: `CreateAlertCommand{academic_actor_id*,alert_type_id*}`,
+    - Consumidores Kafka (no son rutas HTTP): `justification.consumer.ts` —
+      `attendance.justification.events` (grupo `notification-service`, solo con `KAFKA_BROKERS`); y
+      `classSession.consumer.ts` — `scheduling.class-session.closed` (grupo
+      `notification-service-class-session`; además exige `NOTIFICATION_SERVICE_USERNAME`/`PASSWORD`).
+      Con esas credenciales también arranca el planificador diario de alumnos en riesgo.
+    - Formato de campos: **camelCase** en peticiones y respuestas (`alertId`, `academicActorId`,
+      `alertTypeId`, `raisedAt`, `resolvedAt`, `createdAt`…), igual que el resto de servicios; la única
+      excepción es el cuerpo 201 de `POST /alerts`, que devuelve `{alert_id}` en snake_case.
+    - Dominio: `Alert{alertId,academicActorId,alertTypeId,raisedAt,resolvedAt?,createdAt,updatedAt?,rowVersion}`,
+      `AlertType{alertTypeId,code,name,severity,channel,…}`
+    - Comandos: `CreateAlertCommand{academicActorId*,alertTypeId*}`,
       `CreateAlertTypeCommand{code*,name*,severity*,channel?}`, `UpdateAlertTypeCommand{code?,name?,severity?,channel?}`
     - Filtros: `?actorId&?typeId&?resolved|?status=open|resolved|pending`; `?limit&offset` (types default 50/0)
     - Envelopes: `{alerts:[]}`, `{alert_types:[]}`; errores `{error,message,timestamp}`
-    - Seeds reales de `alert_type` (5, `08-ms-notification-db/02-dml/001-seed-alert-type-table.yaml`):
+    - Seeds reales de `alert_type` (5 base en `08-ms-notification-db/02-dml/001-seed-alert-type-table.yaml`
+      + 2 de justificación en `003-seed-justification-result-alert-types.yaml`, 7 en total):
       `ATTENDANCE_ABSENTEEISM` (WARNING/DASHBOARD), `ATTENDANCE_TARDINESS` (WARNING/DASHBOARD),
       `ATTENDANCE_LOW` (CRITICAL/EMAIL), `JUSTIFICATION_PENDING` (INFO/DASHBOARD),
-      `BIOMETRIC_UPDATE` (INFO/PUSH). Los códigos `ABSENCE_THRESHOLD`/`SCHEDULE_CONFLICT` que
+      `BIOMETRIC_UPDATE` (INFO/PUSH), `JUSTIFICATION_APPROVED` y `JUSTIFICATION_REJECTED`
+      (INFO/DASHBOARD, los que usa el consumidor de justificaciones). Los códigos `ABSENCE_THRESHOLD`/`SCHEDULE_CONFLICT` que
       citaba la versión anterior de este contrato **no existen**.
-      **Gap abierto:** el consumidor Kafka exige `JUSTIFICATION_APPROVED` y
-      `JUSTIFICATION_REJECTED`, que **no están en los seeds** — sin esas filas cada evento lanza
-      `missing alert-type seed for code …`, se reintenta con backoff y bloquea la partición.
       `notification-preferences` documentado en SERVICE.md NO existe.
     - Gateway: no per-upstream plugins (solo el `rate-limiting` global de 6000/min). The edge `pre-function` validates
       the opaque session UUID for `/api/v1/alerts` and `/api/v1/alert-types`; the MS itself also
@@ -41,7 +46,7 @@ info:
 servers:
   - url: http://localhost:8088
     description: Direct (dev)
-  - url: http://localhost:8080
+  - url: http://localhost:8000
     description: Via Kong gateway (dev, preferred)
   - url: https://api.dev.{domain}
     description: Development
@@ -93,7 +98,7 @@ paths:
     get:
       summary: Reporte de calidad
       tags: [Health]
-      security: []
+      description: Requiere permiso `configuration:manage` (no es público, a diferencia de `/health`).
       responses:
         '200':
           description: Reporte
@@ -157,17 +162,24 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateAlertCommand'
             example:
-              academic_actor_id: 77
-              alert_type_id: 1
+              academicActorId: 77
+              alertTypeId: 1
       responses:
         '201':
-          description: Alerta creada
+          description: Alerta creada (solo devuelve el id)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Alert'
+                type: object
+                required: [alert_id]
+                properties:
+                  alert_id:
+                    type: integer
+                    format: int64
         '400':
           $ref: './_shared.yaml#/components/responses/BadRequest'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
 
   /api/v1/alerts/{id}:
     parameters:
@@ -197,7 +209,7 @@ paths:
     parameters:
       - $ref: './_shared.yaml#/components/parameters/LongIdParam'
     patch:
-      summary: Resolver alerta (set resolved_at)
+      summary: Resolver alerta (set resolvedAt)
       operationId: resolveAlert
       tags: [Alert]
       responses:
@@ -242,8 +254,8 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateAlertTypeCommand'
             example:
-              code: ABSENCE_THRESHOLD
-              name: Umbral de ausencias
+              code: ATTENDANCE_CRITICAL
+              name: Asistencia crítica
               severity: WARNING
               channel: DASHBOARD
       responses:
@@ -333,13 +345,13 @@ paths:
                   format: email
                 template:
                   type: string
-                  enum: [verification_code]
-                  description: Only `verification_code` is supported (no free-form subject/body)
+                  enum: [verification_code, login_code, user_credentials]
+                  description: "Whitelisted templates (no free-form subject/body). Required data keys - `verification_code` and `login_code` take `code`; `user_credentials` takes `username` and `password`"
                 data:
                   type: object
                   additionalProperties:
                     type: string
-                  description: Template variables (`code` is required for `verification_code`)
+                  description: Template variables (see `template` for the required keys)
             example:
               to: apprentice@example.com
               template: verification_code
@@ -383,42 +395,42 @@ components:
       allOf:
         - $ref: './_shared.yaml#/components/schemas/AuditFields'
         - type: object
-          required: [alert_id, academic_actor_id, alert_type_id, raised_at]
+          required: [alertId, academicActorId, alertTypeId, raisedAt]
           properties:
-            alert_id:
+            alertId:
               type: integer
               format: int64
-            academic_actor_id:
+            academicActorId:
               type: integer
               format: int64
               description: Cross-context academic_actor id, no FK
-            alert_type_id:
+            alertTypeId:
               type: integer
-            raised_at:
+            raisedAt:
               $ref: './_shared.yaml#/components/schemas/Timestamp'
-            resolved_at:
+            resolvedAt:
               $ref: './_shared.yaml#/components/schemas/Timestamp'
               nullable: true
     CreateAlertCommand:
       type: object
-      required: [academic_actor_id, alert_type_id]
+      required: [academicActorId, alertTypeId]
       properties:
-        academic_actor_id:
+        academicActorId:
           type: integer
           format: int64
-        alert_type_id:
+        alertTypeId:
           type: integer
     AlertType:
       allOf:
         - $ref: './_shared.yaml#/components/schemas/AuditFields'
         - type: object
-          required: [alert_type_id, code, name, severity, channel]
+          required: [alertTypeId, code, name, severity, channel]
           properties:
-            alert_type_id:
+            alertTypeId:
               type: integer
             code:
               type: string
-              example: ABSENCE_THRESHOLD
+              example: ATTENDANCE_LOW
             name:
               type: string
             severity:

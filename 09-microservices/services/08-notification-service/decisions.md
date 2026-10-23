@@ -112,7 +112,7 @@ options matrix are recorded in `05-architecture/decisions/records/ADR-021-notifi
 - ✅ Back to **3 runtimes** platform-wide; `AT-003` closed
 - ✅ The auth guard, error envelope and audit-field handling are now the same code family as
   03/07/09, so a fix propagates across four services instead of one
-- ✅ First real end-to-end event flow: justification reviewed → dashboard alert
+- ✅ First real end-to-end event flows: justification reviewed → dashboard alert; class closed → absences + instructor e-mail (added later)
 - ⚠️ The consumer has no DLQ — a poison message blocks its partition until it is skipped or the
   offset is intervened on manually
 - ⚠️ kafkajs has no manual commit primitive; the Go reader's per-message retry loop had to be

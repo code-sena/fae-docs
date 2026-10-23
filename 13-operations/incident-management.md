@@ -29,7 +29,7 @@ We classify incidents based on the impact on the academic process (attendance re
 | Role | Responsibility | When activated |
 |------|----------------|----------------|
 | **Incident Commander (IC)** | Coordinates response, manages the "War Room", and makes final decisions on mitigation. | P0 and P1 always |
-| **Tech Lead** | Leads the technical diagnosis across the polyglot stack (Java, TS, Python, Go). | P0 and P1 always |
+| **Tech Lead** | Leads the technical diagnosis across the polyglot stack (Java, TS, Python). | P0 and P1 always |
 | **On-Call Engineer** | First responder. Executes technical actions (restarts, rollbacks, config changes). | All incidents |
 | **Comms Lead** | Communicates updates to institution administrators and users. | P0 and P1 |
 

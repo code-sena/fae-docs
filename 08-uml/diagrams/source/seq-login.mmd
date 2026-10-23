@@ -6,7 +6,7 @@ sequenceDiagram
     participant AZ as ms-authorization :8082
     participant SVC as Any service 01-09
 
-    Note over GW: Kong's global pre-function validates the opaque sessionId against identity on every non-public route (401/503 at the edge), plus cors + rate-limiting (6000/min global and per-upstream) — no jwt plugin, no consumers. Every service behind it (Java 01/02/04/05, TS 03/07/08/09, Python 06) also re-validates the session and evaluates RBAC again on its own, through a per-service guard — "duplicated per service on purpose: no shared module" (see note at the bottom)
+    Note over GW: Kong's global pre-function validates the opaque sessionId against identity on every non-public route (401/503 at the edge), plus cors + rate-limiting (6000/min global and per-upstream, except the login route at 5/min) — no jwt plugin, no consumers. Every service behind it (Java 01/02/04/05, TS 03/07/08/09, Python 06) also re-validates the session and evaluates RBAC again on its own, through a per-service guard — "duplicated per service on purpose: no shared module" (see note at the bottom)
 
     rect rgb(238, 245, 238)
     Note over U,ID: 1. Sign in — public bootstrap route, the pre-function does not run

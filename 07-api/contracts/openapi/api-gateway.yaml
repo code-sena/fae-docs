@@ -7,7 +7,7 @@ info:
     Fuente real: `back-end/99-api-gateway/kong/kong.yml` (`_format_version 3.0`, `strip_path:false`).
 
     ## Puertos
-    - Proxy `:8080` (contenedor `8000`), Admin `:8001`.
+    - Proxy `:8000` (`KONG_PROXY_PORT`), Admin `:8001`.
     - Frontends MUST usar `:8080/api/v1/...`. Acceso directo a `8081-8089` solo para dev/debug.
 
     ## Authentication
@@ -28,7 +28,7 @@ info:
       `faceattend:session:<id>`); logout invalidates the entry. Requires
       `KONG_UNTRUSTED_LUA_SANDBOX_REQUIRES=resty.http`.
     - Public routes (no token): `OPTIONS` (CORS), `/health*`, `/api/v1/health`, `/api/health`,
-      `POST /api/v1/auth/{login,logout,refresh,forgot-password,verify-code,reset-password}` and
+      `POST /api/v1/auth/{login,login/verify,logout,refresh,forgot-password,verify-code,reset-password}` and
       `POST /api/v1/onboarding/schools`. (`GET /api/v1/auth/me` is **not** public — it needs the
       bearer.) The WebSocket handshake `GET /api/v1/biometric/ws` additionally accepts the
       session as `?token=` because a browser cannot send headers during an upgrade.
@@ -49,7 +49,7 @@ info:
     differentiated limit is the public `onboarding-service` upstream: **5/min and 20/hour per IP**.
 
     ## CORS
-    Global `http://localhost:3000,http://localhost:5173,http://localhost:8090` (`Authorization,Content-Type,X-Requested-With`, `credentials:true`, `max_age:3600`).
+    Global `origins: ["*"]` (`Authorization,Content-Type,X-Requested-With`, `credentials:true`, `max_age:3600`).
     Identity route `*` para dev.
 
     ## Headers internos (convención Kong→upstream)
@@ -60,7 +60,7 @@ info:
     Las saludades se prueban directo contra cada puerto.
 
 servers:
-  - url: http://localhost:8080
+  - url: http://localhost:8000
     description: Via Kong (dev, preferred)
   - url: https://api.dev.{domain}
     description: Development
@@ -94,7 +94,7 @@ tags:
   - name: Configuration
     description: Proxied → ms-configuration:8087 (bearer checked at the edge and in the MS, registerAuthGuard)
   - name: Notification
-    description: Proxied → ms-notification:8088 (bearer checked at the edge and in the MS, AuthMiddleware)
+    description: Proxied → ms-notification:8088 (bearer checked at the edge and in the MS, registerAuthGuard)
   - name: Quality
     description: Proxied → ms-quality:8089 (bearer checked at the edge and in the MS, registerAuthGuard)
 

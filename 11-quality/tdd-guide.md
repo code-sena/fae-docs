@@ -66,7 +66,7 @@ Good tests are:
 |--------|-----------|-------------|------------|
 | **F** | Fast | Run in milliseconds, not seconds | Unit suites (identity, notification) run < 1 s |
 | **I** | Isolated | Do not depend on other tests or execution order | `@BeforeEach` / `beforeEach()` rebuild doubles fresh |
-| **R** | Repeatable | Same result every time, regardless of environment | No network: Mongo disabled in contract tests, SMTP faked in Go |
+| **R** | Repeatable | Same result every time, regardless of environment | No network: Mongo disabled in contract tests, SMTP faked via jest mock of nodemailer |
 | **S** | Self-validating | Pass / Fail without manual interpretation | AssertJ / expect / testify assertions only |
 | **T** | Timely | Written BEFORE the code, not after | Required for new features; retro-applied via IEEE 829 suites |
 
@@ -151,7 +151,7 @@ expect(mockRepo.save).toHaveBeenCalledTimes(1);
 | Dummy | The collaborator does not matter in this test | identity use-case tests |
 | Stub | You control the input scenario (what a collaborator returns) | biometric dependency overrides |
 | Fake | Lightweight integration tests — behavior matters | ✅ everywhere (`Fake*`, `InMemory*`) |
-| Spy | You verify that something was called (output effect) | ✅ Go `fakeSender.calls` |
+| Spy | You verify that something was called (output effect) | ✅ `jest.fn()` sendMail spy (`sender.test.ts`) |
 | Mock | You verify both input and output behavior | sparingly (jest only) |
 
 **Preference:** Fake > Stub/Spy > Mock. Mocks are fragile — they break if you refactor the internal implementation.
@@ -414,7 +414,6 @@ Register each test with its IEEE 829 ID (`TC-05-012: …`) so traceability stays
 
 Other stacks: Maven Surefire runs JUnit 5 automatically on `mvn test` (add JaCoCo plugin for
 gates); `pyproject.toml` configures `pytest` (`asyncio_mode = auto`, markers `unit`/`contract`);
-Go uses plain `go test ./...` with `testify` assertions (already a dependency in 08).
 
 ---
 

@@ -18,7 +18,7 @@ Source of truth: `database/CONVENCIONES.md` and the relational DBML
 
 - **snake_case**: `person_id`, `actor_type_id`, `created_at`.
 - Suffix **`_id`** for primary and foreign keys: `school_id`, `user_id`.
-- Suffix **`_at`** for timestamps: `created_at`, `started_on`, `ended_on`.
+- Suffix **`_at`** for timestamps (`created_at`, `raised_at`) and **`_on`** for dates (`started_on`, `ended_on`, `enrolled_on`).
 - Suffix **`_by`** for user references: `created_by`, `deleted_by`.
 - Suffix **`_status`** for state fields: `session_status`,
   `enrollment_status`.
@@ -45,7 +45,7 @@ One PostgreSQL schema per bounded context:
 | Attendance | `attendance` | 5 tables |
 | Biometric | `biometric` | Schema only (embeddings live in MongoDB) |
 | Configuration | `configuration` | 3 tables (includes `biometric_update_case`) |
-| Notification | `notification` | 2 tables |
+| Notification | `notification` | 3 tables (`alert_type`, `alert`, `notification_log`) |
 
 ### Liquibase files
 
@@ -54,7 +54,7 @@ One PostgreSQL schema per bounded context:
 | Schema | `001-create-{schema}-schema.yaml` | `001-create-identity-schema.yaml` |
 | Type/ENUM | `001-create-{type}-type.yaml` | `001-create-enrollment-status-type.yaml` |
 | Table | `001-create-{table}-table.yaml` | `001-create-person-table.yaml` |
-| Seed DML | `001-seed-{table}-table.yaml` | `001-seed-city-table.yaml` |
+| Seed DML | `001-seed-{table}-table.yaml` | `001-seed-alert-type-table.yaml` |
 | Trigger | `001-triggers-{function}.yaml` | `001-triggers-audit-timestamps.yaml` |
 | Views | `001-create-{domain}-views.yaml` | `001-create-identity-views.yaml` |
 
@@ -142,8 +142,8 @@ NN-ms-{domain}-db/
 └── docker-compose.yml           ← per-context execution
 ```
 
-`changelog-master.yaml` executes the phases in order: `01-ddl` → `02-dml` →
-`04-tcl`. Files use `relativeToChangelogFile: true` (the master, living in
+`changelog-master.yaml` executes the phases in order: `01-ddl` → `04-tcl` →
+`02-dml` in most contexts (`06-ms-biometric-db` includes only `01-ddl`). Files use `relativeToChangelogFile: true` (the master, living in
 `changelog/`, prefixes paths with `../`). For migration mechanics (no-edit
 rule for applied changesets, seed immutability, Neon deploys) see
 [Models](./models.md#6-migration-strategy).

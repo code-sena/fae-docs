@@ -23,7 +23,7 @@ In many academic processes, attendance depends on a single instructor taking man
 
 - **Backend:** 9 services in 3 runtimes — Java 21 + Spring Boot 4.1 (`ms-identity`, `ms-authorization`, `ms-scheduling`, `ms-attendance`), TypeScript + Fastify + Zod (`ms-academic`, `ms-configuration`, `ms-notification`, `ms-quality`), Python 3.12 + FastAPI (`ms-biometric`)
 - **Databases:** Single logical DB `faceattend_db` on PostgreSQL 17 (**8 schemas**) + MongoDB 7 (facial/fingerprint vectors) + Redis 7 (Kong rate-limiting store)
-- **Edge:** Kong OSS 3.6 :8000 (proxy) / :8001 (admin) — global `pre-function` session check (introspection against identity) + cors + rate-limiting, **no jwt plugin**; RBAC stays in the Java services (`07-api/authentication.md`)
+- **Edge:** Kong OSS 3.6 :8000 (proxy) / :8001 (admin) — global `pre-function` session check (introspection against identity) + cors + rate-limiting, **no jwt plugin**; RBAC is re-evaluated in every service's own guard (`07-api/authentication.md`)
 - **Events:** Kafka (KRaft) `:9092` — real broker, producers via `KafkaTemplate` / `kafkajs` (ADR-006)
 - **Infrastructure:** Docker Compose (root `docker-compose.yml` + `COMPOSE.md`), Liquibase migrations (8 jobs, ADR-010), GitHub Actions CI/CD (ADR-011; the ADR says Jenkins, see its implementation note)
 
@@ -40,7 +40,7 @@ In many academic processes, attendance depends on a single instructor taking man
 | 05 | `ms-attendance` | Attendance | Attendance_Record, Justification_Type, Justification, Supporting_Document, Attendance_Report (derived) | 8085 | PostgreSQL | Java 21 + Spring Boot 4.1 |
 | 06 | `ms-biometric` | Biometric | Facial_Embedding, Fingerprint_Embedding (MongoDB vectors) + Biometric_Update_Case | 8086 | **MongoDB + SQL case** | Python 3.12 + FastAPI |
 | 07 | `ms-configuration` | Configuration | Academic_Configuration, Security_Configuration (+ hosts biometric update cases) | 8087 | PostgreSQL | TypeScript + Fastify |
-| 08 | `ms-notification` | Notification | Alert_Type, Alert; consumes `attendance.justification.events` (Kafka) to raise review alerts | 8088 | PostgreSQL | TypeScript + Fastify |
+| 08 | `ms-notification` | Notification | Alert_Type, Alert; consumes `attendance.justification.events` (alerts the apprentice when a justification is approved or rejected) and `scheduling.class-session.closed` (class absences + instructor e-mail) from Kafka | 8088 | PostgreSQL | TypeScript + Fastify |
 | 09 | `ms-quality` | — (tooling, not a bounded context) | ISO 25010/29110/ISTQB quality metrics | 8089 | PostgreSQL | TypeScript + Fastify |
 | 99 | `kong-gateway` | — (infrastructure) | Routing, edge session check, CORS, rate limiting (no jwt) | 8000 / 8001 | Redis (rate-limit store) | Kong OSS 3.6 |
 | — | `frontend-web` | — | Expo Web SPA served by nginx | 8090 | — | React (Expo) |

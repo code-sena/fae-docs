@@ -32,7 +32,7 @@ FaceAttend-Edu operates as a **Polyglot Modular Monolith** deployed via Docker C
 ### Infrastructure Topology
 The system is divided into three isolated network tiers to ensure that the data layer is never directly exposed to the public internet:
 - **`faceattend-edge`**: Handles traffic between the Frontend (Expo Web/Nginx) and the API Gateway (Kong).
-- **`faceattend-app`**: Internal communication between the API Gateway and the microservices (Java, TS, Python, Go) and Redis cache.
+- **`faceattend-app`**: Internal communication between the API Gateway and the microservices (Java, TS, Python) and Redis cache.
 - **`faceattend-data`**: Restricted access for microservices to reach PostgreSQL, MongoDB, Kafka, and Liquibase migration tools.
 
 **Security Note:** This design ensures that the database and message broker are unreachable from the `faceattend-edge` network, preventing direct external access to the data tier.
@@ -40,11 +40,11 @@ The system is divided into three isolated network tiers to ensure that the data 
 ### Component Stack
 | Layer | Technology | Purpose |
 |-------|------------|---------|
-| **Edge/Gateway** | Kong OSS + Redis | Routing, JWT RS256, Rate-limiting, CORS |
+| **Edge/Gateway** | Kong OSS + Redis | Routing, opaque-session auth (ms-identity), Rate-limiting, CORS |
 | **Backend (Java)** | Spring Boot 4.1.1 | Identity, Authorization, Scheduling, Attendance |
 | **Backend (TS)** | Fastify + Drizzle | Academic, Configuration, Notification, Quality |
 | **Backend (Python)**| FastAPI | Biometric (Face/Fingerprint embeddings) |
-| **Persistence** | PostgreSQL 17, MongoDB 7 | Relational data (9 schemas: 8 bounded contexts + `quality`) and Vector data |
+| **Persistence** | PostgreSQL 17, MongoDB 7 | Relational data (8 bounded-context schemas; the `quality` tables are migrated with Configuration) and Vector data |
 | **Migrations** | Liquibase | Sequential DB schema evolution |
 
 ---

@@ -47,7 +47,7 @@
   `GET /api/v1/auth/evaluate` (authorization) whenever the route needs one. Java additionally
   loads roles from `GET /api/v1/users/{id}/roles` and propagates `X-User-Id` / `X-User-Roles`; the
   other three only set the resolved `userId` on the request. Public paths (session not required):
-  `login`, `logout`, `refresh`, `forgot/verify/reset-password`, `me` (GET), `GET /sessions/*`,
+  `login`, `logout`, `refresh`, `forgot/verify/reset-password`, `POST /auth/login/verify` (2FA second step), `POST /onboarding/schools`, `GET /sessions/*` (`GET /auth/me` is NOT public),
   health/docs. **No shared module — each guard is a separate implementation, duplicated on
   purpose.** The gateway's edge check and every service's own check are both real; see
   `08-uml/diagrams/source/seq-login.mmd` (SEQ-02) for the full call chain.
@@ -177,7 +177,7 @@ names are migrated away; clients still accept them as legacy aliases). 13 permis
 
 Kong itself does **not** call `/auth/evaluate` — the edge pre-function only checks that the
 session is `Active`, never a permission. Every service's own guard does call it with a
-**route-derived** permission in all four stacks: Java `AuthTokenFilter.requiredPermission(method, path)`
+**route-derived** permission in all three stacks: Java `AuthTokenFilter.requiredPermission(method, path)`
 (e.g. `attendance.record:read` for GET in 04/05, `scheduling.session:manage` for class-session
 ops — see the tests in `05-ms-attendance`), TS `registerAuthGuard`, Python `require_permission`;
 the canonical per-route map lives in `endpoint-matrix.md` §11. Clients also
@@ -311,11 +311,11 @@ check is the global `pre-function`.
   module across stacks. This used to be a real gap (see git history) but is not one today —
   direct access to a service's published port still has to pass that service's own check.
   Internal ports should still stay inside the Docker network as defense in depth (`risks.md`
-  R-003), but the risk is "one more layer to maintain, by hand, four times," not "no layer at
+  R-003), but the risk is "one more layer to maintain, by hand, three times," not "no layer at
   all."
 - **Permission map duplicated per service:** the route→permission mapping is re-implemented per
   stack (Java `requiredPermission` in each `AuthTokenFilter`, TS `permissions.ts`, and the
-  Python/Go equivalents) instead of living in one shared module. It is real RBAC today — the
+  Python equivalent) instead of living in one shared module. It is real RBAC today — the
   canonical map is `endpoint-matrix.md` §11 — but keeping it in sync across nine services by hand
   is the remaining work; a shared Kong/OPA authorizer is the long-term option.
 - **Biometric update case has two unsynced implementations:** `ms-configuration`

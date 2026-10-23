@@ -73,7 +73,7 @@
 | 05-ms-attendance | Java Spring Boot | 85% (critical) | Required | Required | 15 test files (incl. `AttendanceRecordControllerTest`) |
 | 06-ms-biometric | Python FastAPI | 80% | Required (pytest+httpx) | **Required** (router contract tests) | 7 test files (`tests/unit/web` + `tests/`) |
 | 07-ms-configuration | TS Fastify | 70% | Required | Recommended | 3 test files (incl. `crud.repository.test.ts`) |
-| 08-ms-notification | TS Fastify | 80% | Required (jest) | Recommended | 16 test files (routes, authGuard, actorScope, permissions, kafka consumer, postgres repos, email/webhook, entities) |
+| 08-ms-notification | TS Fastify | 80% | Required (jest) | Recommended | 20 test files (routes, authGuard, actorScope, permissions, kafka consumer, postgres repos, email/webhook, entities) |
 | 09-ms-quality | TS Fastify | 80% | Required | Recommended | 8 test files (ISO 25010/ISTQB/29110 instruments) |
 | 99-api-gateway (Kong) | Kong OSS | — | Required (smoke: routes + session auth + rate limit) | — | kong/kong.yml verified in E2E |
 
@@ -88,7 +88,7 @@
 
 | Stage | Runs automatically | Evidence/tool |
 |-------|--------------------|---------------|
-| On every PR | Stack-specific lint (ESLint, ruff/mypy, go vet, Checkstyle) + unit + integration + contract tests | jest, surefire, pytest, `go test` |
+| On every PR | Unit tests per stack plus build (no lint, integration or contract gate yet — target state) | jest, surefire (`mvn -B test`), pytest |
 | On merge to develop | IEEE 829 CRUD suite per service + incident report | Newman/curl against Compose |
 | Before staging deploy | E2E critical flows + large-volume seed + k6 (P95/5xx) + basic ZAP | seed exit code as gate |
 | Continuous / on demand | ISO 25010 (product), ISTQB (testing maturity), ISO 29110 (process) assessments via `/api/v1/quality/*` | 09-ms-quality |

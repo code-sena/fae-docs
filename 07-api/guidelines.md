@@ -50,7 +50,7 @@ Source of truth: `COMPOSE.md`, `back-end/SERVICES.md`, `back-end/docker-compose.
   - `GET /api/v1/class-sessions/{id}/attendance`, `GET /api/v1/academic-actors/{actorId}/attendance|enrollments`
   - `GET /api/v1/persons/{personId}/biometric-cases`, `GET /api/v1/justifications/{id}/documents`
 - IDs: cross-context references are **UUID** (`personId`, `userId`, `academicActorId`, `requestedBy`, `generatedBy`); local catalogs are **INT** (`roleId`, `permissionId`, `environmentId`, `schoolId`) or **BIGINT** (`cohortId`, `scheduleBlockId`, `classSessionId`, `attendanceRecordId`, `alertId`); small catalogs **SMALLINT** (`actorTypeId`, `alertTypeId`). `cityId` removed — external `countriesnow.space` string id. Never expose DB sequences directly without schema.
-- Serialization note: DBML `INT/BIGINT` is authoritative for the model. TS services (`03,07`) serialize numeric ids as JSON strings via Zod/Drizzle; Java/Go use JSON numbers. Both map to the same DBML integer — do not change the model to match one serialization.
+- Serialization note: DBML `INT/BIGINT` is authoritative for the model. TS services (`03,07`) serialize numeric ids as JSON strings via Zod/Drizzle; Java services use JSON numbers. Both map to the same DBML integer — do not change the model to match one serialization.
 
 ## 4. HTTP methods
 
@@ -108,7 +108,7 @@ Per-stack realities (see `error-catalog.md`):
 - Java 05: ISO-9001 `{error:{code,message,correlationId,timestamp,isoClause,severity}}` e.g. `ISO-8.2-VAL-001`.
 - TS 03/07/09: `{error:BadRequest|NotFound|InternalError,message,details?,timestamp}` + `x-total-count` on lists.
 - Python 06: `{error:NotFound|BadRequest|InternalError,message,path,timestamp}` + `422 {error:BadRequest,message:"Invalid biometric payload"}` + headers `x-request-id,x-process-time-ms`.
-- Go 08: `{error:string}` with `ErrValidation→400,ErrNotFound→404,ErrDuplicate→409`; `NoRoute→404`, `NoMethod→405`.
+- TS 08: same error shape as the other TS services (`{error:"BadRequest"|"NotFound"|"Forbidden",message,timestamp}`; see `error-catalog.md`).
 
 Always include `traceId`/`correlationId`/`x-request-id` when available; never leak stack traces.
 
@@ -122,7 +122,7 @@ All Postgres tables carry `created_at,updated_at,deleted_at,created_by,updated_b
 - Auth has **two layers**: the edge and the MS. Kong has no `jwt` plugin and no consumers, but a
   global `pre-function` rejects every non-public route without `Authorization: Bearer <sessionId>`
   (opaque UUID from `POST /api/v1/auth/login`) by introspecting identity — public at the edge are
-  health probes, `OPTIONS`, `login`, `logout`, `refresh`, `forgot-password`, `verify-code`,
+  health probes, `OPTIONS`, `login`, `login/verify` (2FA second step), `logout`, `refresh`, `forgot-password`, `verify-code`,
   `reset-password` and `POST /api/v1/onboarding/schools` (`GET /api/v1/auth/me` is **not** public:
   it needs the bearer like any other route). Behind that, every service repeats the check on its
   own and adds RBAC (`GET /api/v1/auth/evaluate`) — Java (`01,02,04,05`) in `AuthTokenFilter`, TS

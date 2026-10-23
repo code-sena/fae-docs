@@ -198,7 +198,7 @@ Transversal concerns that apply to ALL services:
 
 | Concern | Adopted solution | Where it is configured |
 |---------|----------------|------------------------|
-| Authentication / Authorization | Opaque `sessionId` Bearer validated **at the edge** by Kong's global `pre-function` (identity introspection) and checked again by `AuthTokenFilter` (Java 01/02/04/05), which is also the only place where RBAC runs. Kong has no `jwt` plugin; TS/Python/Go services (03/06/07/08/09) do not validate anything themselves — direct port access bypasses the gateway (R-003) | `07-api/authentication.md`, `00-governance/security-policy.md` |
+| Authentication / Authorization | Opaque `sessionId` Bearer validated **at the edge** by Kong's global `pre-function` (identity introspection) and checked again by `AuthTokenFilter` (Java 01/02/04/05) and by the guard of every other service (TS `registerAuthGuard` in 03/07/08/09, Python `require_permission` in 06), each also evaluating RBAC. Kong has no `jwt` plugin; a direct call to a service port still has to pass that service's own guard (R-003) | `07-api/authentication.md`, `00-governance/security-policy.md` |
 | Logging | Structured JSON + Correlation ID | Shared logger in internal lib |
 | Tracing | OpenTelemetry → Jaeger | Middleware in each service |
 | Health Checks | `GET /actuator/health` (Java) · `GET /health` (TS/Python) · gateway: `GET /health/quality` | compose healthchecks |

@@ -274,7 +274,7 @@ vector search requirements of biometric embedding data.
 | **DB** | PostgreSQL, schema `notification` |
 | **Bounded context** | Notification |
 | **Technology** | TypeScript + Fastify + Zod + Drizzle + pino (rewritten from Go/Gin 2026-10-18, ADR-021) |
-| **Also consumes** | Kafka topic `attendance.justification.events` (group `notification-service`) — the platform's only consumer |
+| **Also consumes** | Kafka topics `attendance.justification.events` (group `notification-service`) and `scheduling.class-session.closed` (group `notification-service-class-session`) — the platform's only consumers |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**

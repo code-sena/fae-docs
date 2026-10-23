@@ -57,10 +57,10 @@ URL-only `/api/v1`, breaking vs non-breaking, deprecation policy, current `1.0.0
 
 ### `pagination.md`
 `?limit=20&offset=0` canonical; Java lists filter in memory; TS `x-total-count` (+`{data,total,limit,offset}` in 09);
-Go `?actorId&typeId&status&limit&offset` with `{alerts}/{alert_types}`; Python none; Mobile `?_limit` legacy to migrate.
+TS (08) `?actorId&typeId&status&limit&offset` with `{alerts}/{alert_types}`; Python none; Mobile `?_limit` legacy to migrate.
 
 ### `error-catalog.md`
-Canonical `ErrorResponse` + per-stack wire formats (Java, Java ISO-9001, TS, Python 422, Go `{error:string}`,
+Canonical `ErrorResponse` + per-stack wire formats (Java, Java ISO-9001, TS, Python 422, TS 08 `{error,message,timestamp}`,
 Mobile `ApiError`), frontend mapping, rules.
 
 ### `endpoint-matrix.md` ⭐

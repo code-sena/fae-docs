@@ -38,13 +38,13 @@
 
 **Justification:**
 
-1. **Compose is the product:** the whole stack (13 containers: 9 services + Kong + Mongo/Redis/Kafka) already starts with one command locally; EC2 runs the identical `docker-compose.yml` files, so local and production stay the same artifact (NFR-009).
+1. **Compose is the product:** the whole stack (13 containers (+ Portainer and Caddy in `docker-compose.prod.yml`): 9 services + Kong + Mongo/Redis/Kafka) already starts with one command locally; EC2 runs the identical `docker-compose.yml` files, so local and production stay the same artifact (NFR-009).
 2. **Neon removes the Postgres operational burden:** managed backups, pooling (`-pooler` URL) and scale-to-zero for a database that serves a single institution; the 8 Liquibase jobs (ADR-010) run unchanged against it.
-3. **EC2 fits the memory profile:** four Java services need ~2 GB each; a `t3.xlarge` (16 GB) runs all 13 containers with room for Kafka and MongoDB.
+3. **EC2 fits the memory profile:** four Java services need ~2 GB each; a `t3.xlarge` (16 GB) runs all 13 containers (+ Portainer and Caddy in `docker-compose.prod.yml`) with room for Kafka and MongoDB.
 4. **Vercel is zero-ops for a static SPA:** the web client is an Expo static export (`dist/`); Vercel serves it with CDN, HTTPS and preview deployments per branch — no web server to operate.
 
 **What is deployed (2026-10-16):**
-- EC2 `t3.xlarge` (us-east-1, 150 GB EBS gp3): 13 containers via Docker Compose; Kong proxy on `:8000`, admin `:8001` (loopback only in local, open here — pending hardening); Portainer CE on `:9443` for container management.
+- EC2 `t3.xlarge` (us-east-1, 150 GB EBS gp3): 13 containers (+ Portainer and Caddy in `docker-compose.prod.yml`) via Docker Compose; Kong proxy on `:8000`, admin `:8001` (loopback only in local, open here — pending hardening); Portainer CE on `:9443` for container management.
 - Neon PostgreSQL (`faceattend_db`, 8 schemas migrated by Liquibase) — replaces the compose `postgres` service.
 - MongoDB, Redis, Kafka remain on the EC2 instance (compose services).
 - Vercel: web project built from `front-end/Web` with `EXPO_PUBLIC_API_URL` = `http://<ec2-host>:8000`.

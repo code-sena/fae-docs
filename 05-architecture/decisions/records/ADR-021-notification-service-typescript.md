@@ -2,7 +2,8 @@
 
 - **ID:** ADR-021
 - **Date:** 2026-10-18
-- **Status:** Proposed
+- **Status:** Accepted
+- **Decision (2026-10-23):** accepted; implemented on 2026-10-18.
 - **Authors:** FaceAttend EDU Team
 
 ---

@@ -2,7 +2,8 @@
 
 - **ID:** ADR-022
 - **Date:** 2026-10-23
-- **Status:** Proposed
+- **Status:** Accepted
+- **Decision (2026-10-23):** accepted; implemented in `docker-compose.prod.yml`. Certificate issuance on the EC2 host still needs confirmation.
 - **Authors:** FaceAttend EDU Team
 - **Implementation note (2026-10-23, verified against `FULL/`):** implemented in the repository, not ratified. Whether the certificate is actually issued on the EC2 host cannot be proven from code; the only external evidence is that `front-end/Mobile/eas.json` points the `preview` profile at `https://faceattend-edu.duckdns.org`.
 

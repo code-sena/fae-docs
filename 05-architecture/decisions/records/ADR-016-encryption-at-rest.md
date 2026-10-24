@@ -3,7 +3,20 @@
 - **ID:** ADR-016
 - **Date:** 2026-09-12
 - **Status:** Accepted
-- **Implementation note (2026-10-17, verified against `FULL/`):** **not implemented.** No `pgp_sym_encrypt`/column-level encryption exists in any changeset; `pgcrypto` appears only in `01-ms-identity-db/02-dml/001-bootstrap-admin-user.yaml` to hash the bootstrap admin password, not to encrypt data at rest. PostgreSQL/MongoDB encryption at rest is delegated to the managed providers (Neon AWS, per ADR-020). Remains the target state.
+- **Implementation note (2026-10-23):** **implemented, with application-level AES-256-GCM instead
+  of pgcrypto and MongoDB FLE.** PostgreSQL: a JPA `AttributeConverter` in ms-identity encrypts
+  `document_number`, `email`, `phone` and `blood_type` of `identity.person` (`enc:v1:` prefix),
+  and HMAC-SHA256 blind indexes (`email_hash`, `document_hash`, unique) keep login by email and
+  uniqueness without decrypting. Encrypting in the service keeps the key out of SQL text and
+  database logs, which `pgp_sym_encrypt('…', key)` would expose, and solves the "cannot be
+  searched" risk below with the blind index. MongoDB: the biometric service encrypts the face
+  vector and the fingerprint sample with AES-256-GCM using the document `_id` as associated data;
+  FLE was not used because it needs MongoDB Enterprise or Atlas and this deployment runs
+  community standalone. MinIO: SSE-S3 as decided (ADR-009). Keys: `PII_ENCRYPTION_KEY`,
+  `PII_HASH_KEY`, `BIOMETRIC_ENCRYPTION_KEY`, `MINIO_KMS_SECRET_KEY`, required by compose.
+  Attendance records are not encrypted (they are needed for every report and are not sensitive
+  data under Ley 1581). Legal mapping: `00-governance/privacy-and-consent.md`.
+- *Superseded note (2026-10-17):* **not implemented.** No `pgp_sym_encrypt`/column-level encryption exists in any changeset; `pgcrypto` appears only in `01-ms-identity-db/02-dml/001-bootstrap-admin-user.yaml` to hash the bootstrap admin password, not to encrypt data at rest. PostgreSQL/MongoDB encryption at rest is delegated to the managed providers (Neon AWS, per ADR-020). Remains the target state.
 - **Authors:** FaceAttend EDU Team
 
 ---

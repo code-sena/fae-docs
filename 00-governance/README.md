@@ -17,6 +17,7 @@
 | [microservices-documentation.md](./microservices-documentation.md) | Required documents per microservice |
 | [security-policy.md](./security-policy.md) | How the team handles vulnerabilities and security incidents |
 | [security-rules.md](./security-rules.md) | Code-level security rules: secrets, auth, input validation |
+| [privacy-and-consent.md](./privacy-and-consent.md) | Ley 1581: privacy notice, consent, revocation and encryption of personal data |
 
 ---
 

@@ -18,18 +18,40 @@
 
 ## Authentication
 
-### JWT (JSON Web Tokens)
+> **Status (2026-10-23):** current behavior, including the security closure merged through the
+> project's 2026-10 pull requests. Contract details: `07-api/authentication.md`.
 
-> **Status (2026-10-07):** this table is the **target state**, not the current one. Today the
-> platform issues **opaque session ids** (`identity.user_session`) sent as
-> `Authorization: Bearer <sessionId>`; Kong has **no `jwt` plugin**, but it **does authenticate at
-> the edge**: a global `pre-function` validates the session id by introspecting identity on every
-> non-public route. There is no refresh token — `POST /api/v1/auth/refresh` only rotates the
-> session id. Every service validates the bearer again on its own and adds RBAC — Java
-> `AuthTokenFilter` (01/02/04/05), TS `registerAuthGuard` (03/07/08/09), Python `require_permission`
-> (06) — three duplicated implementations of the same contract, not a
-> gap (`AT-004`, corrected 2026-10-11). Edge JWT with RS256 is the ADR-007 goal (`AT-007`).
-> Current behavior: `07-api/authentication.md`.
+### Opaque sessions (current, ADR-023)
+
+- Login issues an **opaque session id** (`identity.user_session`), sent as
+  `Authorization: Bearer <sessionId>`. Sessions last 480 minutes; `POST /api/v1/auth/refresh`
+  rotates the id (single use: the previous row is closed). There is no JWT and no refresh token.
+- **Edge check:** Kong's global `pre-function` requires an active session on every non-public
+  route by introspecting identity (`GET /api/v1/sessions/{id}`).
+- **Service check:** every service validates the bearer again and applies RBAC. The Java
+  services (01/02/04/05) use the shared `back-end/shared/auth-java` library and the Node
+  services (03/07/08/09) use `back-end/shared/auth-node`; each keeps its own permission rules.
+  Biometric (06) uses its own `require_permission`. Only positive answers are cached, for 10 s.
+
+### Login hardening
+
+| Control | Rule |
+|---|---|
+| No default accounts | No changeset ships a password. The first administrator is created by hand with `database/scripts/bootstrap-admin.sh`; the old seed accounts are disabled by a changeset. |
+| First-login password change | The bootstrap administrator, and accounts whose temporary credentials identity e-mailed, have `must_change_password`. Until it is changed, Kong rejects every write except the password change (403 `PASSWORD_CHANGE_REQUIRED`); web and mobile show the forced-change screen. |
+| Brute force | Identity answers **429** with `Retry-After` from the 11th failed login per client IP within 60 s (on top of the per-account lockout). Successful logins do not count. |
+| Passwords | bcrypt, cost 12 (ADR-008). |
+
+### Browser access
+
+- CORS allows only the origins listed in `KONG_CORS_ORIGINS` (each validated at startup); it is
+  required in production. Native mobile requests send no `Origin` and are not affected.
+- The web keeps the session id in `sessionStorage` (cleared when the tab closes), never in
+  `localStorage`.
+
+### Future evolution (ADR-007): JWT
+
+> Target state only; nothing below is implemented.
 
 | Property | Required value (target state) |
 |----------|---------------|
@@ -39,22 +61,9 @@
 | Required claims | `sub` (userId), `iat`, `exp`, `jti` (unique token ID) |
 | Client storage | `httpOnly cookie` (web) or Keychain/Keystore (mobile) |
 
-**Prohibited in the payload:**
-- Passwords
-- Card data
-- Full PII (only the user ID)
-
-### Refresh Token
-
-> **Not implemented today** — there is no refresh token entity to store or rotate; sessions are
-> rows in `identity.user_session`. The closest thing implemented is `POST /api/v1/auth/refresh`,
-> which rotates the opaque session id (single use: the previous row is closed). The rules below
-> are the target state once ADR-007 lands.
-
-- Stored in the database (with bcrypt hash)
-- Mandatory rotation on each use (one refresh token = one use)
-- Invalidated on logout and on password change
-- ALL active tokens invalidated if use of a revoked token is detected
+Prohibited in the payload: passwords, card data, full PII (only the user ID). Refresh tokens
+would be stored hashed, rotated on every use, invalidated on logout and password change, and
+all of a user's tokens revoked if a revoked one is replayed.
 
 ---
 
@@ -131,6 +140,35 @@ Examples:
 - API keys: every 90 days
 - TLS certificates: 60 days before expiration
 - DB passwords: every 6 months or immediately if compromise is suspected
+
+**Secrets the stack requires** (`docker compose` refuses to start without them; in production they
+come from the `ENV_PROD_FILE` deployment secret):
+
+| Variable | Purpose |
+|---|---|
+| `POSTGRES_PASSWORD` | database owner, used only by migrations |
+| `<SERVICE>_DB_PASSWORD` (8) | one database login per service, limited to its own schema |
+| `MONGO_USER` / `MONGO_PASSWORD` | MongoDB with authentication enabled |
+| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` / `MINIO_KMS_SECRET_KEY` | supporting-document storage and its encryption key |
+| `PII_ENCRYPTION_KEY` / `PII_HASH_KEY` | encryption and blind indexes of personal data |
+| `BIOMETRIC_ENCRYPTION_KEY` | encryption of biometric templates |
+| `KONG_CORS_ORIGINS` | allowed browser origins |
+
+Data ports (Postgres, MongoDB, Redis, Kafka) and Kong's admin API bind to `127.0.0.1` only; the
+security group exposes 80/443, plus 22 from the operator's IP.
+
+**Least privilege in the database:** each service connects as `<service>_app`, a member of a
+`svc_<schema>` role with rights on its own schema only (`database/*/03-dcl`); migrations keep
+using the owner. `database/scripts/verify-schema-isolation.sh` proves a cross-schema `SELECT`
+is denied.
+
+---
+
+## Data protection (Ley 1581 de 2012)
+
+Personal and biometric data follow `00-governance/privacy-and-consent.md`: versioned privacy
+notice, prior consent recorded with date and version, optional biometric consent, revocation
+with deletion of biometric templates, and AES-256-GCM encryption at rest (ADR-016).
 
 ---
 

@@ -110,7 +110,7 @@ FROM identity.person;
 **Positive:**
 - Sensitive PII (document numbers, phone, email) is encrypted at the column level.
 - Justification documents are encrypted at rest via MinIO SSE.
-- Biometric embeddings are encrypted via MongoDB FLE.
+- Biometric embeddings are encrypted via MongoDB FLE. *(Correction 2026-10-26: implemented as application-level AES-256-GCM, see ADR-026.)*
 - pgcrypto is a native PostgreSQL extension — no additional infrastructure.
 
 **Negative / Trade-offs:**

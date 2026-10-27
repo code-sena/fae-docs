@@ -43,6 +43,14 @@ ADRs document important architectural decisions. Each file = one decision.
 | ADR-021 | Notification service rewritten in TypeScript/Fastify | Accepted | 2026-10-18 | Stack |
 | ADR-022 | TLS termination with Caddy in front of Kong | Accepted | 2026-10-23 | Edge / Security |
 | ADR-023 | Opaque session authentication with edge introspection | Accepted | 2026-10-23 | Security |
+| ADR-024 | Face matching metric and threshold (Euclidean) — replaces cosine part of ADR-014 | Accepted | 2026-10-26 | Biometric |
+| ADR-025 | Liveness by randomised challenge-response | Accepted (with limits) | 2026-10-26 | Biometric / Security |
+| ADR-026 | Biometric data minimisation (AES-256-GCM, no photos) — corrects ADR-016 FLE claim | Accepted | 2026-10-26 | Security / Legal |
+| ADR-027 | Attendance integrity: unique record, optimistic locking | Accepted | 2026-10-26 | Consistency |
+| ADR-028 | Mobile MVVM, SecureStore, Expo push | Accepted | 2026-10-26 | UX / Security |
+| ADR-029 | Online-first attendance; no offline queue | Proposed | 2026-10-26 | Resilience |
+| ADR-030 | Bulk import and report export formats | Proposed | 2026-10-26 | Reporting |
+| ADR-031 | Production hardening baseline and release gate | Proposed | 2026-10-26 | Release |
 
 > Status decisions of 2026-10-23: 005, 006, 014, 021, 022 and 023 accepted; 012 and 015 rejected as written (not implemented); 017 stays Proposed (only the mobile app follows it).
 >

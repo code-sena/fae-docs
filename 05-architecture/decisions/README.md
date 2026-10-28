@@ -51,6 +51,12 @@ ADRs document important architectural decisions. Each file = one decision.
 | ADR-029 | Online-first attendance; no offline queue | Proposed | 2026-10-26 | Resilience |
 | ADR-030 | Bulk import and report export formats | Proposed | 2026-10-26 | Reporting |
 | ADR-031 | Production hardening baseline and release gate | Proposed | 2026-10-26 | Release |
+| ADR-032 | Store only a digest of the session token — amends ADR-023 | Accepted | 2026-10-28 | Security |
+| ADR-033 | Biometric access and matching scoped to the caller's school | Accepted | 2026-10-28 | Security / Biometric |
+| ADR-034 | Minors: guardian, signed authorization (MinIO) and terms before enabling — extends ADR-009 | Accepted | 2026-10-28 | Legal / Security |
+| ADR-035 | Manual attendance as an equal alternative to biometrics | Accepted | 2026-10-28 | Legal / Attendance |
+| ADR-036 | Images pinned by digest, own images tagged by commit, advisories fixed with overrides | Accepted | 2026-10-28 | DevOps / Security |
+| ADR-037 | Encrypted backups with an automated restore test | Proposed | 2026-10-28 | Ops |
 
 > Status decisions of 2026-10-23: 005, 006, 014, 021, 022 and 023 accepted; 012 and 015 rejected as written (not implemented); 017 stays Proposed (only the mobile app follows it).
 >
@@ -77,3 +83,4 @@ Decisions are unchanged; each ADR file carries its own `Implementation note` lin
 | ADR-022 | Implemented in `FULL/`: `caddy:2-alpine` in `docker-compose.prod.yml` (`Caddyfile.prod`, Let's Encrypt) and local overlay `docker-compose.tls.yml`; certificate issuance on EC2 not verifiable from code |
 | ADR-023 | Records the running behaviour (opaque `sessionId`, Kong `pre-function` + per-service guards, 10 s cache); JWT RS256 of ADR-007 stays a deferred option (`AT-007`) |
 | ADR-021 | Implemented in `FULL/` on 2026-10-18 — accepted 2026-10-23 |
+| ADR-009 | MinIO now has two users: attendance (justification supports, bucket `justification-documents`) and identity (guardian signed authorization, bucket `guardian-documents`), both with SSE-S3 — see ADR-034 |

@@ -2,8 +2,9 @@
 
 - **ID:** ADR-015
 - **Date:** 2026-09-12
-- **Status:** Proposed
-- **Implementation note (2026-10-05, verified against `FULL/`):** **not implemented.** No service code imports a Redis client; the only Redis consumer in the stack is Kong's `rate-limiting` plugin (redis policy). Sessions are rows in `identity.user_session`, not Redis entries, and `ioredis` is not in any `package.json`.
+- **Status:** Rejected
+- **Decision (2026-10-23):** rejected as written; the plan was not implemented. Today only 10 s in-memory session caches (Kong and each guard) and Redis for login attempts and recovery codes in `01-ms-identity` exist. Revisit with a new ADR if a measured need appears.
+- **Implementation note (2026-10-05, verified against `FULL/`):** **not implemented.** The cache plan was not implemented. Redis is used by Kong's `rate-limiting` plugin (redis policy) and by `01-ms-identity` (`spring-boot-starter-data-redis`: `RedisLoginAttemptAdapter`, `RedisRecoveryCodeAdapter`, with in-memory fallback). Sessions are rows in `identity.user_session`, not Redis entries, and `ioredis` is not in any `package.json`.
 - **Authors:** FaceAttend EDU Team
 
 ---

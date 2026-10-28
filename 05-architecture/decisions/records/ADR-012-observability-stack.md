@@ -2,7 +2,8 @@
 
 - **ID:** ADR-012
 - **Date:** 2026-09-12
-- **Status:** Proposed
+- **Status:** Rejected
+- **Decision (2026-10-23):** rejected as written; Prometheus, Grafana, Jaeger and Alertmanager were never deployed. Structured logging (pino, structlog, Spring JSON logs) and compose healthchecks are what actually exist. Revisit with a new ADR when metrics or tracing are scheduled.
 - **Implementation note (2026-10-05, verified against `FULL/`):** **only partially implemented.** Structured logging is real (`pino` in TS services, `structlog` in ms-biometric, Spring Boot JSON logs in Java) and health endpoints are wired into the compose healthchecks. **No Prometheus, Grafana, Jaeger, Alertmanager or OTel collector is deployed** — compose runs only the 9 services, Kong, frontend and the data tier; OpenTelemetry SDKs appear only as transitive dependencies in `package-lock.json`.
 - **Update (2026-10-20):** the `go.uber.org/zap` logger mentioned above left with the Go rewrite
   of `08-ms-notification` (ADR-021); that service now uses `pino` like the other TS services.

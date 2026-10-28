@@ -2,7 +2,8 @@
 
 - **ID:** ADR-006
 - **Date:** 2026-09-12
-- **Status:** Proposed
+- **Status:** Accepted
+- **Decision (2026-10-23):** accepted for the choice of Kafka as broker (live: six producers, two consumers). Outbox, DLQ and compensation are **not** part of what is accepted as implemented; they remain tech debt `AT-006`.
 - **Implementation note (2026-10-05, verified against `FULL/`):** Kafka is **live**, not just "ready" — a KRaft broker runs in compose (`:9092`) and producers are wired in the Java (`spring-boot-starter-kafka` / `KafkaTemplate`) and TS (`kafkajs`) services. What is still missing: consumers with retry/DLQ topics (none exist) and a documented topic inventory in the deployment.
 - **Update (2026-10-23):** the platform has **one consuming service, two consumers** — `08-ms-notification`
   reads `attendance.justification.events` (group `notification-service`, raises the

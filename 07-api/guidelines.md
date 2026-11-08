@@ -10,12 +10,12 @@
 |---|---------|------|------|--------------|-----------|
 | 01 | Identity | `01-ms-identity` | 8081 | Java 21 + Spring Boot 4.1 | `identity` (Postgres) |
 | 02 | Authorization | `02-ms-authorization` | 8082 | Java 21 + Spring Boot 4.1 | `authorization` (Postgres) |
-| 03 | Academic | `03-ms-academic` | 8083 | TS Fastify + Zod + Drizzle | `academic` (Postgres) |
+| 03 | Academic | `03-ms-academic` | 8083 | TS Fastify + Zod + pg | `academic` (Postgres) |
 | 04 | Scheduling | `04-ms-scheduling` | 8084 | Java 21 + Spring Boot 4.1 | `scheduling` (Postgres) |
 | 05 | Attendance | `05-ms-attendance` | 8085 | Java 21 + Spring Boot 4.1 | `attendance` (Postgres) |
 | 06 | Biometric | `06-ms-biometric` | 8086 | Python 3.12 + FastAPI + Motor | MongoDB `facial_embedding`, `fingerprint_embedding` |
 | 07 | Configuration | `07-ms-configuration` | 8087 | TS Fastify + Zod | `configuration` (Postgres) |
-| 08 | Notification | `08-ms-notification` | 8088 | TS Fastify + Zod + Drizzle | `notification` (Postgres) |
+| 08 | Notification | `08-ms-notification` | 8088 | TS Fastify + Zod + pg | `notification` (Postgres) |
 | 09 | Quality | `09-ms-quality` | 8089 | TS Fastify + Zod | `quality` (Postgres, `Pool`; no in-memory fallback — a DB outage is a fatal boot error) |
 | 99 | Gateway | `99-api-gateway` | 8000 (proxy) / 8001 (admin) | Kong OSS 3.6 DB-less + Redis 7 | — |
 
@@ -50,7 +50,7 @@ Source of truth: `COMPOSE.md`, `back-end/SERVICES.md`, `back-end/docker-compose.
   - `GET /api/v1/class-sessions/{id}/attendance`, `GET /api/v1/academic-actors/{actorId}/attendance|enrollments`
   - `GET /api/v1/persons/{personId}/biometric-cases`, `GET /api/v1/justifications/{id}/documents`
 - IDs: cross-context references are **UUID** (`personId`, `userId`, `academicActorId`, `requestedBy`, `generatedBy`); local catalogs are **INT** (`roleId`, `permissionId`, `environmentId`, `schoolId`) or **BIGINT** (`cohortId`, `scheduleBlockId`, `classSessionId`, `attendanceRecordId`, `alertId`); small catalogs **SMALLINT** (`actorTypeId`, `alertTypeId`). `cityId` removed — external `countriesnow.space` string id. Never expose DB sequences directly without schema.
-- Serialization note: DBML `INT/BIGINT` is authoritative for the model. TS services (`03,07`) serialize numeric ids as JSON strings via Zod/Drizzle; Java services use JSON numbers. Both map to the same DBML integer — do not change the model to match one serialization.
+- Serialization note: DBML `INT/BIGINT` is authoritative for the model. TS services (`03,07`) serialize numeric ids as JSON strings (the `pg` driver returns BIGINT as strings, validated with Zod); Java services use JSON numbers. Both map to the same DBML integer — do not change the model to match one serialization.
 
 ## 4. HTTP methods
 

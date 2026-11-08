@@ -21,7 +21,7 @@
 | Docker | 24.0+ (Desktop on Win/mac; Engine + Compose plugin on Linux) | docker.com | `docker --version` |
 | Docker Compose | 2.20+ | Included with Docker Desktop / `docker-compose-plugin` | `docker compose version` |
 | Git | 2.40+ | git-scm.com | `git --version` |
-| Node.js (for running TS services natively, Expo dev, and the seed tool) | 20 LTS+ | nodejs.org | `node --version` |
+| Node.js (for running TS services natively, Expo dev, and the seed tool) | 24 (the services declare `"node": ">=24"`) | nodejs.org | `node --version` |
 
 > **RAM note:** the full stack runs ~15 containers (4 JVM Spring services,
 > Postgres, Mongo, Kafka, Kong…). Give Docker at least **8 GB of RAM**
@@ -35,9 +35,9 @@ images carry everything else.
 
 | Tool | Minimum version | Used by | Install from | Verify with |
 |------|----------------|---------|--------------|-------------|
-| Java (JDK) | 21 | `01-ms-identity`, `02-ms-authorization`, `04-ms-scheduling`, `05-ms-attendance` (Spring Boot 4.1.1) | adoptium.net | `java -version` |
+| Java (JDK) | 21 | `01-ms-identity`, `02-ms-authorization`, `04-ms-scheduling`, `05-ms-attendance` (Spring Boot 4.1.2) | adoptium.net | `java -version` |
 | Maven wrapper | bundled (`./mvnw`) | same Java services | — (no global install needed) | `./mvnw -v` |
-| Node.js + npm | 20 LTS+ | `03-ms-academic`, `07-ms-configuration`, `08-ms-notification`, `09-ms-quality` (Fastify+TS), Web/Mobile frontends, `tools/seed-api-test-data` | nodejs.org | `node -v && npm -v` |
+| Node.js + npm | 24 | `03-ms-academic`, `07-ms-configuration`, `08-ms-notification`, `09-ms-quality` (Fastify+TS), Web/Mobile frontends, `tools/seed-api-test-data` | nodejs.org | `node -v && npm -v` |
 | Python + Poetry | 3.12, Poetry 1.8+ | `06-ms-biometric` (FastAPI) | python.org / python-poetry.org | `python --version && poetry --version` |
 | ~~Go~~ | — | ~~`08-ms-notification` (Gin)~~ **Removed 2026-10-18:** the service was rewritten in TypeScript (ADR-021); no Go remains in the repo | — | — |
 | Expo CLI | via `npx expo` (no global install) | `front-end/Web`, `front-end/Mobile` | included with project deps | `npx expo --version` |

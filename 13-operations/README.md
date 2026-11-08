@@ -41,8 +41,8 @@ The system is divided into three isolated network tiers to ensure that the data 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | **Edge/Gateway** | Kong OSS + Redis | Routing, opaque-session auth (ms-identity), Rate-limiting, CORS |
-| **Backend (Java)** | Spring Boot 4.1.1 | Identity, Authorization, Scheduling, Attendance |
-| **Backend (TS)** | Fastify + Drizzle | Academic, Configuration, Notification, Quality |
+| **Backend (Java)** | Spring Boot 4.1.2 | Identity, Authorization, Scheduling, Attendance |
+| **Backend (TS)** | Fastify 5 + `pg` (no ORM) | Academic, Configuration, Notification, Quality |
 | **Backend (Python)**| FastAPI | Biometric (Face/Fingerprint embeddings) |
 | **Persistence** | PostgreSQL 17, MongoDB 7 | Relational data (8 bounded-context schemas; the `quality` tables are migrated with Configuration) and Vector data |
 | **Migrations** | Liquibase | Sequential DB schema evolution |

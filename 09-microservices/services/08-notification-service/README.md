@@ -28,7 +28,7 @@
 | Number in catalog | 08 |
 | Local port | 8088 |
 | Schema | `notification` (PostgreSQL 17) |
-| Stack | Node 20 + Fastify + Drizzle ORM (`pg`) + kafkajs + nodemailer + pino |
+| Stack | Node 24 + Fastify 5 + `pg` (no ORM) + kafkajs + nodemailer + pino |
 | Folder in repo | `FULL/back-end/08-ms-notification/` |
 | Communicates with | **identity** (Identity calls its internal `POST /api/v1/emails` for password-reset mails) and **attendance** (consumes the Kafka topic `attendance.justification.events` when `KAFKA_BROKERS` is set, which compose does); it also calls an optional external SMTP/push/SMS webhook. It publishes no events of its own and has no link with biometric |
 | Consumed by | Web/Mobile through Kong `:8000` (`/api/v1/alerts`, `/alert-types`) |

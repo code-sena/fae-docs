@@ -133,7 +133,7 @@
 | **Port** | 8083 |
 | **DB** | PostgreSQL, schema `academic` |
 | **Bounded context** | Academic |
-| **Technology** | TypeScript + Fastify + Zod (Drizzle in the model layer) |
+| **Technology** | TypeScript + Fastify + Zod + `pg` (plain SQL, no ORM) |
 | **Externally exposed** | Yes, via API Gateway |
 
 **Owned entities:**
@@ -273,7 +273,7 @@ vector search requirements of biometric embedding data.
 | **Port** | 8088 |
 | **DB** | PostgreSQL, schema `notification` |
 | **Bounded context** | Notification |
-| **Technology** | TypeScript + Fastify + Zod + Drizzle + pino (rewritten from Go/Gin 2026-10-18, ADR-021) |
+| **Technology** | TypeScript + Fastify + Zod + `pg` + pino (rewritten from Go/Gin 2026-10-18, ADR-021) |
 | **Also consumes** | Kafka topics `attendance.justification.events` (group `notification-service`) and `scheduling.class-session.closed` (group `notification-service-class-session`) — the platform's only consumers |
 | **Externally exposed** | Yes, via API Gateway |
 

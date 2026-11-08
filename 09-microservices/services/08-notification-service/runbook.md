@@ -3,7 +3,7 @@
 > A runbook is for someone on-call at 3am. Each section must be executable without needing additional context.
 
 **Service:** 08-notification-service (`FULL/back-end/08-ms-notification`)
-**Stack:** TypeScript + Fastify + Zod + Drizzle + pino (rewritten from Go/Gin 2026-10-18 — ADR-021)
+**Stack:** TypeScript + Fastify + Zod + `pg` + pino (rewritten from Go/Gin 2026-10-18 — ADR-021)
 **Version:** 1.0
 **Last updated:** 2026-10-20
 

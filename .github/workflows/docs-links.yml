@@ -1,0 +1,25 @@
+name: Docs links
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    name: relative links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Offline: only links between files of this repository are checked, so a
+      # slow or unreachable external site never turns the build red. Links inside
+      # code blocks (templates such as `[type]([scope])`) are ignored.
+      - name: lychee (offline)
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: --offline --no-progress './**/*.md'
+          fail: true

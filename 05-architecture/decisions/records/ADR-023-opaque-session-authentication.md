@@ -5,6 +5,7 @@
 - **Status:** Accepted
 - **Decision (2026-10-23):** accepted; records the behaviour already running. JWT RS256 stays a deferred option (`AT-007`).
 - **Authors:** FaceAttend EDU Team
+- **Amended by ADR-038 (2026-11-08):** the "no shared library" constraint in the context no longer holds: the Java and Node services share the session check, the caller-school lookup and the role names through `back-end/shared/auth-java` and `back-end/shared/auth-node`. Biometric (Python) keeps its own check.
 - **Implementation note (2026-10-23, verified against `FULL/` and `07-api/authentication.md`):** this is the behaviour already running; the ADR records it as a decision because ADR-007 still describes JWT RS256 as the intended design.
 
 ---

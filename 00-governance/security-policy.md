@@ -30,7 +30,7 @@
   route by introspecting identity (`GET /api/v1/sessions/{id}`).
 - **Service check:** every service validates the bearer again and applies RBAC. The Java
   services (01/02/04/05) use the shared `back-end/shared/auth-java` library and the Node
-  services (03/07/08/09) use `back-end/shared/auth-node`; each keeps its own permission rules.
+  services (03/07/08/09) use `back-end/shared/auth-node`; each keeps its own permission rules. The libraries also hold the caller-school lookup and the role names (ADR-038).
   Biometric (06) uses its own `require_permission`. Only positive answers are cached, for 10 s.
 
 ### Login hardening

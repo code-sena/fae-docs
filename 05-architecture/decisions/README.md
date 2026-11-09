@@ -57,6 +57,7 @@ ADRs document important architectural decisions. Each file = one decision.
 | ADR-035 | Manual attendance as an equal alternative to biometrics | Accepted | 2026-10-28 | Legal / Attendance |
 | ADR-036 | Images pinned by digest, own images tagged by commit, advisories fixed with overrides | Accepted | 2026-10-28 | DevOps / Security |
 | ADR-037 | Encrypted backups with an automated restore test | Proposed | 2026-10-28 | Ops |
+| ADR-038 | Shared authentication libraries per stack — amends ADR-023 | Accepted | 2026-11-08 | Security / Architecture |
 
 > Status decisions of 2026-10-23: 005, 006, 014, 021, 022 and 023 accepted; 012 and 015 rejected as written (not implemented); 017 stays Proposed (only the mobile app follows it).
 >

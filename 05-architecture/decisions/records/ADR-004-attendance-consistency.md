@@ -10,6 +10,7 @@
   `notification-service-class-session`). So the saga's **consumer side is live for two flows only**; the
   outbox, DLQ and compensation
   parts of this decision remain unimplemented.
+- **Update (2026-11-08, `FULL` PR #395):** scheduling and identity now publish through an `EventPublisherPort` and, for events that follow a database change, only after the transaction commits (`publishAfterCommit`), as attendance already did. This removes events for rolled-back changes and the adapters now log asynchronous publish failures. It is **not** the outbox: a crash between the commit and the send still loses the event, and there is still no DLQ or compensation (AT-006).
 - **Authors:** [Diego Andrés Gutiérrez Nuñez, Juan David Arboleda Perdomo, Jonattan Steven Rizo Solano]
 
 ---

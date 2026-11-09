@@ -47,6 +47,8 @@ Several schools share one deployment. The biometric service authorised by role o
 
 **Impact on the system:** `06-ms-biometric` (`match_scope.py`, routers, WebSocket), `shared/auth-*` for the decoded-path checks (#280).
 
+> **Implementation note (2026-11-08, `FULL` PR #395):** `MatchScope` and `best_allowed` moved to `application/match_selection.py` and the facial flows to `application/facial_services.py`; `match_scope.py` re-exports them, so the routers and the WebSocket channel keep the same entry points. The rule is unchanged.
+
 ---
 
 ## Risks

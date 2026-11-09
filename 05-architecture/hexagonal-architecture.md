@@ -331,6 +331,8 @@ When reviewing a PR or new service, verify:
 - [ ] Mappers (`toDomain` / `toPersistence`) live in `infrastructure/`, not in `domain/`
 - [ ] HTTP API DTOs live in `infrastructure/adapters/in/http/`, not in `domain/`
 - [ ] There is a unit test for each Aggregate invariant
+- [ ] Controllers and routes only translate HTTP: no business rule, no repository call, no `if` on roles
+- [ ] The service's layer-rule test passes (`LayerDependencyRulesTest`, `layerRules.test.ts`, `test_layer_rules.py`); a new exception goes into its allowlist with a reason, never silently
 
 ---
 
